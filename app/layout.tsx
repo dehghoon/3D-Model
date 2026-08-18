@@ -1,4 +1,5 @@
 import "./globals.css";
+import EditorShortcuts from "../components/EditorShortcuts";
 
 export const metadata = {
   title: "Linkoteq 3D Structural Model",
@@ -8,7 +9,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><EditorShortcuts />{children}</body>
     </html>
   );
 }
