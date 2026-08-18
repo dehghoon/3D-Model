@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
-import { Grid, Html, Line, OrbitControls } from "@react-three/drei";
+import { Grid, Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { GridLine, Load, LoadCase, Member, Node, Section, StructuralModel, Surface } from "@linkoteq/structural-core";
@@ -62,8 +62,12 @@ function NodePoint({node,selected,onClick,onContext,showLabel}:{node:Node;select
   return <group position={vec(node)}><mesh onClick={e=>{e.stopPropagation();onClick(node,e);}} onContextMenu={e=>{e.stopPropagation();e.nativeEvent.preventDefault();onContext(node,e);}}><sphereGeometry args={[selected?.15:.095,16,16]}/><meshStandardMaterial color={selected?"#f97316":"#2563eb"}/></mesh>{showLabel&&<Html position={[0,.2,0]} center><span className="nodeLabel">{node.id}</span></Html>}</group>;
 }
 function ModelGrid({grid,elevation,showLabel}:{grid:GridLine;elevation:number;showLabel:boolean}){
-  const pts:[[number,number,number],[number,number,number]]=[[grid.start.x,elevation+.01,grid.start.y],[grid.end.x,elevation+.01,grid.end.y]];const isX=Math.abs(grid.start.x-grid.end.x)<1e-6;const lp:[number,number,number]=isX?[grid.start.x,elevation+.03,grid.start.y-.45]:[grid.start.x-.45,elevation+.03,grid.start.y];
-  return <><Line points={pts} color="#64748b" lineWidth={1}/>{showLabel&&<Html position={lp} center><span className="gridLabel">{grid.label}</span></Html>}</>;
+  const geometry=useMemo(()=>new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(grid.start.x,elevation+.012,grid.start.y),
+    new THREE.Vector3(grid.end.x,elevation+.012,grid.end.y)
+  ]),[grid.start.x,grid.start.y,grid.end.x,grid.end.y,elevation]);
+  const isX=Math.abs(grid.start.x-grid.end.x)<1e-6;const lp:[number,number,number]=isX?[grid.start.x,elevation+.03,grid.start.y-.45]:[grid.start.x-.45,elevation+.03,grid.start.y];
+  return <><lineSegments geometry={geometry}><lineBasicMaterial color="#64748b" transparent opacity={.78}/></lineSegments>{showLabel&&<Html position={lp} center><span className="gridLabel">{grid.label}</span></Html>}</>;
 }
 function Dimensions({model,onGrid,onLevel}:{model:StructuralModel;onGrid:(a:GridAxis,i:number,v:number)=>void;onLevel:(i:number,v:number)=>void}){
   const {xs,ys}=extractGrid(model.grids),levels=[...model.levels].sort((a,b)=>a.elevation-b.elevation),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys);const out:React.ReactNode[]=[];
@@ -74,10 +78,11 @@ function Dimensions({model,onGrid,onLevel}:{model:StructuralModel;onGrid:(a:Grid
 }
 function CameraRig({model,resetSignal}:{model:StructuralModel;resetSignal:number}){
   const {camera,size}=useThree();const last=useRef(-1);
-  useEffect(()=>{if(last.current===resetSignal)return;last.current=resetSignal;const xs=model.nodes.map(n=>n.position.x),ys=model.nodes.map(n=>n.position.y),zs=model.nodes.map(n=>n.position.z);const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),minZ=Math.min(...zs),maxZ=Math.max(...zs),cx=(minX+maxX)/2,cy=(minY+maxY)/2,cz=(minZ+maxZ)/2,span=Math.max(maxX-minX,maxY-minY,maxZ-minZ,6),mobile=size.width<720,dist=span*(mobile?1.9:1.45);camera.position.set(cx+dist,cz+dist*.72,cy+dist);camera.lookAt(cx,cz,cy);camera.updateProjectionMatrix();},[camera,model,resetSignal,size.width]);return null;
+  useEffect(()=>{if(last.current===resetSignal)return;last.current=resetSignal;const xs=model.nodes.map(n=>n.position.x),ys=model.nodes.map(n=>n.position.y),zs=model.nodes.map(n=>n.position.z);const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),minZ=Math.min(...zs),maxZ=Math.max(...zs),cx=(minX+maxX)/2,cy=(minY+maxY)/2,cz=(minZ+maxZ)/2,span=Math.max(maxX-minX,maxY-minY,maxZ-minZ,6),mobile=size.width<720,dist=span*(mobile?2.25:1.45);camera.position.set(cx+dist,cz+dist*.72,cy+dist);camera.lookAt(cx,cz,cy);camera.updateProjectionMatrix();},[camera,model,resetSignal,size.width]);return null;
 }
 function Scene(props:{model:StructuralModel;selected:EntityRef[];selectedNodes:string[];onEntityClick:(e:EntityRef,ev:ThreeEvent<MouseEvent>)=>void;onEntityContext:(e:EntityRef,ev:ThreeEvent<MouseEvent>)=>void;onNodeClick:(n:Node,ev:ThreeEvent<MouseEvent>)=>void;onNodeContext:(n:Node,ev:ThreeEvent<MouseEvent>)=>void;onGrid:(a:GridAxis,i:number,v:number)=>void;onLevel:(i:number,v:number)=>void;resetSignal:number}){
   const {width}=useThree(s=>s.size),compact=width<720,ground=[...props.model.levels].sort((a,b)=>a.elevation-b.elevation)[0];
+  const {xs,ys}=extractGrid(props.model.grids);const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),cx=(minX+maxX)/2,cy=(minY+maxY)/2,gridW=Math.max(maxX-minX+4,12),gridD=Math.max(maxY-minY+4,12);
   return <><CameraRig model={props.model} resetSignal={props.resetSignal}/><color attach="background" args={["#eef3f8"]}/><ambientLight intensity={1.1}/><directionalLight position={[10,14,8]} intensity={1.8}/>
     {props.model.grids.map(g=><ModelGrid key={g.id} grid={g} elevation={ground?.elevation||0} showLabel={!compact}/>)}
     {!compact&&props.model.levels.filter(l=>l.id!==ground?.id).map(l=>props.model.grids.map(g=><ModelGrid key={`${l.id}-${g.id}`} grid={g} elevation={l.elevation} showLabel={false}/>))}
@@ -85,7 +90,7 @@ function Scene(props:{model:StructuralModel;selected:EntityRef[];selectedNodes:s
     {props.model.nodes.filter(n=>!compact||n.levelId===ground?.id||props.selectedNodes.includes(n.id)).map(n=><NodePoint key={n.id} node={n} selected={props.selectedNodes.includes(n.id)} showLabel={!compact} onClick={props.onNodeClick} onContext={props.onNodeContext}/>)}
     {props.model.members.map(m=><MemberMesh key={m.id} member={m} nodes={props.model.nodes} selected={props.selected.some(s=>s.type==="member"&&s.id===m.id)} onClick={(mm,e)=>props.onEntityClick({type:"member",id:mm.id},e)} onContext={(mm,e)=>props.onEntityContext({type:"member",id:mm.id},e)}/>)}
     {props.model.surfaces.map(s=><SurfaceMesh key={s.id} surface={s} nodes={props.model.nodes} levels={props.model.levels} selected={props.selected.some(x=>x.type==="surface"&&x.id===s.id)} onClick={(ss,e)=>props.onEntityClick({type:"surface",id:ss.id},e)} onContext={(ss,e)=>props.onEntityContext({type:"surface",id:ss.id},e)}/>)}
-    {!compact&&<Grid position={[0,-.02,0]} args={[30,30]} cellSize={1} sectionSize={5} fadeDistance={45}/>}<OrbitControls makeDefault enableZoom enablePan target={[6,1.75,4]} minDistance={2} maxDistance={100}/></>;
+    <Grid position={[cx,-.02,cy]} args={[gridW,gridD]} cellSize={1} sectionSize={5} fadeDistance={compact?32:45}/><OrbitControls makeDefault enableZoom enablePan target={[cx,1.75,cy]} minDistance={2} maxDistance={100}/></>;
 }
 
 export default function StructuralEditor(){
