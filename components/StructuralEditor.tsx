@@ -145,7 +145,30 @@ export default function StructuralEditor() {
   }
   function onNodeClick(node: Node) { if (tool === "select") { setSelectedNodeIds([node.id]); setSelectedEntity(null); return; } const next = selectedNodeIds.includes(node.id) ? selectedNodeIds : [...selectedNodeIds, node.id]; setSelectedNodeIds(next); createFromSelection(next); }
 
-  function addGrid() { const coordinate = Number(gridCoordinate); if (!Number.isFinite(coordinate)) return setStatus("Grid coordinate must be numeric."); const { xs, ys, xGrids, yGrids } = extractGridCoordinates(model.grids); if ((gridAxis === "X" ? xs : ys).some((v) => Math.abs(v - coordinate) < 1e-6)) return setStatus("A grid already exists there."); const nextXs = gridAxis === "X" ? uniqueSorted([...xs, coordinate]) : xs, nextYs = gridAxis === "Y" ? uniqueSorted([...ys, coordinate]) : ys; const xLabels = nextXs.map((x) => gridAxis === "X" && Math.abs(x - coordinate) < 1e-6 ? gridName.trim() || `X${nextXs.indexOf(x)+1}` : xGrids.find((g) => Math.abs(g.start.x-x)<1e-6)?.label || `X${nextXs.indexOf(x)+1}`), yLabels = nextYs.map((y) => gridAxis === "Y" && Math.abs(y - coordinate) < 1e-6 ? gridName.trim() || `Y${nextYs.indexOf(y)+1}` : yGrids.find((g) => Math.abs(g.start.y-y)<1e-6)?.label || `Y${nextYs.indexOf(y)+1}`); const nodes=[...model.nodes]; let idx=nodes.length+1; for(const level of model.levels){ if(gridAxis==="X") for(const y of nextYs) if(!findNode(nodes,coordinate,y,level.elevation)) nodes.push({id:`N${idx++}`,position:{x:coordinate,y,z:level.elevation},levelId:level.id}); else if(gridAxis==="Y") for(const x of nextXs) if(!findNode(nodes,x,coordinate,level.elevation)) nodes.push({id:`N${idx++}`,position:{x,y:coordinate,z:level.elevation},levelId:level.id}); } commit({...model,grids:makeGridLines(nextXs,nextYs,xLabels,yLabels),nodes},`Grid ${gridName} added.`); }
+  function addGrid() {
+    const coordinate = Number(gridCoordinate);
+    if (!Number.isFinite(coordinate)) return setStatus("Grid coordinate must be numeric.");
+    const { xs, ys, xGrids, yGrids } = extractGridCoordinates(model.grids);
+    if ((gridAxis === "X" ? xs : ys).some((v) => Math.abs(v - coordinate) < 1e-6)) return setStatus("A grid already exists there.");
+    const nextXs = gridAxis === "X" ? uniqueSorted([...xs, coordinate]) : xs;
+    const nextYs = gridAxis === "Y" ? uniqueSorted([...ys, coordinate]) : ys;
+    const xLabels = nextXs.map((x) => gridAxis === "X" && Math.abs(x - coordinate) < 1e-6 ? gridName.trim() || `X${nextXs.indexOf(x)+1}` : xGrids.find((g) => Math.abs(g.start.x-x)<1e-6)?.label || `X${nextXs.indexOf(x)+1}`);
+    const yLabels = nextYs.map((y) => gridAxis === "Y" && Math.abs(y - coordinate) < 1e-6 ? gridName.trim() || `Y${nextYs.indexOf(y)+1}` : yGrids.find((g) => Math.abs(g.start.y-y)<1e-6)?.label || `Y${nextYs.indexOf(y)+1}`);
+    const nodes = [...model.nodes];
+    let idx = nodes.length + 1;
+    for (const level of model.levels) {
+      if (gridAxis === "X") {
+        for (const y of nextYs) {
+          if (!findNode(nodes, coordinate, y, level.elevation)) nodes.push({ id: `N${idx++}`, position: { x: coordinate, y, z: level.elevation }, levelId: level.id });
+        }
+      } else {
+        for (const x of nextXs) {
+          if (!findNode(nodes, x, coordinate, level.elevation)) nodes.push({ id: `N${idx++}`, position: { x, y: coordinate, z: level.elevation }, levelId: level.id });
+        }
+      }
+    }
+    commit({ ...model, grids: makeGridLines(nextXs, nextYs, xLabels, yLabels), nodes }, `Grid ${gridName} added.`);
+  }
   function addLevel(){ const elevation=Number(levelElevation); if(!Number.isFinite(elevation)) return setStatus("Level elevation must be numeric."); if(model.levels.some((l)=>Math.abs(l.elevation-elevation)<1e-6)) return setStatus("A level already exists there."); const {xs,ys}=extractGridCoordinates(model.grids),id=`L${model.levels.length}`,level={id,name:levelName.trim()||`Level ${model.levels.length}`,elevation},nodes=[...model.nodes]; let idx=nodes.length+1; for(const y of ys) for(const x of xs) nodes.push({id:`N${idx++}`,position:{x,y,z:elevation},levelId:id}); commit({...model,levels:[...model.levels,level].sort((a,b)=>a.elevation-b.elevation),nodes},`${level.name} added.`); }
   function editGridDimension(axis:GridAxis,index:number,current:number){ const raw=window.prompt(`New ${axis}-grid spacing (m)`,current.toFixed(2)); if(raw===null)return; const desired=Number(raw); if(!Number.isFinite(desired)||desired<=0)return setStatus("Spacing must be > 0."); const {xs,ys,xGrids,yGrids}=extractGridCoordinates(model.grids),coords=axis==="X"?xs:ys,threshold=coords[index+1],delta=desired-current,shifted=coords.map((v,i)=>i>index?v+delta:v),nextXs=axis==="X"?shifted:xs,nextYs=axis==="Y"?shifted:ys,nodes=model.nodes.map((n)=>({...n,position:{...n.position,...(axis==="X"&&n.position.x>=threshold-1e-6?{x:n.position.x+delta}:{}),...(axis==="Y"&&n.position.y>=threshold-1e-6?{y:n.position.y+delta}:{})}})); commit({...model,grids:makeGridLines(nextXs,nextYs,xGrids.map(g=>g.label),yGrids.map(g=>g.label)),nodes},"Grid spacing updated; structure adjusted."); }
   function editLevelDimension(index:number,current:number){ const levels=[...model.levels].sort((a,b)=>a.elevation-b.elevation),raw=window.prompt("New level-to-level height (m)",current.toFixed(2)); if(raw===null)return; const desired=Number(raw); if(!Number.isFinite(desired)||desired<=0)return setStatus("Height must be > 0."); const delta=desired-current,ids=new Set(levels.slice(index+1).map(l=>l.id)); commit({...model,levels:model.levels.map(l=>ids.has(l.id)?{...l,elevation:l.elevation+delta}:l).sort((a,b)=>a.elevation-b.elevation),nodes:model.nodes.map(n=>n.levelId&&ids.has(n.levelId)?{...n,position:{...n.position,z:n.position.z+delta}}:n)},"Level spacing updated; upper structure adjusted."); }
