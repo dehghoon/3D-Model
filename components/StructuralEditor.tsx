@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { Grid, OrbitControls } from "@react-three/drei";
+import { Grid, Line, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import type { GridLine, Load, LoadCase, Member, Node, StructuralModel, Surface } from "@linkoteq/structural-core";
@@ -87,11 +87,11 @@ function SurfaceMesh({ surface, nodes }: { surface: Surface; nodes: Node[] }) {
 }
 
 function ModelGrid({ grid }: { grid: GridLine }) {
-  const a = new THREE.Vector3(grid.start.x, 0.02, grid.start.y);
-  const b = new THREE.Vector3(grid.end.x, 0.02, grid.end.y);
-  const points = useMemo(() => [a, b], [grid]);
-  const geometry = useMemo(() => new THREE.BufferGeometry().setFromPoints(points), [points]);
-  return <line geometry={geometry}><lineBasicMaterial color="#51606f" /></line>;
+  const points = useMemo<[number, number, number][]>(() => [
+    [grid.start.x, 0.02, grid.start.y],
+    [grid.end.x, 0.02, grid.end.y]
+  ], [grid]);
+  return <Line points={points} color="#51606f" lineWidth={1.5} />;
 }
 
 function Scene({ model }: { model: StructuralModel }) {
@@ -210,16 +210,12 @@ export default function StructuralEditor() {
           {(["grid","beam","column","brace","wall","slab"] as const).map((t) => <button key={t} className={tool === t ? "active" : ""} onClick={() => addDemo(t)}>+ {t[0].toUpperCase() + t.slice(1)}</button>)}
         </div>
         <div className="toolGroup"><span>LOADS</span>
-          {(["dead","live","wind","seismic"] as const).map((c) => <button key={c} onClick={() => addLoad(c)}>+ {c[0].toUpperCase() + c.slice(1)}</button>)}
+          {(["dead", "live", "wind", "seismic"] as const).map((category) => <button key={category} onClick={() => addLoad(category)}>+ {category[0].toUpperCase() + category.slice(1)}</button>)}
         </div>
         <div className="stats"><span>{model.grids.length} grids</span><span>{model.nodes.length} nodes</span><span>{model.members.length} members</span><span>{model.surfaces.length} surfaces</span><span>{model.loads.length} loads</span></div>
       </aside>
-      <div className="viewport"><Scene model={model} /><div className="hint">Drag to orbit · Scroll to zoom · Prototype tools currently add deterministic test entities</div></div>
-      <aside className="inspector">
-        <h2>Model JSON</h2>
-        {uploaded.length > 0 && <div className="uploads"><strong>Staged files</strong>{uploaded.map((f, i) => <span key={`${f}-${i}`}>{f}</span>)}</div>}
-        <pre>{JSON.stringify({ grids: model.grids, members: model.members, surfaces: model.surfaces, loadCases: model.loadCases, loads: model.loads }, null, 2)}</pre>
-      </aside>
+      <div className="viewport"><Scene model={model} /><div className="hint">Drag to orbit · Scroll to zoom · Tool buttons add test entities</div></div>
+      <aside className="inspector"><h2>Model JSON</h2>{uploaded.length > 0 && <><h3>Uploads</h3><ul>{uploaded.map((name, index) => <li key={`${name}-${index}`}>{name}</li>)}</ul></>}<pre>{JSON.stringify({ grids: model.grids, members: model.members, surfaces: model.surfaces, loadCases: model.loadCases, loads: model.loads }, null, 2)}</pre></aside>
     </section>
   </main>;
 }
