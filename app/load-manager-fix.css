@@ -1,0 +1,6 @@
+.loadManagerLauncherGroup{display:block;left:auto;right:12px;top:56px;max-width:none}
+.loadManagerLauncherGroup button{display:none}
+.loadManagerLauncherGroup button:first-child{display:inline-flex;align-items:center;justify-content:center;font-size:0;padding:7px 12px;min-width:58px}
+.loadManagerLauncherGroup button:first-child::after{content:"Loads";font-size:10px;font-weight:700}
+@media(max-width:760px){.loadManagerLauncherGroup{display:block;left:auto;right:7px;top:74px;max-width:none}.loadManagerLauncherGroup button:first-child{padding:6px 10px;min-width:54px}.loadManagerLauncherGroup button:first-child::after{font-size:9px}}
+@media(max-width:430px){.loadManagerLauncherGroup{left:auto;right:7px;top:72px}}
