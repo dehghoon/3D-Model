@@ -1,8 +1,10 @@
-.loadManagerLauncher{position:fixed;z-index:950;right:12px;top:56px;border:1px solid #17202a;background:#17202a;color:#fff;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;box-shadow:0 5px 16px rgba(16,24,40,.18)}
+.loadManagerLauncher{position:fixed;z-index:1100;right:12px;top:174px;border:1px solid #17202a;background:#17202a;color:#fff;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;box-shadow:0 5px 16px rgba(16,24,40,.18)}
 .loadPickPrompt{position:absolute;z-index:31;left:50%;top:10px;transform:translateX(-50%);padding:7px 10px;border-radius:7px;background:#17202a;color:#fff;font-size:10px;box-shadow:0 4px 16px rgba(16,24,40,.2);white-space:nowrap}
 .propertiesButton{width:100%;margin-top:7px;border:1px solid #cfd6df;background:#fff;border-radius:6px;padding:6px 8px;font-size:11px}
 .propertiesBackdrop{position:fixed;z-index:980;inset:0;background:rgba(16,24,40,.22);display:flex;justify-content:flex-end}
 .propertiesDrawer{height:100%;width:min(360px,calc(100vw - 24px));background:#fff;box-shadow:-10px 0 30px rgba(16,24,40,.18);display:flex;flex-direction:column}
 .propertiesHeader{min-height:48px;padding:8px 10px;border-bottom:1px solid #e4e7ec;display:flex;align-items:center;justify-content:space-between;gap:8px}.propertiesHeader strong{font-size:13px}.propertiesHeader span{font-size:10px;color:#667085}.propertiesHeader button{width:30px;height:30px;border:1px solid #d0d5dd;background:#fff;border-radius:7px;font-size:18px;line-height:1}
 .propertiesBody{padding:10px;overflow:auto;display:grid;gap:8px}
-@media(max-width:760px){.loadManagerLauncher{top:76px;right:6px;padding:6px 10px;font-size:9px}.loadPickPrompt{top:110px;left:calc(50% + 40px);max-width:calc(100vw - 120px);white-space:normal;text-align:center;font-size:8px;padding:5px 7px}.propertiesDrawer{width:min(350px,calc(100vw - 8px))}}
+@media(max-width:900px){.loadManagerLauncher{top:170px;right:7px;padding:6px 10px;font-size:9px}}
+@media(max-width:760px){.loadPickPrompt{top:110px;left:calc(50% + 40px);max-width:calc(100vw - 120px);white-space:normal;text-align:center;font-size:8px;padding:5px 7px}.propertiesDrawer{width:min(350px,calc(100vw - 8px))}}
+@media(max-width:560px){.loadManagerLauncher{top:168px;right:7px}}
