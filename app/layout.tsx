@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./load-manager-fix.css";
 
 export const metadata = {
   title: "Linkoteq 3D Structural Model",
