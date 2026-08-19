@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Load, LoadCase, LoadCombination, LoadSource, StructuralModel, Surface } from "@linkoteq/structural-core";
 
 type Props = {
@@ -31,6 +32,7 @@ function sourceStatus(model: StructuralModel, category: string) {
 }
 
 export default function LoadManager({ model, selectedSurface, onModelChange }: Props) {
+  const [open, setOpen] = useState(false);
   const [dead, setDead] = useState("1.0");
   const [live, setLive] = useState("1.9");
   const [ss, setSs] = useState("2.4");
@@ -122,7 +124,7 @@ export default function LoadManager({ model, selectedSurface, onModelChange }: P
     onModelChange({ ...model, schemaVersion: "0.2", loadCombinations: [...model.loadCombinations.filter(c => !combos.some(x => x.id === c.id)), ...combos] }, "Draft load combinations added for review.");
   }
 
-  return <div style={{ display: "grid", gap: 8 }}>
+  const content = <div style={{ display: "grid", gap: 8 }}>
     <div style={card}>
       <strong style={{ fontSize: 12 }}>Load Manager · Core v0.2</strong>
       <div style={{ fontSize: 10, color: "#667085" }}>Target: {slab ? `${slab.id} · ${slab.levelId || "no level"}` : "select a slab"}</div>
@@ -140,4 +142,17 @@ export default function LoadManager({ model, selectedSurface, onModelChange }: P
     {slab && <div style={card}><strong style={{fontSize:11}}>Loads on {slab.id}</strong>{loadsForSlab.length?loadsForSlab.map(l=><div key={l.id} style={{fontSize:10}}>{l.loadCaseId}: {l.magnitude} {l.unit} · {l.type}</div>):<span style={{fontSize:10,color:"#98a2b3"}}>No loads assigned.</span>}</div>}
     <div style={{fontSize:9,color:"#667085",lineHeight:1.4}}>{message}</div>
   </div>;
+
+  return <>
+    <div className="loadManagerEmbedded">{content}</div>
+    {typeof document !== "undefined" && createPortal(<>
+      <button className="loadManagerLauncher" onClick={()=>setOpen(true)} aria-label="Open Load Manager">Loads</button>
+      {open && <div className="loadManagerBackdrop" onPointerDown={()=>setOpen(false)}>
+        <aside className="loadManagerDrawer" onPointerDown={e=>e.stopPropagation()}>
+          <div className="loadManagerDrawerHeader"><div><strong>Load Manager</strong><span>{slab ? ` · ${slab.id}` : " · no slab selected"}</span></div><button onClick={()=>setOpen(false)} aria-label="Close Load Manager">×</button></div>
+          <div className="loadManagerDrawerBody">{content}</div>
+        </aside>
+      </div>}
+    </>, document.body)}
+  </>;
 }
