@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./load-manager-fix.css";
+import "./overrides.css";
 
 export const metadata = {
   title: "Linkoteq 3D Structural Model",
