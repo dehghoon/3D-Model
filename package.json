@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@linkoteq/structural-core": "github:dehghoon/linkoteq-structural-core#c198d57a1b68cbf615398dbd35b16631a91a1c7b",
+    "@linkoteq/structural-core": "github:dehghoon/linkoteq-structural-core#8051096350e044b15d052a57c633c652f42dbfdd",
     "@react-three/drei": "^9.114.3",
     "@react-three/fiber": "^8.17.10",
     "next": "^14.2.15",
