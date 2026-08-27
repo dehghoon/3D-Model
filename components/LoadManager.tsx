@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Load, LoadCase, LoadCombination, LoadSource, Member, Node, StructuralModel, Surface } from "@linkoteq/structural-core";
+import type {
+  Load,
+  LoadCase,
+  LoadCombination,
+  Member,
+  Node,
+  StructuralModel,
+  Surface,
+} from "@linkoteq/structural-core";
+import { assertCanonicalLoad, mapSnowWriteback } from "../lib/core-loads-v05";
 
 type LoadMode = "slab" | "wall" | "beam" | "node";
 type Props = {
@@ -14,46 +23,237 @@ type Props = {
   onBeginTargetSelection: (mode: LoadMode) => void;
   onEndTargetSelection: () => void;
 };
-type SnowWriteback = { runId: string; modelSchemaVersion: string; loadSources?: LoadSource[]; loadCases?: LoadCase[]; loads?: Load[]; warnings?: string[]; errors?: string[]; };
-type ClimateRecord = { province: string; location: string; ss: number; sr: number; source?: string };
 
-const card: React.CSSProperties = { border: "1px solid #e4e7ec", borderRadius: 8, padding: 8, background: "#fbfcfd", display: "grid", gap: 6 };
-const row: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 };
-const input: React.CSSProperties = { width: "100%", border: "1px solid #d0d5dd", borderRadius: 6, padding: "6px 7px", background: "white", fontSize: 11 };
-const button: React.CSSProperties = { border: "1px solid #cfd6df", background: "white", borderRadius: 6, padding: "6px 8px", fontSize: 11, cursor: "pointer" };
-const primary: React.CSSProperties = { ...button, background: "#17202a", color: "white", borderColor: "#17202a" };
-const muted: React.CSSProperties = { fontSize: 9, color: "#667085", lineHeight: 1.4 };
+type SnowWriteback = Parameters<typeof mapSnowWriteback>[0];
 
-function sourceStatus(model: StructuralModel, category: string) { return model.loadSources?.find(s => s.category === category)?.status || "not generated"; }
-function num(v:string,fallback=0){const n=Number(v);return Number.isFinite(n)?n:fallback;}
-function slabGeometry(model:StructuralModel,slab?:Surface){if(!slab)return{slope:0,larger:0,smaller:0};const pts=slab.boundaryNodeIds.map(id=>model.nodes.find(n=>n.id===id)?.position).filter(Boolean) as Array<{x:number;y:number;z:number}>;if(pts.length<3)return{slope:0,larger:0,smaller:0};const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y),dx=Math.max(...xs)-Math.min(...xs),dy=Math.max(...ys)-Math.min(...ys);const a={x:pts[1].x-pts[0].x,y:pts[1].y-pts[0].y,z:pts[1].z-pts[0].z},b={x:pts[2].x-pts[0].x,y:pts[2].y-pts[0].y,z:pts[2].z-pts[0].z};const nx=a.y*b.z-a.z*b.y,ny=a.z*b.x-a.x*b.z,nz=a.x*b.y-a.y*b.x;const slope=Math.atan2(Math.hypot(nx,ny),Math.abs(nz))*180/Math.PI;return{slope:Number.isFinite(slope)?slope:0,larger:Math.max(dx,dy),smaller:Math.min(dx,dy)};}
-function autoCb(larger:number,smaller:number,cw:number){if(!(larger>0)||!(smaller>0)||!(cw>0))return{lc:0,cb:.8};const l=Math.max(larger,smaller),w=Math.min(larger,smaller),lc=2*w-w*w/l,t=70/(cw*cw),cb=lc<=t?.8:(1/cw)*(1-(1-.8*cw)*Math.exp(-((lc*cw*cw)-70)/100));return{lc,cb};}
+const button: React.CSSProperties = {
+  border: "1px solid #cfd6df",
+  background: "white",
+  borderRadius: 6,
+  padding: "6px 8px",
+  fontSize: 11,
+  cursor: "pointer",
+};
+const primary: React.CSSProperties = { ...button, background: "#17202a", color: "white" };
 
-export default function LoadManager({model,selectedSurfaces,selectedMembers,selectedNodes,onModelChange,onBeginTargetSelection,onEndTargetSelection}:Props){
-  const [open,setOpen]=useState(false),[mode,setMode]=useState<LoadMode>("slab"),[manualIds,setManualIds]=useState(""),[advanced,setAdvanced]=useState(false),[busy,setBusy]=useState(false);
-  const [dead,setDead]=useState("1.0"),[live,setLive]=useState("1.9"),[wind,setWind]=useState("1.0"),[seismic,setSeismic]=useState("10.0"),[importance,setImportance]=useState("1.0"),[cw,setCw]=useState("1.0"),[surfaceType,setSurfaceType]=useState("normal");
-  const [province,setProvince]=useState(""),[location,setLocation]=useState(""),[provinces,setProvinces]=useState<string[]>([]),[locations,setLocations]=useState<string[]>([]),[ss,setSs]=useState(""),[sr,setSr]=useState(""),[slopeOverride,setSlopeOverride]=useState<string|null>(null),[cbOverride,setCbOverride]=useState<string|null>(null),[message,setMessage]=useState("Select target elements, then assign the load.");
+function nextId(prefix: string, ids: string[]) {
+  let index = 1;
+  while (ids.includes(`${prefix}${index}`)) index += 1;
+  return `${prefix}${index}`;
+}
 
-  const pickedIds=useMemo(()=>mode==="slab"?selectedSurfaces.filter(s=>s.type==="slab").map(s=>s.id):mode==="wall"?selectedSurfaces.filter(s=>s.type==="wall").map(s=>s.id):mode==="beam"?selectedMembers.filter(m=>m.type==="beam").map(m=>m.id):selectedNodes.map(n=>n.id),[mode,selectedSurfaces,selectedMembers,selectedNodes]);
-  const manualList=manualIds.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);
-  const validIds=useMemo(()=>{const all=mode==="slab"?model.surfaces.filter(s=>s.type==="slab").map(s=>s.id):mode==="wall"?model.surfaces.filter(s=>s.type==="wall").map(s=>s.id):mode==="beam"?model.members.filter(m=>m.type==="beam").map(m=>m.id):model.nodes.map(n=>n.id);const set=new Set(all);return [...new Set([...pickedIds,...manualList.filter(id=>set.has(id))])];},[mode,model,pickedIds,manualList]);
-  const firstSlab=mode==="slab"?model.surfaces.find(s=>s.id===validIds[0]&&s.type==="slab"):undefined;
-  const geometry=useMemo(()=>slabGeometry(model,firstSlab),[model,firstSlab]);const cbAuto=useMemo(()=>autoCb(geometry.larger,geometry.smaller,num(cw,1)),[geometry,cw]);const slope=slopeOverride===null?geometry.slope:num(slopeOverride,geometry.slope),cb=cbOverride===null?cbAuto.cb:num(cbOverride,cbAuto.cb);
-  const activeLoads=useMemo(()=>model.loads.filter(l=>validIds.includes(l.targetId)),[model.loads,validIds]);
+function categoryFromLabel(label: string): LoadCase["category"] {
+  const value = label.toLowerCase();
+  return (["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].includes(value)
+    ? value
+    : "other") as LoadCase["category"];
+}
 
-  useEffect(()=>{fetch("/api/calculators/snow/climate").then(r=>r.json()).then(d=>setProvinces(Array.isArray(d.provinces)?d.provinces:[])).catch(()=>{});},[]);
-  useEffect(()=>{setLocation("");setLocations([]);if(!province)return;fetch(`/api/calculators/snow/climate?province=${encodeURIComponent(province)}`).then(r=>r.json()).then(d=>setLocations(Array.isArray(d.locations)?d.locations:[])).catch(()=>{});},[province]);
-  useEffect(()=>{if(!province||!location)return;fetch(`/api/calculators/snow/climate?province=${encodeURIComponent(province)}&location=${encodeURIComponent(location)}`).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d?.detail||d?.error||"Climate lookup failed");return d as ClimateRecord;}).then(d=>{setSs(String(d.ss));setSr(String(d.sr));}).catch(e=>setMessage(e instanceof Error?e.message:"Climate lookup failed."));},[province,location]);
+export default function LoadManager({
+  model,
+  selectedSurfaces,
+  selectedMembers,
+  selectedNodes,
+  onModelChange,
+  onBeginTargetSelection,
+  onEndTargetSelection,
+}: Props) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<LoadMode>("slab");
+  const [magnitude, setMagnitude] = useState("1");
+  const [loadCaseId, setLoadCaseId] = useState("D");
+  const [loadCategory, setLoadCategory] = useState("dead");
+  const [status, setStatus] = useState("Core v0.5 canonical load tools.");
 
-  function assignManual(category:"dead"|"live"|"wind"|"seismic",valueText:string){if(!validIds.length)return setMessage(`Select one or more ${mode}s first.`);const magnitude=Number(valueText);if(!Number.isFinite(magnitude)||magnitude<0)return setMessage("Load must be a non-negative number.");const caseId=category==="dead"?"D":category==="live"?"L":category==="wind"?"W":"E",sourceId=`SRC-${caseId}`;const source:LoadSource={id:sourceId,category,name:`${category[0].toUpperCase()+category.slice(1)} Load`,calculator:"manual",status:"manual",generatedAt:new Date().toISOString(),summary:{targetType:mode,magnitude,count:validIds.length}};const loadCase:LoadCase={id:caseId,name:category[0].toUpperCase()+category.slice(1),category,sourceId,analysisType:"static"};const type=mode==="slab"?"area":mode==="beam"||mode==="wall"?"line":"nodal",targetType=mode==="slab"||mode==="wall"?"surface":mode==="beam"?"member":"node",unit=mode==="slab"?"kPa":mode==="beam"||mode==="wall"?"kN/m":"kN",direction=category==="wind"||category==="seismic"?{x:1,y:0,z:0}:{x:0,y:0,z:-1};const loads:Load[]=validIds.map(id=>({id:`${caseId}-${mode}-${id}`,type,targetId:id,targetType,loadCaseId:caseId,direction,magnitude,unit,provenance:{sourceId,note:`Manual ${category} load assigned in ${mode} load tool`}}));const replace=new Set(loads.map(l=>l.id));onModelChange({...model,schemaVersion:"0.2",loadSources:[...(model.loadSources||[]).filter(s=>s.id!==sourceId),source],loadCases:[...model.loadCases.filter(c=>c.id!==caseId),loadCase],loads:[...model.loads.filter(l=>!replace.has(l.id)),...loads]},`${loadCase.name} assigned to ${validIds.length} ${mode}(s).`);setMessage(`${loadCase.name} assigned to: ${validIds.join(", ")}`);}
-  function setTransfer(method:"one-way"|"two-way"|"shell"|"manual"){if(!validIds.length)return;const set=new Set(validIds);onModelChange({...model,surfaces:model.surfaces.map(s=>set.has(s.id)&&s.type==="slab"?{...s,loadTransfer:{...(s.loadTransfer||{}),method}}:s)},`Slab load transfer updated for ${validIds.length} slab(s).`);}
-  async function runSnow(){if(!validIds.length)return setMessage("Select one or more slabs first.");if(!province||!location||!ss||!sr)return setMessage("Choose Province / Territory and Location first.");setBusy(true);try{let next=model;for(const id of validIds){const slab=next.surfaces.find(s=>s.id===id&&s.type==="slab");if(!slab)continue;const g=slabGeometry(next,slab),a=autoCb(g.larger,g.smaller,num(cw,1)),sl=slopeOverride===null?g.slope:num(slopeOverride,g.slope),cbb=cbOverride===null?a.cb:num(cbOverride,a.cb);const runId=`snow-${id}-${Date.now()}`,payload={modelSchemaVersion:"0.2",projectId:next.project.id,runId,calculator:"snow",targetIds:[id],inputs:{target_surface_id:id,mode:"UNIFORM_ROOF",jurisdiction:next.project.jurisdiction||`${location}, ${province}`,common:{ss:num(ss),sr_climatic:num(sr),roof_slope_alpha:sl,roof_surface_type:surfaceType,is:num(importance,1),cw:num(cw,1),cb:cbb,adjacent_surface_drift_applicable:false},geometry_context:{larger_plan_dimension_m:g.larger,smaller_plan_dimension_m:g.smaller,characteristic_length_m:a.lc,auto_cb:a.cb,auto_slope_deg:g.slope,province,location},lower_roof_cases:[],distribution_points:8}};const response=await fetch("/api/calculators/snow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await response.json();if(!response.ok)throw new Error(data?.error||data?.detail||`Snow service returned ${response.status}`);const w=data as SnowWriteback;if(w.errors?.length)throw new Error(w.errors.join("; "));const sids=new Set((w.loadSources||[]).map(s=>s.id)),cids=new Set((w.loadCases||[]).map(c=>c.id)),lids=new Set((w.loads||[]).map(l=>l.id));next={...next,schemaVersion:"0.2",loadSources:[...(next.loadSources||[]).filter(s=>!sids.has(s.id)),...(w.loadSources||[])],loadCases:[...next.loadCases.filter(c=>!cids.has(c.id)),...(w.loadCases||[])],loads:[...next.loads.filter(l=>!lids.has(l.id)),...(w.loads||[])]};}onModelChange(next,`Snow generated for ${validIds.length} slab(s).`);setMessage(`Snow generated for: ${validIds.join(", ")}`);}catch(e){setMessage(e instanceof Error?e.message:"Snow calculation failed.");}finally{setBusy(false);}}
-  function addDraftCombinations(){const combos:LoadCombination[]=[{id:"ULS-GRAV-S",name:"ULS draft · gravity + snow",limitState:"ULS",factors:{D:1.25,L:1.5,S:1},codeRef:"Draft only — engineer verify"},{id:"ULS-WIND",name:"ULS draft · gravity + wind",limitState:"ULS",factors:{D:1.25,L:.5,W:1.4},codeRef:"Draft only — engineer verify"},{id:"ULS-SEISMIC",name:"ULS draft · gravity + seismic",limitState:"ULS",factors:{D:1,L:.5,E:1},codeRef:"Draft only — engineer verify"},{id:"SLS-ALL",name:"SLS draft · D + L + S/W/E review",limitState:"SLS",factors:{D:1,L:1,S:1,W:1,E:1},codeRef:"Draft review set"}];onModelChange({...model,loadCombinations:[...model.loadCombinations.filter(c=>!combos.some(x=>x.id===c.id)),...combos]},"Draft combinations added.");}
-  function startPick(){setOpen(false);onBeginTargetSelection(mode);setMessage(`Pick ${mode}s in the model. Click Loads when finished.`);}
-  function openLoads(){onEndTargetSelection();setOpen(true);}
+  const targetIds = useMemo(() => {
+    if (mode === "slab") return selectedSurfaces.filter((s) => s.type === "slab").map((s) => s.id);
+    if (mode === "wall") return selectedSurfaces.filter((s) => s.type === "wall").map((s) => s.id);
+    if (mode === "beam") return selectedMembers.map((m) => m.id);
+    return selectedNodes.map((n) => n.id);
+  }, [mode, selectedMembers, selectedNodes, selectedSurfaces]);
 
-  const targetCard=<div style={card}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}><strong style={{fontSize:11}}>Select {mode}s</strong><button style={button} onClick={startPick}>↗ Pick from model</button></div><div style={muted}>{validIds.length?`${validIds.length} selected`:"None selected"}</div><div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{validIds.map(id=><span key={id} style={{fontSize:9,padding:"3px 6px",border:"1px solid #d0d5dd",borderRadius:999,background:"white"}}>{id}</span>)}</div><label style={{fontSize:9}}>Manual IDs<input style={input} value={manualIds} onChange={e=>setManualIds(e.target.value)} placeholder={mode==="beam"?"B1, B2, B12":mode==="wall"?"W1, W2":"e.g. N4, N7"}/></label><div style={muted}>Separate IDs with commas or spaces. Invalid IDs are ignored.</div></div>;
-  const content=<div style={{display:"grid",gap:8}}><div style={card}><strong style={{fontSize:12}}>{mode[0].toUpperCase()+mode.slice(1)} Load · Core v0.2</strong><div style={muted}>Assign to one or many numbered model elements.</div></div>{targetCard}<div style={card}><strong style={{fontSize:11}}>Load Sources</strong>{(["dead","live","snow","wind","seismic"] as const).map(c=><div key={c} style={{display:"flex",justifyContent:"space-between",fontSize:10}}><span>{c[0].toUpperCase()+c.slice(1)}</span><span>{sourceStatus(model,c)}</span></div>)}</div>{mode==="slab"&&<><div style={card}><label style={{fontSize:10}}>Slab load transfer<select style={input} onChange={e=>setTransfer(e.target.value as any)} defaultValue="two-way"><option value="one-way">One-way</option><option value="two-way">Two-way</option><option value="shell">Shell</option><option value="manual">Manual</option></select></label></div><div style={card}><strong style={{fontSize:11}}>Dead / Live · area load</strong><div style={row}><input style={input} value={dead} onChange={e=>setDead(e.target.value)}/><input style={input} value={live} onChange={e=>setLive(e.target.value)}/></div><div style={row}><button style={button} onClick={()=>assignManual("dead",dead)}>Assign Dead</button><button style={button} onClick={()=>assignManual("live",live)}>Assign Live</button></div></div><div style={card}><strong style={{fontSize:11}}>Snow · NBCC 2020</strong><select style={input} value={province} onChange={e=>setProvince(e.target.value)}><option value="">Province / Territory</option>{provinces.map(p=><option key={p}>{p}</option>)}</select><select style={input} value={location} onChange={e=>setLocation(e.target.value)} disabled={!province}><option value="">Location</option>{locations.map(l=><option key={l}>{l}</option>)}</select><label style={{fontSize:9}}>Importance factor, Is<input style={input} value={importance} onChange={e=>setImportance(e.target.value)}/></label><div style={muted}>Auto geometry from first selected slab: {geometry.larger.toFixed(2)} × {geometry.smaller.toFixed(2)} m · slope {geometry.slope.toFixed(2)}° · Cb {cbAuto.cb.toFixed(3)}</div><button style={button} onClick={()=>setAdvanced(v=>!v)}>{advanced?"Hide":"Review / edit"} auto parameters</button>{advanced&&<div style={row}><input style={input} value={cw} onChange={e=>setCw(e.target.value)} placeholder="Cw"/><select style={input} value={surfaceType} onChange={e=>setSurfaceType(e.target.value)}><option value="normal">Normal roof</option><option value="smooth_slippery">Smooth / slippery</option></select></div>}<button style={primary} disabled={busy||!validIds.length} onClick={runSnow}>{busy?"Calculating…":"Run Snow → selected slabs"}</button></div></>}{mode==="wall"&&<div style={card}><strong style={{fontSize:11}}>Wind · wall line load</strong><input style={input} value={wind} onChange={e=>setWind(e.target.value)}/><button style={primary} onClick={()=>assignManual("wind",wind)}>Assign Wind to selected walls</button></div>}{mode==="beam"&&<div style={card}><strong style={{fontSize:11}}>Beam loads · line load</strong><div style={row}><input style={input} value={dead} onChange={e=>setDead(e.target.value)}/><input style={input} value={live} onChange={e=>setLive(e.target.value)}/></div><div style={row}><button style={button} onClick={()=>assignManual("dead",dead)}>Assign Dead</button><button style={button} onClick={()=>assignManual("live",live)}>Assign Live</button></div></div>}{mode==="node"&&<div style={card}><strong style={{fontSize:11}}>Node loads · point load</strong><div style={row}><input style={input} value={dead} onChange={e=>setDead(e.target.value)}/><input style={input} value={live} onChange={e=>setLive(e.target.value)}/></div><input style={input} value={seismic} onChange={e=>setSeismic(e.target.value)}/><div style={row}><button style={button} onClick={()=>assignManual("dead",dead)}>Assign Dead</button><button style={button} onClick={()=>assignManual("live",live)}>Assign Live</button></div><button style={primary} onClick={()=>assignManual("seismic",seismic)}>Assign Seismic</button></div>}<div style={card}><strong style={{fontSize:11}}>Load Cases / Combinations</strong>{model.loadCases.map(c=><div key={c.id} style={{fontSize:10}}>{c.id} · {c.name}</div>)}<button style={button} onClick={addDraftCombinations}>Add draft D/L/S/W/E combinations</button></div>{validIds.length>0&&<div style={card}><strong style={{fontSize:11}}>Loads on selected targets</strong>{activeLoads.length?activeLoads.map(l=><div key={l.id} style={{fontSize:10}}>{l.targetId} · {l.loadCaseId}: {l.magnitude} {l.unit}</div>):<span style={muted}>No loads assigned.</span>}</div>}<div style={muted}>{message}</div></div>;
+  function ensureLoadCase(next: StructuralModel) {
+    if (next.loadCases.some((item) => item.id === loadCaseId)) return next;
+    const loadCase: LoadCase = {
+      id: loadCaseId,
+      name: loadCaseId,
+      category: categoryFromLabel(loadCategory),
+      analysisType: "static",
+    };
+    return { ...next, loadCases: [...next.loadCases, loadCase] };
+  }
 
-  return <>{typeof document!=="undefined"&&createPortal(<><button className="loadManagerLauncher" onClick={openLoads}>Loads</button>{open&&<div className="loadManagerBackdrop" onPointerDown={()=>setOpen(false)}><aside className="loadManagerDrawer" onPointerDown={e=>e.stopPropagation()}><div className="loadManagerDrawerHeader"><div><strong>Loads</strong><span> · {validIds.length} target(s)</span></div><button onClick={()=>setOpen(false)}>×</button></div><div className="loadManagerModeTabs">{(["slab","wall","beam","node"] as LoadMode[]).map(m=><button key={m} className={mode===m?"active":""} onClick={()=>{setMode(m);setManualIds("");}}>{m[0].toUpperCase()+m.slice(1)}</button>)}</div><div className="loadManagerDrawerBody">{content}</div></aside></div>}</>,document.body)}</>;
+  function addManualLoad() {
+    const value = Number(magnitude);
+    if (!Number.isFinite(value) || !targetIds.length) {
+      setStatus("Select targets and enter a valid magnitude.");
+      return;
+    }
+
+    let next = ensureLoadCase(model);
+    const ids = next.loads.map((load) => load.id);
+    const loads: Load[] = targetIds.map((targetId) => {
+      const id = nextId("L", ids);
+      ids.push(id);
+      let load: Load;
+      if (mode === "node") {
+        load = {
+          id,
+          type: "nodal",
+          nodeId: targetId,
+          loadCaseId,
+          coordinateSystem: "global",
+          components: { FZ: { value: -value, unit: "kN" } },
+        };
+      } else if (mode === "beam") {
+        load = {
+          id,
+          type: "member-distributed",
+          memberId: targetId,
+          loadCaseId,
+          coordinateSystem: "global",
+          direction: "FZ",
+          w1: { value: -value, unit: "kN/m" },
+          w2: { value: -value, unit: "kN/m" },
+        };
+      } else if (mode === "slab") {
+        load = {
+          id,
+          type: "surface-pressure",
+          surfaceId: targetId,
+          loadCaseId,
+          pressure: { value, unit: "kPa" },
+          convention: "surface-normal",
+        };
+      } else {
+        throw new Error("WALL_LOAD_REQUIRES_EXPLICIT_ADAPTER_MAPPING");
+      }
+      assertCanonicalLoad(load);
+      return load;
+    });
+
+    next = { ...next, schemaVersion: "0.5", loads: [...next.loads, ...loads] };
+    onModelChange(next, `${loads.length} canonical Core v0.5 load(s) added.`);
+  }
+
+  async function runSnow() {
+    const surfaceIds = selectedSurfaces.filter((surface) => surface.type === "slab").map((surface) => surface.id);
+    if (!surfaceIds.length) {
+      setStatus("Select one or more slab surfaces first.");
+      return;
+    }
+    const runId = `snow-${Date.now()}`;
+    const request = {
+      modelSchemaVersion: "0.5",
+      projectId: model.project.id,
+      runId,
+      calculator: "snow",
+      calculatorVersion: "0.1.0",
+      targetIds: surfaceIds,
+      inputs: {
+        calculation: {
+          mode: "UNIFORM_ROOF",
+          common: {
+            ss: 2.5,
+            sr_climatic: 0.4,
+            roof_slope_alpha: 0,
+            roof_surface_type: "normal",
+            is: 1,
+            cw: 1,
+            cb: 0.8,
+          },
+        },
+      },
+    };
+
+    const response = await fetch("/api/calculators/snow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    const data = (await response.json()) as SnowWriteback;
+    if (!response.ok) throw new Error("Snow Core v0.5 request failed.");
+
+    const mapped = mapSnowWriteback(data, surfaceIds);
+    const incomingIds = new Set(mapped.loads.map((load) => load.id));
+    const incomingSourceIds = new Set(mapped.loadSources.map((source) => source.id));
+    const next: StructuralModel = {
+      ...model,
+      schemaVersion: "0.5",
+      loadSources: [
+        ...model.loadSources.filter((source) => !incomingSourceIds.has(source.id)),
+        ...mapped.loadSources,
+      ],
+      loadCases: [
+        ...model.loadCases.filter((loadCase) => !(data.loadCases ?? []).some((candidate) => candidate.id === loadCase.id)),
+        ...(data.loadCases ?? []),
+      ],
+      loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads],
+    };
+    onModelChange(next, `Snow v0.5 loads added for ${surfaceIds.length} target surface(s).`);
+  }
+
+  function addCombination() {
+    if (!model.loadCases.length) {
+      setStatus("Add load cases first.");
+      return;
+    }
+    const factors = Object.fromEntries(model.loadCases.map((loadCase) => [loadCase.id, 1]));
+    const combination: LoadCombination = {
+      id: nextId("COMBO", model.loadCombinations.map((item) => item.id)),
+      name: "Custom combination",
+      factors,
+      limitState: "ULS",
+    };
+    onModelChange(
+      { ...model, schemaVersion: "0.5", loadCombinations: [...model.loadCombinations, combination] },
+      "Canonical load combination added.",
+    );
+  }
+
+  const content = (
+    <div style={{ display: "grid", gap: 8 }}>
+      <b>Core v0.5 Loads</b>
+      <div><b>Targets:</b> {targetIds.length ? targetIds.join(", ") : "none"}</div>
+      <select value={mode} onChange={(event) => setMode(event.target.value as LoadMode)}>
+        <option value="slab">Slab surface pressure</option>
+        <option value="beam">Member distributed load</option>
+        <option value="node">Nodal load</option>
+        <option value="wall">Wall load (explicit adapter required)</option>
+      </select>
+      <button style={button} onClick={() => { onBeginTargetSelection(mode); setOpen(false); }}>Pick from model</button>
+      <input value={loadCaseId} onChange={(event) => setLoadCaseId(event.target.value)} placeholder="Load case ID" />
+      <select value={loadCategory} onChange={(event) => setLoadCategory(event.target.value)}>
+        {["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].map((value) => (
+          <option key={value} value={value}>{value}</option>
+        ))}
+      </select>
+      <input value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Magnitude" />
+      <button style={primary} onClick={addManualLoad}>Add canonical load</button>
+      <button style={primary} onClick={() => runSnow().catch((error) => setStatus(error instanceof Error ? error.message : "Snow request failed."))}>
+        Run Snow v0.5
+      </button>
+      <button style={button} onClick={addCombination}>Add combination</button>
+      <small>{status}</small>
+    </div>
+  );
+
+  if (typeof document === "undefined") return null;
+  return (
+    <>
+      {createPortal(
+        <>
+          <button className="loadManagerLauncher" onClick={() => { onEndTargetSelection(); setOpen(true); }}>Loads</button>
+          {open && (
+            <div className="loadManagerBackdrop" onClick={() => setOpen(false)}>
+              <aside className="loadManagerDrawer" onClick={(event) => event.stopPropagation()}>
+                <div className="loadManagerDrawerBody">{content}</div>
+              </aside>
+            </div>
+          )}
+        </>,
+        document.body,
+      )}
+    </>
+  );
 }
