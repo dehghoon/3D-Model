@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import type { Member, Node, StructuralModel, Surface } from "@linkoteq/structural-core";
+import type { Load, Member, Node, StructuralModel, Surface } from "@linkoteq/structural-core";
 
 type Props = {
   model: StructuralModel;
@@ -12,7 +12,7 @@ type Props = {
   onClose: () => void;
 };
 
-const card: React.CSSProperties = { border: "1px solid #e4e7ec", borderRadius: 8, padding: 9, background: "#fbfcfd", display: "grid", gap: 6 };
+const card: React.CSSProperties = { border: !1px solid #e4e7ec", borderRadius: 8, padding: 9, background: "#fbfcfd", display: "grid", gap: 6 };
 const row: React.CSSProperties = { display: "grid", gridTemplateColumns: "100px 1fr", gap: 8, fontSize: 10, alignItems: "start" };
 const label: React.CSSProperties = { color: "#667085" };
 
@@ -30,11 +30,48 @@ function wallLength(model: StructuralModel, surface: Surface) {
   return Math.hypot(b.x-a.x, b.y-a.y, b.z-a.z);
 }
 
+function loadTargets(load: Load): string[] {
+  switch (load.type) {
+    case "nodal":
+      return [load.nodeId];
+    case "member-point":
+    case "member-distributed":
+      return [load.memberId];
+    case "surface-pressure":
+      return [load.surfaceId];
+    case "self-weight":
+      return load.targetMemberIds ?? [];
+    case "level":
+      return [load.levelId];
+    case "diaphragm":
+      return [load.diaphragmId];
+  }
+}
+
+function loadSummary(load: Load): string {
+  switch (load.type) {
+    case "nodal":
+      return Object.entries(load.components).map(([key, value]) => `${key} ${value?.value ?? ""} ${value?.unit ?? ""}`.trim()).join(", ");
+    case "member-point":
+      return `${load.direction} ${load.magnitude.value} ${load.magnitude.unit} @ ${load.x.value} ${load.x.unit}`;
+    case "member-distributed":
+      return `${load.direction} ${load.w1.value}→${load.w2.value} ${load.w1.unit}`;
+    case "surface-pressure":
+      return `${load.pressure.value} ${load.pressure.unit}`;
+    case "self-weight":
+      return `${load.globalDirection} × ${load.factor}`;
+    case "level":
+      return `${load.forceUnit}`;
+    case "diaphragm":
+      return `${load.forceUnit}`;
+  }
+}
+
 export default function ElementProperties({ model, member, surface, node, open, onClose }: Props) {
   if (!open || typeof document === "undefined") return null;
   const id = member?.id || surface?.id || node?.id;
   if (!id) return null;
-  const loads = model.loads.filter(l => l.targetId === id);
+  const loads = model.loads.filter(load => loadTargets(load).includes(id));
   const section = member?.sectionId ? model.sections.find(s => s.id === member.sectionId) : undefined;
   const materialId = member?.materialId || surface?.materialId;
   const material = materialId ? model.materials.find(m => m.id === materialId) : undefined;
@@ -57,8 +94,16 @@ export default function ElementProperties({ model, member, surface, node, open, 
             {member && <div style={row}><span style={label}>Section</span><span>{section?.designation || member.sectionId || "Not assigned"}</span></div>}
             {(member || surface) && <div style={row}><span style={label}>Material</span><span>{material?.name || materialId || "Not assigned"}</span></div>}
           </div>
-          <div style={card}><strong style={{fontSize:11}}>Assigned loads</strong>{loads.length ? loads.map(l=><div key={l.id} style={{fontSize:10}}><b>{l.loadCaseId}</b> · {l.magnitude} {l.unit} · {l.type}</div>) : <span style={{fontSize:10,color:"#98a2b3"}}>No loads assigned.</span>}</div>
-          <div style={card}><strong style={{fontSize:11}}>References</strong>{member && <><div style={row}><span style={label}>Section ID</span><span>{member.sectionId || "—"}</span></div><div style={row}><span style={label}>Material ID</span><span>{member.materialId || "—"}</span></div></>}{surface && <div style={row}><span style={label}>Load transfer</span><span>{surface.loadTransfer?.method || "—"}</span></div>}{loads.map(l=><div key={`ref-${l.id}`} style={row}><span style={label}>{l.id}</span><span>{l.provenance?.sourceId || "manual"}</span></div>)}</div>
+          <div style={card}>
+            <strong style={{fontSize:11}}>Assigned loads</strong>
+            {loads.length ? loads.map(load => <div key={load.id} style={{fontSize:10}}><b>{load.loadCaseId}</b> · {loadSummary(load)} · {load.type}</div>) : <span style={{fontSize:10,color:"#98a2b3"}}>No loads assigned.</span>}
+          </div>
+          <div style={card}>
+            <strong style={{fontSize:11}}>References</strong>
+            {member && <><div style={row}><span style={label}>Section ID</span><span>{member.sectionId || "—"</span></div><div style={row}><span style={label}>Material ID</span><span>{member.materialId || "—"}</span></div></>}
+            {surface && <div style={row}><span style={label}>Load transfer</span><span>{surface.loadTransfer?.method || "—"}</span></div>}
+            {loads.map(load => <div key={`ref-${load.id}` style={row}><span style={label}>{load.id}</span><span>{load.provenance?.sourceId || "manual"}</span></div>)}
+          </div>
         </div>
       </aside>
     </div>, document.body
