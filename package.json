@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test": "node --import tsx --test tests/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "npm test && tsc --noEmit"
   },
   "dependencies": {
     "@linkoteq/structural-core": "github:dehghoon/linkoteq-structural-core#a7c7103e46bb98035d907624b92ff8c21931f496",
