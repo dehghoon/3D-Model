@@ -59,7 +59,7 @@ test("migrated v0.5 project survives save/export and reopen without identity los
 test("negative legacy migration shapes are rejected explicitly", () => {
   const cases: Array<[string, (project: AnyRecord) => void, RegExp]> = [
     ["material missing analysis data", (p) => { delete p.materials[0].properties.E; }, /MATERIAL_MAT1_E/],
-    ["ambiguous line load", (p) => { delete p.loads[1].w1; delete p.loads[1].w2; }, /AMBIGUOUS_LEGACY_LINE_LOAD/],
+    ["ambiguous line load", (p) => { delete p.loads[1].w1; delete p.loads[1].w2; delete p.loads[1].distribution; }, /AMBIGUOUS_LEGACY_LINE_LOAD/],
     ["ambiguous area load", (p) => { delete p.loads[2].pressure; }, /AMBIGUOUS_LEGACY_AREA_LOAD/],
     ["orphaned load-case reference", (p) => { p.loads[0].loadCaseId = "MISSING"; }, /ORPHANED_LOAD_CASE_REFERENCE/],
     ["missing target ID", (p) => { delete p.loads[0].targetId; }, /MISSING_LOAD_TARGET_ID/],
