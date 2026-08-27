@@ -68,7 +68,7 @@ export default function LoadManager({
   const targetIds = useMemo(() => {
     if (mode === "slab") return selectedSurfaces.filter((s) => s.type === "slab").map((s) => s.id);
     if (mode === "wall") return selectedSurfaces.filter((s) => s.type === "wall").map((s) => s.id);
-    if (mode === "beam") return selectedMembers.map((m) => m.id);
+    if (moe === "beam") return selectedMembers.map((m) => m.id);
     return selectedNodes.map((n) => n.id);
   }, [mode, selectedMembers, selectedNodes, selectedSurfaces]);
 
@@ -188,7 +188,7 @@ export default function LoadManager({
         ...model.loadCases.filter((loadCase) => !(data.loadCases ?? []).some((candidate) => candidate.id === loadCase.id)),
         ...(data.loadCases ?? []),
       ],
-      loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads],
+      loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads ],
     };
     onModelChange(next, `Snow v0.5 loads added for ${surfaceIds.length} target surface(s).`);
   }
