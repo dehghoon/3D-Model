@@ -2,20 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+function normalizeRequest(input: Record<string, unknown>) {
+  const projectId = String(input.projectId ?? "");
+  const runId = String(input.runId ?? "");
+  const targetIds = Array.isArray(input.targetIds) ? input.targetIds.map(String) : [];
+  if (!projectId || !runId || !targetIds.length) throw new Error("SNOW_CORE_V05_IDENTITY_REQUIRED");
+  return { ...input, modelSchemaVersion: "0.5", projectId, runId, calculator: "snow", targetIds };
+}
+
 export async function POST(request: NextRequest) {
   const base = process.env.SNOW_CALCULATOR_API_URL?.replace(/\/$/, "");
   if (!base) {
-    return NextResponse.json({
-      error: "Snow Calculator is not configured. Set SNOW_CALCULATOR_API_URL in the 3D-Model Vercel project to the Snow Calculator API origin."
-    }, { status: 503 });
+    return NextResponse.json({ error: "Snow Calculator is not configured." }, { status: 503 });
   }
-
   try {
-    const body = await request.text();
-    const response = await fetch(`${base}/api/v1/core/roof-snow`, {
+    const body = normalizeRequest(await request.json());
+    const response = await fetch(`${base}/api/v1/core/roof-snow/v0.5`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body,
+      body: JSON.stringify(body),
       cache: "no-store"
     });
     const text = await response.text();
