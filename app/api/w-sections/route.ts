@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const DATASET_URL = "https://raw.githubusercontent.com/dehghoon/steel-verification/main/data/cisc/cisc_sections.json";
 const DESIGN_API_BASE_URL = process.env.W_SECTION_API_BASE_URL ?? process.env.NEXT_PUBLIC_W_SECTION_API_BASE_URL ?? "";
@@ -26,7 +26,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   if (!DESIGN_API_BASE_URL) {
     return NextResponse.json(
       {
