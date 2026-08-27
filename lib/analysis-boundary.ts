@@ -3,15 +3,21 @@ import { assertCanonicalV05 } from "./core-v05";
 
 export type CoreAnalysisSubmission = {
   projectId: string;
-  runId: string;
+  requestId: string;
   model: StructuralModel;
   request: AnalysisRequest;
 };
 
-export function buildAnalysisSubmission(projectId: string, model: StructuralModel, request: AnalysisRequest): CoreAnalysisSubmission {
+export function buildAnalysisSubmission(
+  projectId: string,
+  model: StructuralModel,
+  request: AnalysisRequest,
+): CoreAnalysisSubmission {
   assertCanonicalV05(model);
-  if (!projectId || !request.runId) throw new Error("ANALYSIS_IDENTITY_REQUIRED");
-  return { projectId, runId: request.runId, model, request };
+  if (!projectId || !request.id) {
+    throw new Error("ANALYSIS_IDENTITY_REQUIRED");
+  }
+  return { projectId, requestId: request.id, model, request };
 }
 
 // Solver implementations (including PyNite) are intentionally not imported here.
