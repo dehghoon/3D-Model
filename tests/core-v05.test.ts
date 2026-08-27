@@ -38,7 +38,7 @@ test("realistic legacy v0.2 fixture migrates every required collection", () => {
   assert.equal(model.project.id, "P-LEGACY-001");
   assert.equal(model.materials[0].id, "MAT1");
   assert.equal(model.materials[0].analysis.E.unit, "MPa");
-  assert.equal(model.materials[0].analysis.G.Value, 77000);
+  assert.equal(model.materials[0].analysis.G.value, 77000);
   assert.equal(model.materials[0].analysis.nu, 0.3);
   assert.equal(model.materials[0].analysis.rho.unit, "kg/m3");
   assert.equal(model.sections[0].id, "SEC1");
