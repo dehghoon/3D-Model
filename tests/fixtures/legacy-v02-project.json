@@ -89,7 +89,7 @@
           "value": 85000000,
           "unit": "mm4"
         },
-        "IZ": {
+        "Iz": {
           "value": 8500000,
           "unit": "mm4"
         },
@@ -194,7 +194,7 @@
       "loadCaseId": "LC-D",
       "targetId": "N2",
       "components": {
-        "FZB: {
+        "FZ": {
           "value": -10,
           "unit": "kN"
         }
