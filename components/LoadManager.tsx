@@ -12,7 +12,6 @@ import type {
   Surface,
 } from "@linkoteq/structural-core";
 import { assertCanonicalLoad, mapSnowWriteback } from "../lib/core-loads-v05";
-
 type LoadMode = "slab" | "wall" | "beam" | "node";
 type Props = {
   model: StructuralModel;
@@ -25,7 +24,6 @@ type Props = {
 };
 
 type SnowWriteback = Parameters<typeof mapSnowWriteback>[0];
-
 const button: React.CSSProperties = {
   border: "1px solid #cfd6df",
   background: "white",
@@ -41,14 +39,12 @@ function nextId(prefix: string, ids: string[]) {
   while (ids.includes(`${prefix}${index}`)) index += 1;
   return `${prefix}${index}`;
 }
-
 function categoryFromLabel(label: string): LoadCase["category"] {
   const value = label.toLowerCase();
   return (["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].includes(value)
     ? value
     : "other") as LoadCase["category"];
 }
-
 export default function LoadManager({
   model,
   selectedSurfaces,
@@ -64,14 +60,12 @@ export default function LoadManager({
   const [loadCaseId, setLoadCaseId] = useState("D");
   const [loadCategory, setLoadCategory] = useState("dead");
   const [status, setStatus] = useState("Core v0.5 canonical load tools.");
-
   const targetIds = useMemo(() => {
     if (mode === "slab") return selectedSurfaces.filter((s) => s.type === "slab").map((s) => s.id);
     if (mode === "wall") return selectedSurfaces.filter((s) => s.type === "wall").map((s) => s.id);
     if (mode === "beam") return selectedMembers.map((m) => m.id);
     return selectedNodes.map((n) => n.id);
   }, [mode, selectedMembers, selectedNodes, selectedSurfaces]);
-
   function ensureLoadCase(next: StructuralModel) {
     if (next.loadCases.some((item) => item.id === loadCaseId)) return next;
     const loadCase: LoadCase = {
@@ -82,14 +76,12 @@ export default function LoadManager({
     };
     return { ...next, loadCases: [...next.loadCases, loadCase] };
   }
-
   function addManualLoad() {
     const value = Number(magnitude);
     if (!Number.isFinite(value) || !targetIds.length) {
       setStatus("Select targets and enter a valid magnitude.");
       return;
     }
-
     let next = ensureLoadCase(model);
     const ids = next.loads.map((load) => load.id);
     const loads: Load[] = targetIds.map((targetId) => {
@@ -193,7 +185,6 @@ export default function LoadManager({
     };
     onModelChange(next, `Snow v0.5 loads added for ${surfaceIds.length} target surface(s).`);
   }
-
   function addCombination() {
     if (!model.loadCases.length) {
       setStatus("Add load cases first.");
@@ -225,7 +216,7 @@ export default function LoadManager({
       <button style={button} onClick={() => { onBeginTargetSelection(mode); setOpen(false); }}>Pick from model</button>
       <input value={loadCaseId} onChange={(event) => setLoadCaseId(event.target.value)} placeholder="Load case ID" />
       <select value={loadCategory} onChange={(event) => setLoadCategory(event.target.value)}>
-        {["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].map((v) => <option key={v} value={v}>{v}</option>))}
+        {["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].map((v) => <option key={v} value={v}>{v}</option>)}
       </select>
       <input value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Magnitude" />
       <button style={primary} onClick={addManualLoad}>Add canonical load</button>
@@ -236,9 +227,7 @@ export default function LoadManager({
       <small>{status}</small>
     </div>
   );
-
   if (typeof document === "undefined") return null;
-
   return (
     <>
       {createPortal(
