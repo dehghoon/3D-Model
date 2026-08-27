@@ -181,7 +181,7 @@ export default function LoadManager({
       ...model,
       schemaVersion: "0.5",
       loadSources: [
-        ...model.loadSources.filter((source) => !incomingSourceIds.has(source.id)),
+        ...(model.loadSources ?? []).filter((source) => !incomingSourceIds.has(source.id)),
         ...mapped.loadSources,
       ],
       loadCases: [
@@ -221,12 +221,10 @@ export default function LoadManager({
         <option value="node">Nodal load</option>
         <option value="wall">Wall load (explicit adapter required)</option>
       </select>
-      <button style={button} onClick={() => { onBeginTargetSelection(mode); setOpen(false); }}>Pick from model</button>
+      <button style={button} onClick={() => { onBeginTargetSelection(node); setOpen(false); }}>Pick from model</button>
       <input value={loadCaseId} onChange={(event) => setLoadCaseId(event.target.value)} placeholder="Load case ID" />
       <select value={loadCategory} onChange={(event) => setLoadCategory(event.target.value)}>
-        {["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].map((value) => (
-          <option key={value} value={value}>{value}</option>
-        ))}
+        {["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].map((v => <option key={v} value={v}>{v}</option>))}
       </select>
       <input value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Magnitude" />
       <button style={primary} onClick={addManualLoad}>Add canonical load</button>
