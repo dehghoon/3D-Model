@@ -1,0 +1,248 @@
+{
+  "schemaVersion": "0.2",
+  "project": {
+    "id": "P-LEGACY-001",
+    "name": "Legacy Office",
+    "units": "SI",
+    "jurisdiction": "CA"
+  },
+  "levels": [
+    {
+      "id": "LV1",
+      "name": "Roof",
+      "elevation": 3.5
+    }
+  ],
+  "grids": [],
+  "nodes": [
+    {
+      "id": "N1",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 3.5
+      }
+    },
+    {
+      "id": "N2",
+      "position": {
+        "x": 6,
+        "y": 0,
+        "z": 3.5
+      }
+    },
+    {
+      "id": "N3",
+      "position": {
+        "x": 6,
+        "y": 4,
+        "z": 3.5
+      }
+    },
+    {
+      "id": "N4",
+      "position": {
+        "x": 0,
+        "y": 4,
+        "z": 3.5
+      }
+    }
+  ],
+  "materials": [
+    {
+      "id": "MAT1",
+      "type": "steel",
+      "name": "Legacy Steel",
+      "properties": {
+        "E": {
+          "value": 200000,
+          "unit": "MPa"
+        },
+        "G": {
+          "value": 77000,
+          "unit": "MPa"
+        },
+        "nu": 0.3,
+        "rho": {
+          "value": 7850,
+          "unit": "kg/m3"
+        },
+        "fy": {
+          "value": 350,
+          "unit": "MPa"
+        }
+      },
+      "legacyGrade": "350W"
+    }
+  ],
+  "sections": [
+    {
+      "id": "SEC1",
+      "family": "W",
+      "designation": "W310x39",
+      "properties": {
+        "A": {
+          "value": 4960,
+          "unit": "mm2"
+        },
+        "Iy": {
+          "value": 85000000,
+          "unit": "mm4"
+        },
+        "IZ": {
+          "value": 8500000,
+          "unit": "mm4"
+        },
+        "J": {
+          "value": 185000,
+          "unit": "mm4"
+        },
+        "Zy": {
+          "value": 550000,
+          "unit": "mm3"
+        }
+      },
+      "catalog": "CISC"
+    }
+  ],
+  "members": [
+    {
+      "id": "M1",
+      "type": "beam",
+      "startNodeId": "N1",
+      "endNodeId": "N2",
+      "materialId": "MAT1",
+      "sectionId": "SEC1",
+      "startRelease": {
+        "rz": false
+      },
+      "endRelease": {
+        "rz": true
+      }
+    },
+    {
+      "id": "M2",
+      "type": "beam",
+      "startNodeId": "N4",
+      "endNodeId": "N3",
+      "materialId": "MAT1",
+      "sectionId": "SEC1"
+    }
+  ],
+  "supports": [
+    {
+      "id": "SUP1",
+      "nodeId": "N1",
+      "restraints": {
+        "ux": true,
+        "uy": true,
+        "uz": true,
+        "rx": false,
+        "ry": false,
+        "rz": false
+      }
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "S1",
+      "type": "slab",
+      "boundaryNodeIds": [
+        "N1",
+        "N2",
+        "N3",
+        "N4"
+      ],
+      "loadTransfer": {
+        "method": "two-way"
+      }
+    }
+  ],
+  "diaphragms": [],
+  "loadSources": [
+    {
+      "id": "LS-SNOW",
+      "name": "Legacy Snow",
+      "category": "snow",
+      "calculator": "snow",
+      "calculatorVersion": "0.9",
+      "codeEdition": "NBCC 2020",
+      "jurisdiction": "CA",
+      "inputProvenance": {
+        "Ss": 2.5
+      },
+      "status": "generated"
+    }
+  ],
+  "loadCases": [
+    {
+      "id": "LC-D",
+      "name": "Dead",
+      "type": "dead"
+    },
+    {
+      "id": "LC-S",
+      "name": "Snow",
+      "type": "snow",
+      "sourceId": "LS-SNOW"
+    }
+  ],
+  "loads": [
+    {
+      "id": "L-N",
+      "type": "nodal",
+      "loadCaseId": "LC-D",
+      "targetId": "N2",
+      "components": {
+        "FZB: {
+          "value": -10,
+          "unit": "kN"
+        }
+      }
+    },
+    {
+      "id": "L-L",
+      "type": "line",
+      "loadCaseId": "LC-D",
+      "targetId": "M1",
+      "direction": "FZ",
+      "distribution": "distributed",
+      "w1": {
+        "value": -5,
+        "unit": "kN/m"
+      },
+      "w2": {
+        "value": -7,
+        "unit": "kN/m"
+      },
+      "sourceId": "LS-SNOW"
+    },
+    {
+      "id": "L-A",
+      "type": "area",
+      "loadCaseId": "LC-S",
+      "targetId": "S1",
+      "pressure": {
+        "value": 2.5,
+        "unit": "kPa"
+      },
+      "sourceId": "LS-SNOW",
+      "runId": "RUN-SNOW-1"
+    }
+  ],
+  "loadCombinations": [
+    {
+      "id": "COMB1",
+      "name": "ULS 1",
+      "loadCaseFactors": {
+        "LC-D": 1.25,
+        "LC-S": 1.5
+      },
+      "limitState": "ULS",
+      "tags": [
+        "Strength"
+      ],
+      "codeRef": "NBCC 2020"
+    }
+  ]
+}
