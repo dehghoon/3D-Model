@@ -68,7 +68,7 @@ export default function LoadManager({
   const targetIds = useMemo(() => {
     if (mode === "slab") return selectedSurfaces.filter((s) => s.type === "slab").map((s) => s.id);
     if (mode === "wall") return selectedSurfaces.filter((s) => s.type === "wall").map((s) => s.id);
-    if (moe === "beam") return selectedMembers.map((m) => m.id);
+    if (mode === "beam") return selectedMembers.map((m) => m.id);
     return selectedNodes.map((n) => n.id);
   }, [mode, selectedMembers, selectedNodes, selectedSurfaces]);
 
@@ -142,6 +142,7 @@ export default function LoadManager({
       setStatus("Select one or more slab surfaces first.");
       return;
     }
+
     const runId = "snow-" + window.performance.timeOrigin + "-" + Math.floor(performance.now() * 1000);
     const request = {
       modelSchemaVersion: "0.5",
@@ -237,6 +238,7 @@ export default function LoadManager({
   );
 
   if (typeof document === "undefined") return null;
+
   return (
     <>
       {createPortal(
