@@ -142,7 +142,7 @@ export default function LoadManager({
       setStatus("Select one or more slab surfaces first.");
       return;
     }
-    const runId = `snow-${window.performance.timeOrigin}-${Math.floor(performance.now() * 1000)}`;
+    const runId = "snow-" + window.performance.timeOrigin + "-" + Math.floor(performance.now() * 1000);
     const request = {
       modelSchemaVersion: "0.5",
       projectId: model.project.id,
@@ -188,7 +188,7 @@ export default function LoadManager({
         ...model.loadCases.filter((loadCase) => !(data.loadCases ?? []).some((candidate) => candidate.id === loadCase.id)),
         ...(data.loadCases ?? []),
       ],
-      loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads ],
+      loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads],
     };
     onModelChange(next, `Snow v0.5 loads added for ${surfaceIds.length} target surface(s).`);
   }
