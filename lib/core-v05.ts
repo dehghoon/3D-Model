@@ -1,4 +1,4 @@
-import type { Load, LoadCase, LoadCombination, LoadSource, Material, Member, Section, StructuralModel, Support, UnitValue } from "@linkoteq/structural-core";
+import type { Load, LoadCase, LoadCombination, LoadSource, Material, Member, MemberLoadDirection, Section, StructuralModel, Support, UnitValue } from "@linkoteq/structural-core";
 
 export const CORE_SCHEMA_VERSION = "0.5" as const;
 export const LEGACY_SCHEMA_VERSION = "0.2" as const;
@@ -11,27 +11,27 @@ const clone=<T>(v:T):T=>JSON.parse(JSON.stringify(v)) as T;
 const text=(v:unknown,f:string):string=>{if(typeof v!=="string"||!v)throw new Error(`MISSING_${f.toUpperCase()}`);return v};
 const finite=(v:unknown,f:string):number=>{if(typeof v!=="number"||!Number.isFinite(v))throw new Error(`MISSING_${f.toUpperCase()}`);return v};
 const uv=(v:unknown,f:string):UnitValue=>{const x=rec(v);if(typeof x.value!=="number"||!Number.isFinite(x.value)||typeof x.unit!=="string"||!x.unit)throw new Error(`${f.toUpperCase()}_UNIT_VALUE_REQUIRED`);return{value:x.value,unit:x.unit}};
-const ouv=(v:unknown,f:string):UnitValue|undefined=>v==null?undefined:uv(v,f);
+const ouv=(v:unknown,f:string):UnitValue|undefined=>v===undefined||v===null?undefined:uv(v,f);
 const pick=(s:R,...ks:string[]):unknown=>{for(const k of ks)if(s[k]!==undefined)return s[k]};
-const category=(v:unknown):LoadCase["category"]=>{const x=typeof v==="string"?v.toLowerCase():"";const ok=["dead","live","roof-live","snow","rain","wind","seismic","temperature","construction","other"] as LoadCase["category"][];if(!ok.includes(x as LoadCase["category"]))throw new Error("UNSUPPORTED_LEGACY_LOAD_CATEGORY");return x as LoadCase["category"]};
+const category=(v:unknown):LoadCase["category"]=>{const x=typeof v==="string"?v.toLowerCase():"",ok:LoadCase["category"][]=["dead","live","roof-live","snow","rain","wind","seismic","temperature","construction","other"];if(!ok.includes(x as LoadCase["category"]))throw new Error("UNSUPPORTED_LEGACY_LOAD_CATEGORY");return x as LoadCase["category"]};
 
 function migrateMaterial(v:unknown,w:string[]):Material{
- const s=rec(v),p=rec(s.properties),a=rec(s.analysis),get=(...ks:string[])=>pick(a,...ks)??pick(p,...ks)??pick(s,...ks),id=text(s.id,"material_id");
- const t=s.type??p.type;if(!["steel","concrete","wood","other"].includes(String(t)))throw new Error("UNSUPPORTED_LEGACY_MATERIAL_TYPE");
+ const s=rec(v),p=rec(s.properties),a=rec(s.analysis),get=(...ks:string[])=>pick(a,...ks)??pick(p,...ks)??pick(s,...ks),id=text(s.id,"material_id"),t=s.type??p.type;
+ if(!["steel","concrete","wood","other"].includes(String(t)))throw new Error("UNSUPPORTED_LEGACY_MATERIAL_TYPE");
  const out:Material={id,type:t as Material["type"],name:text(s.name??p.name,"material_name"),analysis:{E:uv(get("E","e","elasticModulus"),`material_${id}_E`),G:uv(get("G","g","shearModulus"),`material_${id}_G`),nu:finite(get("nu","poisson","poissonRatio"),`material_${id}_nu`),rho:uv(get("rho","density"),`material_${id}_rho`),fy:ouv(get("fy","Fy","yieldStrength"),`material_${id}_fy`)}};
  const known=new Set(["id","type","name","analysis","properties","E","e","elasticModulus","G","g","shearModulus","nu","poisson","poissonRatio","rho","density","fy","Fy","yieldStrength"]),extra=Object.fromEntries(Object.entries(s).filter(([k])=>!known.has(k)));
- if(Object.keys(extra).length){out.metadata={legacy:extra};w.push(`LEGACY_MATERIAL_METADATA_PRESERVED:${id}`)}return out
+ if(Object.keys(extra).length){out.metadata={legacy:extra};w.push(`LEGACY_MATERIAL_METADATA_PRESERVED:${id}`)} return out
 }
 function migrateSection(v:unknown,w:string[]):Section{
  const s=rec(v),p=rec(s.properties),a=rec(s.analysis),get=(...ks:string[])=>pick(a,...ks)??pick(p,...ks)??pick(s,...ks),id=text(s.id,"section_id");
  const out:Section={id,family:text(s.family??p.family??"other","section_family"),designation:typeof s.designation==="string"?s.designation:undefined,analysis:{A:uv(get("A","area"),`section_${id}_A`),Iy:uv(get("Iy","iy"),`section_${id}_Iy`),Iz:uv(get("Iz","iz"),`section_${id}_Iz`),J:uv(get("J","j"),`section_${id}_J`)}};
  for(const k of ["Ay","Az","Sy","Sz","Zy","Zz","ry","rz"] as const){const x=get(k);if(x!==undefined)out.analysis[k]=uv(x,`section_${id}_${k}`)}
  const known=new Set(["id","family","designation","analysis","properties","A","area","Iy","iy","Iz","iz","J","j","Ay","Az","Sy","Sz","Zy","Zz","ry","rz"]),extra=Object.fromEntries(Object.entries(s).filter(([k])=>!known.has(k)));
- if(Object.keys(extra).length){out.metadata={legacy:extra};w.push(`LEGACY_SECTION_METADATA_PRESERVED:${id}`)}return out
+ if(Object.keys(extra).length){out.metadata={legacy:extra};w.push(`LEGACY_SECTION_METADATA_PRESERVED:${id}`)} return out
 }
 const dofs=(v:unknown)=>{const r=rec(v);return{DX:Boolean(r.DX??r.ux),DY:Boolean(r.DY??r.uy),DZ:Boolean(r.DZ??r.uz),RX:Boolean(r.RX??r.rx),RY:Boolean(r.RY??r.ry),RZ:Boolean(r.RZ??r.rz)}};
 function migrateSupport(v:unknown):Support{const s=rec(v);return{id:text(s.id,"support_id"),nodeId:text(s.nodeId,"support_node_id"),restraints:dofs(s.restraints)}}
-const release=(v:unknown)=>Object.keys(rec(v)).length?dofs(v):undefined;
+const release=(v:unknown):Member["startRelease"]=>Object.keys(rec(v)).length?dofs(v):undefined;
 function migrateMember(v:unknown):Member{const s=rec(v);return{...(s as unknown as Member),id:text(s.id,"member_id"),type:(s.type??"other") as Member["type"],startNodeId:text(s.startNodeId,"member_start_node_id"),endNodeId:text(s.endNodeId,"member_end_node_id"),materialId:text(s.materialId,"member_material_id"),sectionId:text(s.sectionId,"member_section_id"),startRelease:release(s.startRelease),endRelease:release(s.endRelease)}}
 function migrateLoadSource(v:unknown):LoadSource{const s=rec(v),id=text(s.id,"load_source_id"),calc=s.calculator??s.source,allowed=["manual","snow","wind","seismic","self-weight","other"];return{id,category:category(s.category??s.loadCategory??"other"),name:text(s.name??calc??id,"load_source_name"),calculator:typeof calc==="string"&&allowed.includes(calc)?calc as LoadSource["calculator"]:"other",calculatorVersion:typeof s.calculatorVersion==="string"?s.calculatorVersion:undefined,codeEdition:typeof s.codeEdition==="string"?s.codeEdition:undefined,jurisdiction:typeof s.jurisdiction==="string"?s.jurisdiction:undefined,inputs:rec(s.inputs??s.inputProvenance),status:s.status==="generated"||s.status==="stale"||s.status==="error"||s.status==="manual"?s.status:calc==="manual"?"manual":"generated",generatedAt:typeof s.generatedAt==="string"?s.generatedAt:undefined}}
 function migrateLoadCase(v:unknown):LoadCase{const s=rec(v);return{id:text(s.id,"load_case_id"),name:text(s.name??s.label??s.id,"load_case_name"),category:category(s.category??s.type),sourceId:typeof s.sourceId==="string"?s.sourceId:undefined,analysisType:s.analysisType==="response-spectrum"||s.analysisType==="other"?s.analysisType:"static",tags:Array.isArray(s.tags)?s.tags.filter((x):x is string=>typeof x==="string"):undefined}}
@@ -39,7 +39,7 @@ function provenance(s:R){const p=rec(s.provenance),sourceId=pick(p,"sourceId")??
 function migrateLoad(v:unknown):Load{
  const s=rec(v),id=text(s.id,"load_id"),loadCaseId=text(s.loadCaseId,"load_case_id"),type=text(s.type,"load_type"),p=provenance(s);
  if(type==="nodal"){const c=rec(s.components),components:Record<string,UnitValue>={};for(const d of ["FX","FY","FZ","MX","MY","MZ"])if(c[d]!==undefined)components[d]=uv(c[d],`load_${id}_${d}`);if(!Object.keys(components).length)throw new Error(`UNSUPPORTED_LOSSY_LEGACY_LOAD:${id}`);return{id,type:"nodal",nodeId:text(s.nodeId??s.targetId,"load_target_id"),loadCaseId,coordinateSystem:"global",components,provenance:p}}
- if(type==="line"){const memberId=text(s.memberId??s.targetId,"load_target_id"),direction=text(s.direction,"load_direction") as any,coordinateSystem=s.coordinateSystem==="member-local"?"member-local":"global";
+ if(type==="line"){const memberId=text(s.memberId??s.targetId,"load_target_id"),direction=text(s.direction,"load_direction") as MemberLoadDirection,coordinateSystem=s.coordinateSystem==="member-local"?"member-local":"global";
   if(s.x!==undefined&&s.magnitude!==undefined&&s.w1===undefined&&s.w2===undefined)return{id,type:"member-point",memberId,loadCaseId,coordinateSystem,direction,magnitude:uv(s.magnitude,`load_${id}_magnitude`),x:uv(s.x,`load_${id}_x`),provenance:p};
   if(s.w1!==undefined||s.w2!==undefined||s.distribution==="distributed")return{id,type:"member-distributed",memberId,loadCaseId,coordinateSystem,direction,w1:uv(s.w1??s.magnitude,`load_${id}_w1`),w2:uv(s.w2??s.w1??s.magnitude,`load_${id}_w2`),x1:ouv(s.x1,`load_${id}_x1`),x2:ouv(s.x2,`load_${id}_x2`),provenance:p};
   throw new Error(`AMBIGUOUS_LEGACY_LINE_LOAD:${id}`)
