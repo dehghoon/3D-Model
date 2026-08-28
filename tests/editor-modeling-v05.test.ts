@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { StructuralModel } from "@linkoteq/structural-core";
-import { createMemberFromCanonicalRefs } from "../lib/editor-modeling-v05";
+import {
+  createMemberFromCanonicalRefs,
+  createNodeFromGlobalCoordinates,
+} from "../lib/editor-modeling-v05";
 
 function modelFixture(): StructuralModel {
   return {
@@ -109,7 +112,7 @@ test("editor rejects missing canonical material and section references", () => {
         materialId: "MISSING",
         sectionId: "SEC1",
       }),
-    /UNKNOWN_MATERIAL:MISSING/,
+    /UNKNOWN_MATERIAL:MISSING/,,
   );
 
   assert.throws(
@@ -150,5 +153,23 @@ test("editor rejects invalid node references without inventing geometry", () => 
         sectionId: "SEC1",
       }),
     /UNKNOWN_END_NODE:N9/,
+  );
+});
+
+test("editor creates canonical nodes from global coordinates", () => {
+  const source = modelFixture();
+  const result = createNodeFromGlobalCoordinates(source, { x: 3, y: 4, z: 5 });
+
+  assert.equal(result.node.id, "N3");
+  assert.deepEqual(result.node.position, { x: 3, y: 4, z: 5 });
+  assert.equal(result.model.nodes.length, 3);
+  assert.equal(source.nodes.length, 2);
+});
+
+test("editor rejects non-finite node coordinates", () => {
+  const source = modelFixture();
+  assert.throws(
+    () => createNodeFromGlobalCoordinates(sourc, { x: Number.NaN, y: 0, z: 0 }),
+    /NODE_COORDINATES_MUST_BE_FINITE/,
   );
 });
