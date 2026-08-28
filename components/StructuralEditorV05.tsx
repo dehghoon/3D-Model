@@ -93,6 +93,43 @@ function MemberMesh({
   );
 }
 
+function buildSurfaceGeometry(points: Node[]): THREE.BufferGeometry | null {
+  if (points.length < 3) return null;
+  const vertices = points.map((node) => new THREE.Vector3(...position(node)));
+  const origin = vertices[0];
+  const normal = new THREE.Vector3();
+  for (let i = 1; i < vertices.length - 1; i += 1) {
+    normal.add(
+      new THREE.Vector3().crossVectors(
+        vertices[i].clone().sub(origin),
+        vertices[i + 1].clone().sub(origin),
+      ),
+    );
+  }
+  if (normal.lengthSq() < 1e-12) return null;
+  normal.normalize();
+
+  const u = vertices.find((v, index) => index > 0 && v.distanceToSquared(origin) > 1e-12);
+  if (!u) return null;
+  const uAxis = u.clone().sub(origin).normalize();
+  const vAxis = new THREE.Vector3().crossVectors(normal, uAxis).normalize();
+  const contour = vertices.map(v => {
+    const relative = v.clone().sub(origin);
+    return new THREE.Vector2(relative.dot(uAxis), relative.dot(vAxis));
+  });
+  const faces = THREE.ShapeUtils.triangulateShape(contour, []);
+  if (!faces.length) return null;
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(vertices.flatMap((v) => [v.x, v.y, v.z]), 3),
+  );
+  geometry.setIndex(faces.flat());
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function SurfaceMesh({
   surface,
   nodes,
@@ -104,26 +141,14 @@ function SurfaceMesh({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const points = surface.boundaryNodeIds
-    .map((id) => nodes.find((node) => node.id === id))
-    .filter((node): node is Node => Boolean(node));
-  const geometry = useMemo(() => {
-    if (points.length < 3) return null;
-    const origin = points[0];
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0);
-    for (let index = 1; index < points.length; index += 1) {
-      shape.lineTo(
-        points[index].position.x - origin.position.x,
-        points[index].position.y - origin.position.y,
-      );
-    }
-    shape.closePath();
-    const result = new THREE.ShapeGeometry(shape);
-    result.rotateX(-Math.PI / 2);
-    result.translate(origin.position.x, origin.position.z + 0.01, origin.position.y);
-    return result;
-  }, [points]);
+  const points = useMemo(
+    () =>
+      surface.boundaryNodeIds
+        .map((id) => nodes.find((node) => node.id === id))
+        .filter((node): node is Node => Boolean(node)),
+    [surface.boundaryNodeIds, nodes],
+  );
+  const geometry = useMemo(() => buildSurfaceGeometry(points), [points]);
 
   if (!geometry) return null;
   return (
@@ -178,7 +203,7 @@ function Scene({
           selected={selection?.type === "surface" && selection.id === surface.id}
           onSelect={() => onSelect({ type: "surface", id: surface.id })}
         />
-      ))}
+       ))}
       {model.members.map((member) => (
         <MemberMesh
           key={member.id}
@@ -326,7 +351,7 @@ export default function StructuralEditorV05() {
           <h2>Inspector</h2>
           <p className="selectionText">{selectedLabel()}</p>
           <details>
-            <summary>Core Model JSON</sumary>
+            <summary>Core Model JSON</summary>
             <pre>{JSON.stringify(model, null, 2)}</pre>
           </details>
         </aside>
