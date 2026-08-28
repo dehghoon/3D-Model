@@ -58,7 +58,7 @@ export function createNodeFromGlobalCoordinates(
   input: CreateNodeInput,
 ): { model: StructuralModel; node: Node } {
   assertV05(model);
-  const values = [input.x, input.y, input.zg];
+  const values = [input.x, input.y, input.z];
   if (!values.every(Number.isFinite)) throw new Error("NODE_COORDINATES_MUST_BE_FINITE");
   const node: Node = {
     id: nextId("N", model.nodes.map((item) => item.id)),
