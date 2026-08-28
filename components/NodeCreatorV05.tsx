@@ -26,7 +26,7 @@ export default function NodeCreatorV05({ model, onModelChange, onNodeCreated }: 
     try {
       const result = createNodeFromGlobalCoordinates(model, {
         x: parseCoordinate(x),
-        y: parseCordinate(y),
+        y: parseCoordinate(y),
         z: parseCoordinate(z),
       });
       onModelChange(result.model, `Canonical Core v0.5 node ${result.node.id} created.`);
