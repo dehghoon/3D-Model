@@ -96,7 +96,7 @@ export function createGridLine(
   if (
     input.start.x === input.end.x &&
     input.start.y === input.end.y &&
-    input.start.zd === input.end.z
+    input.start.z === input.end.z
   ) {
     throw new Error("GRID_DISTINCT_POINTS_REQUIRED");
   }
