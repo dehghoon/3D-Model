@@ -1,9 +1,20 @@
-import type { Member, MemberType, Node, StructuralModel } from "@linkoteq/structural-core";
+import type { GridLine, Level, Member, MemberType, Node, StructuralModel, Vec3 } from "@linkoteq/structural-core";
 
 export interface CreateNodeInput {
   x: number;
   y: number;
-  z: number;
+ z number;
+}
+
+export interface CreateLevelInput {
+  name: string;
+  elevation: number;
+}
+
+export interface CreateGridLineInput {
+  label: string;
+  start: Vec3;
+  end: Vec3;
 }
 
 export interface CreateMemberInput {
@@ -38,6 +49,10 @@ function assertV05(model: StructuralModel) {
   }
 }
 
+function assertFiniteVec3(value: Vec3, code: string) {
+  if (![value.x, value.y, value.z].every(Number.isFinite)) throw new Error(code);
+}
+
 export function createNodeFromGlobalCoordinates(
   model: StructuralModel,
   input: CreateNodeInput,
@@ -50,6 +65,50 @@ export function createNodeFromGlobalCoordinates(
     position: { x: input.x, y: input.y, z: input.z },
   };
   return { model: { ...model, nodes: [...model.nodes, node] }, node };
+}
+
+export function createLevel(
+  model: StructuralModel,
+  input: CreateLevelInput,
+): { model: StructuralModel; level: Level } {
+  assertV05(model);
+  const name = requireId(input.name, "LEVEL_NAME_REQUIRED");
+  if (!Number.isFinite(input.elevation)) throw new Error("LEVEL_ELEVATION_MUST_BE_FINITE");
+
+  const level: Level = {
+    id: nextId("L", model.levels.map((item) => item.id)),
+    name,
+    elevation: input.elevation,
+  };
+
+  return { model: { ...model, levels: [...model.levels, level] }, level };
+}
+
+export function createGridLine(
+  model: StructuralModel,
+  input: CreateGridLineInput,
+): { model: StructuralModel; grid: GridLine } {
+  assertV05(model);
+  const label = requireId(input.label, "GRID_LABEL_REQUIRED");
+  assertFiniteVec3(input.start, "GRID_START_MUST_BE_FINITE");
+  assertFiniteVec3(input.end, "GRID_END_MUST_BE_FINITE");
+
+  if (
+    input.start.x === input.end.x &&
+    input.start.y === input.end.y &&
+    input.start.zd === input.end.z
+  ) {
+    throw new Error("GRID_DISTINCT_POINTS_REQUIRED");
+  }
+
+  const grid: GridLine = {
+    id: nextId("G", model.grids.map((item) => item.id)),
+    label,
+    start: { ...input.start },
+    end: { ...input.end },
+  };
+
+  return { model: { ...model, grids: [...model.grids, grid] }, grid };
 }
 
 function nextMemberId(type: MemberType, members: Member[]): string {
