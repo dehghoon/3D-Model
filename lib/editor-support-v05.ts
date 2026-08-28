@@ -4,7 +4,7 @@ const DOFS: StructuralDOF[] = ["DX", "DY", "DZ", "RX", "RY", "RZ"];
 
 export interface CreateSupportInput {
   nodeId: string;
-  restraints: SupportRestraints;
+  restraints: Partial<SupportRestraints>;
 }
 
 function nextSupportId(supports: Support[]): string {
@@ -14,7 +14,7 @@ function nextSupportId(supports: Support[]): string {
   return `SUP${index}`;
 }
 
-function normalizeRestraints(restraints: SupportRestraints): SupportRestraints {
+function normalizeRestraints(restraints: Partial<SupportRestraints>): SupportRestraints {
   return DOFS.reduce<SupportRestraints>(
     (result, dof) => ({ ...result, [dof]: Boolean(restraints[dof]) }),
     { DX: false, DY: false, DZ: false, RX: false, RY: false, RZ: false },
