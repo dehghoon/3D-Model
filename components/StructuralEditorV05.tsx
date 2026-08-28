@@ -7,6 +7,7 @@ import { ChangeEvent, useMemo, useRef, useState } from "react";
 import type { Member, Node, StructuralModel, Surface } from "@linkoteq/structural-core";
 import LoadManager from "./LoadManager";
 import MemberCreatorV05 from "./MemberCreatorV05";
+import NodeCreatorV05 from "./NodeCreatorV05";
 import { assertCanonicalV05, migrateProjectToV05 } from "../lib/core-v05";
 
 type Selection =
@@ -80,6 +81,7 @@ function MemberMesh({
   }, [a, b, selected]);
 
   if (!geometry) return null;
+
   return (
     <mesh
       geometry={geometry}
@@ -88,7 +90,7 @@ function MemberMesh({
         onSelect();
       }}
     >
-      <meshStandardMaterial color={selected ? "#f97316" : member.type === "column" ? "#2563eb" : "#26734d" } />
+      <meshStandardMaterial color={selected ? "#f97316" : member.type === "column" ? "#2563eb" : "#26734d"} />
     </mesh>
   );
 }
@@ -98,6 +100,7 @@ function buildSurfaceGeometry(points: Node[]): THREE.BufferGeometry | null {
   const vertices = points.map((node) => new THREE.Vector3(...position(node)));
   const origin = vertices[0];
   const normal = new THREE.Vector3();
+
   for (let i = 1; i < vertices.length - 1; i += 1) {
     normal.add(
       new THREE.Vector3().crossVectors(
@@ -106,17 +109,20 @@ function buildSurfaceGeometry(points: Node[]): THREE.BufferGeometry | null {
       ),
     );
   }
+
   if (normal.lengthSq() < 1e-12) return null;
   normal.normalize();
 
   const u = vertices.find((v, index) => index > 0 && v.distanceToSquared(origin) > 1e-12);
   if (!u) return null;
+
   const uAxis = u.clone().sub(origin).normalize();
   const vAxis = new THREE.Vector3().crossVectors(normal, uAxis).normalize();
-  const contour = vertices.map(v => {
+  const contour = vertices.map((v) => {
     const relative = v.clone().sub(origin);
     return new THREE.Vector2(relative.dot(uAxis), relative.dot(vAxis));
   });
+
   const faces = THREE.ShapeUtils.triangulateShape(contour, []);
   if (!faces.length) return null;
 
@@ -151,6 +157,7 @@ function SurfaceMesh({
   const geometry = useMemo(() => buildSurfaceGeometry(points), [points]);
 
   if (!geometry) return null;
+
   return (
     <mesh
       geometry={geometry}
@@ -183,6 +190,7 @@ function Scene({
       <color attach="background" args={["#eef3f8"]} />
       <ambientLight intensity={1.1} />
       <directionalLight position={[10, 14, 8]} intensity={1.8} />
+
       {model.grids.map((grid) => {
         const points = [
           new THREE.Vector3(grid.start.x, grid.start.z + 0.01, grid.start.y),
@@ -195,6 +203,7 @@ function Scene({
           </lineSegments>
         );
       })}
+
       {model.surfaces.map((surface) => (
         <SurfaceMesh
           key={surface.id}
@@ -203,7 +212,8 @@ function Scene({
           selected={selection?.type === "surface" && selection.id === surface.id}
           onSelect={() => onSelect({ type: "surface", id: surface.id })}
         />
-       ))}
+      ))}
+
       {model.members.map((member) => (
         <MemberMesh
           key={member.id}
@@ -213,6 +223,7 @@ function Scene({
           onSelect={() => onSelect({ type: "member", id: member.id })}
         />
       ))}
+
       {model.nodes.map((node) => (
         <mesh
           key={node.id}
@@ -222,10 +233,15 @@ function Scene({
             onSelect({ type: "node", id: node.id });
           }}
         >
-          <sphereGeometry args={[selection?.type === "node" && selection.id === node.id ? 0.15 : 0.095, 16, 16]} />
-          <meshStandardMaterial color={selection?.type === "node" && selection.id === node.id ? "#f97316" : "#2563eb"} />
+          <sphereGeometry
+            args={[selection?.type === "node" && selection.id === node.id ? 0.15 : 0.095, 16, 16]}
+          />
+          <meshStandardMaterial
+            color={selection?.type === "node" && selection.id === node.id ? "#f97316" : "#2563eb"}
+          />
         </mesh>
       ))}
+
       <Grid args={[40, 40]} cellSize={1} sectionSize={5} fadeDistance={45} />
       <OrbitControls makeDefault enablePan enableZoom />
     </>
@@ -316,11 +332,19 @@ export default function StructuralEditorV05() {
             <div className="selectionText">Materials: {model.materials.length}</div>
             <div className="selectionText">Sections: {model.sections.length}</div>
           </section>
+
+          <NodeCreatorV05
+            model={model}
+            onModelChange={applyModelChange}
+            onNodeCreated={(nodeId) => setSelection({ type: "node", id: nodeId })}
+          />
+
           <MemberCreatorV05
             model={model}
             onModelChange={applyModelChange}
             onMemberCreated={(memberId) => setSelection({ type: "member", id: memberId })}
           />
+
           <section className="panelBlock">
             <h3>Selection</h3>
             <div className="selectionText">{selectedLabel()}</div>
@@ -328,6 +352,7 @@ export default function StructuralEditorV05() {
               Clear selection
             </button>
           </section>
+
           <section className="panelBlock">
             <h3>Core v0.5</h3>
             <p className="selectionText">
