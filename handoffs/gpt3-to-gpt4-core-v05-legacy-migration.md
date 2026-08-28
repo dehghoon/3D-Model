@@ -18,14 +18,14 @@ No engineering calculation logic, formulas, warnings, ratios, unit semantics, or
 The legacy import boundary migrates Core v0.2 projects to Core v0.5 and new saves use schema `0.5`. Regression coverage verifies:
 
 - stable ID preservation across nodes, materials, sections, members, supports, surfaces, load sources, load cases, loads, and load combinations
-- explicit material migration preserving canonical analysis properties, including `E@, `G`, `nu`, `rho`, and optional `fy`
+- explicit material migration preserving canonical analysis properties, including `E`, `G`, `nu`, `rho`, and optional `fy`
 - explicit section migration preserving `A`, `Iy`, `Iz`, and `J`
 - load source migration with identity and provenance preservation
 - load case and load combination migration with stable references
 - legacy nodal, line, and area load conversion to canonical v0.5 load primitives only when the mapping is unambiguous
 - explicit rejection of ambiguous, orphaned, missing-target, duplicate-ID, missing-material, and unsupported/lossy legacy shapes
 - v0.5 round-trip identity through save/export and reopen/import
-- Snow v0.5 integration preserving canonical `murface-pressure` output, units, and provenance, with lossy surface mapping rejected
+- Snow v0.5 integration preserving canonical `surface-pressure` output, units, and provenance, with lossy surface mapping rejected
 
 ## Analysis Boundary
 
