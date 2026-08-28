@@ -32,7 +32,7 @@ test("realistic legacy v0.2 fixture migrates every required collection", () => {
   assert.equal(model.sections[0].id, "SEC1");
   assert.equal(model.sections[0].analysis.A.unit, "mm2");
   assert.equal(model.sections[0].analysis.Iy.unit, "mm4");
-  assert.equal(model.sections[0].analysis.J.Value, 185000);
+  assert.equal(model.sections[0].analysis.J.value, 185000);
   assert.equal(model.loadSources?.[0].id, "LS-SNOW");
   assert.equal(model.loadSources?.[0].codeEdition, "NBCC 2020");
   assert.equal(model.loadCases[1].sourceId, "LS-SNOW");
