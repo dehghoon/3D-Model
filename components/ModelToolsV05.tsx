@@ -131,7 +131,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
           >
             {item.label}
           </button>
-         ))}
+        ))}
       </div>
 
       {isMemberTool ? (
@@ -150,7 +150,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
             <select value={sectionId} onChange={(event) => setSectionId(event.target.value)}>
               <option value="">Select section</option>
               {model.sections.map((section) => (
-                <option key={section.id} value={section.id}>{section.name ?? section.id}</option>
+                <option key={section.id} value={section.id}>{section.designation ?? section.id}</option>
               ))}
             </select>
           </label>
