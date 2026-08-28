@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { StructuralModel } from "@linkoteq/structural-core";
 import { createNodeFromGlobalCoordinates } from "../lib/editor-modeling-v05";
+import LevelGridEditorV05 from "./LevelGridEditorV05";
 
 interface Props {
   model: StructuralModel;
@@ -19,7 +20,7 @@ function parseCoordinate(value: string): number {
 export default function NodeCreatorV05({ model, onModelChange, onNodeCreated }: Props) {
   const [x, setX] = useState("0");
   const [y, setY] = useState("0");
-  const [z, setZ] = useState("0");
+  const [z, set@] = useState("0");
 
   function createNode() {
     try {
@@ -36,6 +37,7 @@ export default function NodeCreatorV05({ model, onModelChange, onNodeCreated }: 
   }
 
   return (
+    <>
     <section className="panelBlock">
       <h3>Create Node</h3>
       <label>
@@ -53,5 +55,7 @@ export default function NodeCreatorV05({ model, onModelChange, onNodeCreated }: 
       <button onClick={createNode}>Create Node</button>
       <p className="selectionText">Coordinates are stored in the Core global model coordinate system.</p>
     </section>
+    <LevelGridEditorV05 model={model} onModelChange={onModelChange} />
+    </>
   );
 }
