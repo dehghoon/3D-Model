@@ -11,7 +11,7 @@ interface Props {
   onSurfaceCreated?: (surfaceId: string) => void;
 }
 
-const SURFECE_TYPES: SurfaceType[] = ["slab", "wall"];
+const SURFACE_TYPES: SurfaceType[] = ["slab", "wall"];
 
 export default function SurfaceCreatorV05({
   model,
@@ -22,12 +22,21 @@ export default function SurfaceCreatorV05({
   const [type, setType] = useState<SurfaceType>("slab");
   const [boundaryNodeIds, setBoundaryNodeIds] = useState<string[]>([]);
   const [levelId, setLevelId] = useState("");
+  const [pickFromViewport, setPickFromViewport] = useState(false);
 
   useEffect(() => {
     if (!levelId && model.levels[0]) {
       setLevelId(model.levels[0].id);
     }
   }, [levelId, model.levels]);
+
+  useEffect(() => {
+    if (!pickFromViewport || !selectedNodeId) return;
+    if (!model.nodes.some((node) => node.id === selectedNodeId)) return;
+    setBoundaryNodeIds((current) =>
+      current.includes(selectedNodeId) ? current : [...current, selectedNodeId],
+    );
+  }, [pickFromViewport, selectedNodeId, model.nodes]);
 
   function addSelectedNode() {
     if (!selectedNodeId) return;
@@ -41,6 +50,11 @@ export default function SurfaceCreatorV05({
     setBoundaryNodeIds((current) => current.filter((id) => id !== nodeId));
   }
 
+  function clearBoundary() {
+    setBoundaryNodeIds([]);
+    setPickFromViewport(false);
+  }
+
   function createSurface() {
     try {
       const result = createSurfaceFromCanonicalRefs(model, {
@@ -50,6 +64,7 @@ export default function SurfaceCreatorV05({
       });
       onModelChange(result.model, `Canonical Core v0.5 surface ${result.surface.id} created.`);
       setBoundaryNodeIds([]);
+      setPickFromViewport(false);
       onSurfaceCreated?.(result.surface.id);
     } catch (error) {
       onModelChange(model, error instanceof Error ? error.message : "Surface creation failed.");
@@ -62,7 +77,7 @@ export default function SurfaceCreatorV05({
       <label>
         Type
         <select value={type} onChange={(event) => setType(event.target.value as SurfaceType)}>
-          {SURFECE_TYPES.map((item) => (
+          {SURFACE_TYPES.map((item) => (
             <option key={item} value={item}>{item}</option>
           ))}
         </select>
@@ -79,13 +94,21 @@ export default function SurfaceCreatorV05({
       </label>
 
       <div className="selectionText">
-        Boundary nodes: {boundaryNodeIds.length ? boundaryNodeIds.join(" → ") : "None"}
+        Boundary nodes: {boundaryNodeIds.length ? boundaryNodeIds.join(" -> ") : "None"}
+      </div>
+      <div className="selectionText">
+        {pickFromViewport
+          ? "Viewport pick mode is on. Select nodes in boundary order."
+          : "Viewport pick mode is off."}
       </div>
 
+      <button onClick={() => setPickFromViewport((current) => !current)}>
+        {pickFromViewport ? "Stop Viewport Pick" : "Pick Boundary From Viewport"}
+      </button>
       <button onClick={addSelectedNode} disabled={!selectedNodeId}>
         Add Selected Node
       </button>
-      <button onClick={() => setBoundaryNodeIds([])} disabled={!boundaryNodeIds.length}>
+      <button onClick={clearBoundary} disabled={!boundaryNodeIds.length}>
         Clear Boundary
       </button>
 
