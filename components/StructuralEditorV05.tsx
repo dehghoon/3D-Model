@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import type { Member, Node, StructuralModel, Surface } from "@linkoteq/structural-core";
 import LoadManager from "./LoadManager";
+import MemberCreatorV05 from "./MemberCreatorV05";
 import { assertCanonicalV05, migrateProjectToV05 } from "../lib/core-v05";
 
 type Selection =
@@ -230,6 +231,16 @@ export default function StructuralEditorV05() {
     return `${selection.type}: ${selection.id}`;
   }
 
+  function applyModelChange(next: StructuralModel, status: string) {
+    try {
+      assertCanonicalV05(next);
+      setModel(next);
+      setMessage(status);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Core v0.5 model update failed.");
+    }
+  }
+
   return (
     <div className="appShell">
       <header className="topbar">
@@ -280,6 +291,11 @@ export default function StructuralEditorV05() {
             <div className="selectionText">Materials: {model.materials.length}</div>
             <div className="selectionText">Sections: {model.sections.length}</div>
           </section>
+          <MemberCreatorV05
+            model={model}
+            onModelChange={applyModelChange}
+            onMemberCreated={(memberId) => setSelection({ type: "member", id: memberId })}
+          />
           <section className="panelBlock">
             <h3>Selection</h3>
             <div className="selectionText">{selectedLabel()}</div>
@@ -310,7 +326,7 @@ export default function StructuralEditorV05() {
           <h2>Inspector</h2>
           <p className="selectionText">{selectedLabel()}</p>
           <details>
-            <summary>Core Model JSON</summary>
+            <summary>Core Model JSON</sumary>
             <pre>{JSON.stringify(model, null, 2)}</pre>
           </details>
         </aside>
