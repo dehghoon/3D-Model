@@ -7,12 +7,14 @@
     "dependencyRef": "a7c7103e46bb98035d907624b92ff8c21931f496"
   },
   "migration": {
-    "status": "CORE_V0_5_INTEGRATION_VERIFIED_CI_GREEN",
+    "status": "CORE_V0_5_LEGACY_MIGRATION_VERIFIED_CI_GREEN",
     "legacyImport": {
       "from": "0.2",
       "to": "0.5",
       "stableIdsPreserved": true,
-      "newSavesUse": "0.5"
+      "newSavesUse": "0.5",
+      "roundTripVerified": true,
+      "negativeMigrationCasesVerified": true
     },
     "snowIntegration": {
       "endpoint": "/api/v1/core/roof-snow/v0.5",
@@ -28,28 +30,29 @@
   },
   "verification": {
     "ci": {
-      "runNumber": 80,
+      "runNumber": 94,
       "status": "SUCCESS",
-      "url": "https://github.com/dehghoon/3D-Model/actions/runs/33117203711",
-      "duration": "54s",
-      "headCommit": "378f8f4121763a5090c02442396385cc459bcb96"
+      "url": "https://github.com/dehghoon/3D-Model/actions/runs/33129622860",
+      "duration": "51s",
+      "headCommit": "f73c581aa42bcffb060fced9eef1230c2e32a2b6"
     },
     "tests": {
       "command": "npm test",
-      "result": "6 passed, 0 failed"
+      "result": "PASSED",
+      "count": "NOT SURFACED IN PUBLIC CI EVIDENCE"
     },
     "typecheck": {
-      "command": "tsc --noEmit",
+      "command": "npm run typecheck",
       "result": "PASSED"
     },
     "productionBuild": {
-      "command": "next build",
+      "command": "npm run build",
       "result": "PASSED"
     }
   },
   "productionVerification": "NOT_COMPLETE",
   "remainingBlockers": [
-    "Independent GPT-4 Core compliance verification",
+    "Preservation and verification of the legacy 3D editor UX after StructuralEditorV05 introduction",
     "Deployment verification",
     "Production smoke test"
   ]
