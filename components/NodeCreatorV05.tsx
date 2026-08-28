@@ -20,13 +20,13 @@ function parseCoordinate(value: string): number {
 export default function NodeCreatorV05({ model, onModelChange, onNodeCreated }: Props) {
   const [x, setX] = useState("0");
   const [y, setY] = useState("0");
-  const [z, set@] = useState("0");
+  const [z, setZ] = useState("0");
 
   function createNode() {
     try {
       const result = createNodeFromGlobalCoordinates(model, {
         x: parseCoordinate(x),
-        y: parseCoordinate(y),
+        y: parseCordinate(y),
         z: parseCoordinate(z),
       });
       onModelChange(result.model, `Canonical Core v0.5 node ${result.node.id} created.`);
