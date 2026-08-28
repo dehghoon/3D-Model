@@ -72,7 +72,7 @@ export default function SupportEditorV05({ model, selectedNodeId, onModelChange 
         ))}
       </div>
       <button onClick={createSupport} disabled={!selectedNodeId || Boolean(existing)}>
-        {existing ? `Support ${existing.id} assignd : "Create Support"}
+        {existing ? `Support ${existing.id} assigned` : "Create Support"}
       </button>
       <p className="selectionText">
         Restraints use the canonical Core six-DOF contract. The UI does not infer support behavior.
