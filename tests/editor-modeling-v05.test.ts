@@ -112,7 +112,7 @@ test("editor rejects missing canonical material and section references", () => {
         materialId: "MISSING",
         sectionId: "SEC1",
       }),
-    /UNKNOWN_MATERIAL:MISSING/,,
+    /UNKNOWN_MATERIAL:MISSING/,
   );
 
   assert.throws(
@@ -169,7 +169,7 @@ test("editor creates canonical nodes from global coordinates", () => {
 test("editor rejects non-finite node coordinates", () => {
   const source = modelFixture();
   assert.throws(
-    () => createNodeFromGlobalCoordinates(sourc, { x: Number.NaN, y: 0, z: 0 }),
+    () => createNodeFromGlobalCoordinates(source, { x: Number.NaN, y: 0, z: 0 }),
     /NODE_COORDINATES_MUST_BE_FINITE/,
   );
 });
