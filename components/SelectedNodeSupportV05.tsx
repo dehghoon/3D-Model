@@ -2,6 +2,7 @@
 
 import type { StructuralModel, Node } from "@linkoteq/structural-core";
 import SupportEditorV05 from "./SupportEditorV05";
+import SurfaceCreatorV05 from "./SurfaceCreatorV05";
 
 interface Props {
   model: StructuralModel;
@@ -13,10 +14,17 @@ export default function SelectedNodeSupportV05({ model, selectedNodes, onModelCh
   const selectedNodeId = selectedNodes.length === 1 ? selectedNodes[0].id : undefined;
 
   return (
-    <SupportEditorV05
-      model={model}
-      selectedNodeId={selectedNodeId}
-      onModelChange={onModelChange}
-    />
+    <>
+      <SupportEditorV05
+        model={model}
+        selectedNodeId={selectedNodeId}
+        onModelChange={onModelChange}
+      />
+      <SurfaceCreatorV05
+        model={model}
+        selectedNodeId={selectedNodeId}
+        onModelChange={onModelChange}
+      />
+    </>
   );
 }
