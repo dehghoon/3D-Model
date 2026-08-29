@@ -55,7 +55,7 @@ function GridEditorRow({
       const end = {
         x: parseFinite(endX, "GRID_END_MUST_BE_FINITE"),
         y: parseFinite(endY, "GRID_END_MUST_BE_FINITE"),
-        z: parseFinite(endZ", "GRID_END_MUST_BE_FINITE"),
+        z: parseFinite(endZ, "GRID_END_MUST_BE_FINITE"),
       };
 
       if (start.x === end.x && start.y === end.y && start.z === end.z) {
@@ -103,7 +103,7 @@ function GridEditorRow({
       <div className="selectionText">End</div>
       <div className="inlineFields">
         <label>X<input type="number" value={endX} onChange={(event) => setEndX(event.target.value)} /></label>
-        <label>Y|input type="number" value={endY} onChange={(event) => setEndY(event.target.value)} /></label>
+        <label>Y<input type="number" value={endY} onChange={(event) => setEndY(event.target.value)} /></label>
         <label>Z<input type="number" value={endZ} onChange={(event) => setEndZ(event.target.value)} /></label>
       </div>
 
@@ -124,7 +124,7 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
   const [startZ, setStartZ] = useState("0");
   const [endX, setEndX] = useState("10");
   const [endY, setEndY] = useState("0");
-  const [endZs, setEndZs] = useState("0");
+  const [endZ, setEndZ] = useState("0");
 
   function addLevel() {
     try {
@@ -203,7 +203,7 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
       <div className="inlineFields">
         <label>X<input type="number" value={endX} onChange={(event) => setEndX(event.target.value)} /></label>
         <label>Y<input type="number" value={endY} onChange={(event) => setEndY(event.target.value)} /></label>
-        <label>Z<input type="number" value={endZ} onChange={(event) => setEndZ(event.target.value)} /></label>
+        <label>Z<input type="number" value={endV} onChange={(event) => setEndZ(event.target.value)} /></label>
       </div>
 
       <button onClick={addGrid}>Create Grid</button>
