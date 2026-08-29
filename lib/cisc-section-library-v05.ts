@@ -1,4 +1,10 @@
-import type { Material, Section, StructuralModel } from "@linkoteq/structural-core";
+import type {
+  Material,
+  Section,
+  SectionAnalysisProperties,
+  StructuralModel,
+  UnitValue,
+} from "@linkoteq/structural-core";
 
 export const APPROVED_CISC_DATASET_URL =
   process.env.NEXT_PUBLIC_CISC_DATASET_URL ??
@@ -36,7 +42,7 @@ function optionalNumber(record: CiscSectionRecord, key: string): number | undefi
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function unitValue(value: number, unit: string) {
+function unitValue(value: number, unit: string): UnitValue {
   return { value, unit };
 }
 
@@ -80,28 +86,26 @@ export function ciscRecordToCoreSection(record: CiscSectionRecord): Section {
   const inertiaUnit = record.units.inertia ?? "mm4";
   const sectionModulusUnit = record.units.section_modulus ?? "mm3";
 
-  const analysis: Section["analysis"] = {
+  const analysis: SectionAnalysisProperties = {
     A: unitValue(requiredNumber(record, "gross_area"), areaUnit),
     Iy: unitValue(requiredNumber(record, "moment_of_inertia_major"), inertiaUnit),
     Iz: unitValue(requiredNumber(record, "moment_of_inertia_minor"), inertiaUnit),
     J: unitValue(requiredNumber(record, "torsional_constant"), inertiaUnit),
   };
 
-  const optional: Array<[keyof Section["analysis"], string, string]> = [
-    ["Sy", "elastic_modulus_major", sectionModulusUnit],
-    ["Sz", "elastic_modulus_minor", sectionModulusUnit],
-    ["Zy", "plastic_modulus_major", sectionModulusUnit],
-    ["Zz", "plastic_modulus_minor", sectionModulusUnit],
-    ["ry", "radius_of_gyration_major", lengthUnit],
-    ["rz", "radius_of_gyration_minor", lengthUnit],
-  ];
+  const Sy = optionalNumber(record, "elastic_modulus_major");
+  const Sz = optionalNumber(record, "elastic_modulus_minor");
+  const Zy = optionalNumber(record, "plastic_modulus_major");
+  const Zz = optionalNumber(record, "plastic_modulus_minor");
+  const ry = optionalNumber(record, "radius_of_gyration_major");
+  const rz = optionalNumber(record, "radius_of_gyration_minor");
 
-  for (const [target, source, unit] of optional) {
-    const value = optionalNumber(record, source);
-    if (value !== undefined) {
-      (analysis as Record<string, unknown>)[target] = unitValue(value, unit);
-    }
-  }
+  if (Sy !== undefined) analysis.Sy = unitValue(Sy, sectionModulusUnit);
+  if (Sz !== undefined) analysis.Sz = unitValue(Sz, sectionModulusUnit);
+  if (Zy !== undefined) analysis.Zy = unitValue(Zy, sectionModulusUnit);
+  if (Zz !== undefined) analysis.Zz = unitValue(Zz, sectionModulusUnit);
+  if (ry !== undefined) analysis.ry = unitValue(ry, lengthUnit);
+  if (rz !== undefined) analysis.rz = unitValue(rz, lengthUnit);
 
   const geometry: NonNullable<Section["geometry"]> = {};
   const geometryMap: Array<[string, string]> = [
@@ -130,11 +134,17 @@ export function ciscRecordToCoreSection(record: CiscSectionRecord): Section {
       designationMetric: record.designation_metric ?? null,
       warpingConstant:
         optionalNumber(record, "warping_constant") !== undefined
-          ? unitValue(optionalNumber(record, "warping_constant")!, record.units.warping ?? "mm6")
+          ? unitValue(
+              optionalNumber(record, "warping_constant")!,
+              record.units.warping ?? "mm6",
+            )
           : undefined,
       massPerLength:
         optionalNumber(record, "mass_per_length") !== undefined
-          ? unitValue(optionalNumber(record, "mass_per_length")!, record.units.mass ?? "kg/m")
+          ? unitValue(
+              optionalNumber(record, "mass_per_length")!,
+              record.units.mass ?? "kg/m",
+            )
           : undefined,
     },
     libraryRef: {
@@ -197,8 +207,8 @@ export function createDefaultPortalFrame(record: CiscSectionRecord): StructuralM
     nodes: [
       { id: "N1", position: { x: 0, y: 0, z: 0 }, levelId: "LEVEL-BASE" },
       { id: "N2", position: { x: 0, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
-      { id: "N3", position: { x: 6, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
-      { id: "N4", position: { x: 6, y: 0, z: 0 }, levelId: "LEVEL-BASE" },
+       { id: "N3", position: { x: 6, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
+       { id: "N4", position: { x: 6, y: 0, z: 0 }, levelId: "LEVEL-BASE" },
     ],
     members: [
       {
