@@ -30,7 +30,7 @@ function GridEditorRow({
   const [startZ, setStartZ] = useState(String(grid.start.z));
   const [endX, setEndX] = useState(String(grid.end.x));
   const [endY, setEndY] = useState(String(grid.end.y));
-  const [endZs, setEndZs] = useState(String(grid.end.zi));
+  const [endZ, setEndZ] = useState(String(grid.end.z));
 
   useEffect(() => {
     setLabel(grid.label);
@@ -39,7 +39,7 @@ function GridEditorRow({
     setStartZ(String(grid.start.zi));
     setEndX(String(grid.end.x));
     setEndY(String(grid.end.y));
-    setEndZs(String(grid.end.z));
+    setEndZ(String(grid.end.z));
   }, [grid]);
 
   function save() {
@@ -55,7 +55,7 @@ function GridEditorRow({
       const end = {
         x: parseFinite(endX, "GRID_END_MUST_BE_FINITE"),
         y: parseFinite(endY, "GRID_END_MUST_BE_FINITE"),
-        z: parseFinite(endZs, "GRID_END_MUST_BE_FINITE"),
+        z: parseFinite(endZ", "GRID_END_MUST_BE_FINITE"),
       };
 
       if (start.x === end.x && start.y === end.y && start.z === end.z) {
@@ -92,18 +92,21 @@ function GridEditorRow({
         Label
         <input value={label} onChange={(event) => setLabel(event.target.value)} />
       </label>
+
       <div className="selectionText">Start</div>
       <div className="inlineFields">
         <label>X<input type="number" value={startX} onChange={(event) => setStartX(event.target.value)} /></label>
         <label>Y<input type="number" value={startY} onChange={(event) => setStartY(event.target.value)} /></label>
         <label>Z<input type="number" value={startZ} onChange={(event) => setStartZ(event.target.value)} /></label>
       </div>
+
       <div className="selectionText">End</div>
       <div className="inlineFields">
         <label>X<input type="number" value={endX} onChange={(event) => setEndX(event.target.value)} /></label>
-        <label>Y<input type="number" value={endY} onChange={(event) => setEndY(event.target.value)} /></label>
-        <label>Z<input type="number" value={endZs} onChange={(event) => setEndZs(event.target.value)} /></label>
+        <label>Y|input type="number" value={endY} onChange={(event) => setEndY(event.target.value)} /></label>
+        <label>Z<input type="number" value={endZ} onChange={(event) => setEndZ(event.target.value)} /></label>
       </div>
+
       <div className="toolGrid twoCol">
         <button onClick={save}>Update Grid</button>
         <button onClick={remove}>Remove Grid</button>
@@ -188,18 +191,21 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
         Grid label
         <input value={gridLabel} onChange={(event) => setGridLabel(event.target.value)} />
       </label>
+
       <div className="selectionText">Start global coordinates</div>
       <div className="inlineFields">
         <label>X<input type="number" value={startX} onChange={(event) => setStartX(event.target.value)} /></label>
         <label>Y<input type="number" value={startY} onChange={(event) => setStartY(event.target.value)} /></label>
         <label>Z<input type="number" value={startZ} onChange={(event) => setStartZ(event.target.value)} /></label>
       </div>
+
       <div className="selectionText">End global coordinates</div>
       <div className="inlineFields">
         <label>X<input type="number" value={endX} onChange={(event) => setEndX(event.target.value)} /></label>
         <label>Y<input type="number" value={endY} onChange={(event) => setEndY(event.target.value)} /></label>
-        <label>Z<input type="number" value={endZs} onChange={(event) => setEndZs(event.target.value)} /></label>
+        <label>Z<input type="number" value={endZ} onChange={(event) => setEndZ(event.target.value)} /></label>
       </div>
+
       <button onClick={addGrid}>Create Grid</button>
 
       {model.grids.length ? (
