@@ -2,9 +2,10 @@ import "./globals.css";
 import "./load-manager-fix.css";
 import "./overrides.css";
 import "./main-site-shell.css";
+import "./sap2000-shell.css";
 
 export const metadata = {
-  title: "LinkoTech 3D Structural Model",
+  title: "LinkoTeq 3D Structural Model",
   description: "Create, load, and prepare structural models for connected engineering analysis."
 };
 
