@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import type { GridLine, StructuralModel } from "@linkoteq/structural-core";
 import { createGridLine, createLevel } from "../lib/editor-modeling-v05";
 
@@ -32,17 +32,7 @@ function GridEditorRow({
   const [endY, setEndY] = useState(String(grid.end.y));
   const [endZ, setEndZ] = useState(String(grid.end.z));
 
-  useEffect(() => {
-    setLabel(grid.label);
-    setStartX(String(grid.start.x));
-    setStartY(String(grid.start.y));
-    setStartZ(String(grid.start.zi));
-    setEndX(String(grid.end.x));
-    setEndY(String(grid.end.y));
-    setEndZ(String(grid.end.z));
-  }, [grid]);
-
-  function save() {
+  function updateGrid() {
     try {
       const nextLabel = label.trim();
       if (!nextLabel) throw new Error("GRID_LABEL_REQUIRED");
@@ -72,14 +62,11 @@ function GridEditorRow({
         `Canonical Core v0.5 grid ${grid.id} updated.`,
       );
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Grid update failed.",
-      );
+      onModelChange(model, error instanceof Error ? error.message : "Grid update failed.");
     }
   }
 
-  function remove() {
+  function removeGrid() {
     onModelChange(
       { ...model, grids: model.grids.filter((item) => item.id !== grid.id) },
       `Canonical Core v0.5 grid ${grid.id} removed.`,
@@ -108,8 +95,8 @@ function GridEditorRow({
       </div>
 
       <div className="toolGrid twoCol">
-        <button onClick={save}>Update Grid</button>
-        <button onClick={remove}>Remove Grid</button>
+        <button type="button" onClick={updateGrid}>Update Grid</button>
+        <button type="button" onClick={removeGrid}>Remove Grid</button>
       </div>
     </div>
   );
@@ -126,22 +113,18 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
   const [endY, setEndY] = useState("0");
   const [endZ, setEndZ] = useState("0");
 
+  const gridCount = useMemo(() => model.grids.length, [model.grids.length]);
+
   function addLevel() {
     try {
       const result = createLevel(model, {
         name: levelName,
         elevation: parseFinite(elevation, "LEVEL_ELEVATION_MUST_BE_FINITE"),
       });
-      onModelChange(
-        result.model,
-        `Canonical Core v0.5 level ${result.level.id} created.`,
-      );
+      onModelChange(result.model, `Canonical Core v0.5 level ${result.level.id} created.`);
       setLevelName("");
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Level creation failed.",
-      );
+      onModelChange(model, error instanceof Error ? error.message : "Level creation failed.");
     }
   }
 
@@ -160,17 +143,11 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
           z: parseFinite(endZ, "GRID_END_MUST_BE_FINITE"),
         },
       });
-      onModelChange(
-        result.model,
-        `Canonical Core v0.5 grid ${result.grid.id} created.`,
-     );
+      onModelChange(result.model, `Canonical Core v0.5 grid ${result.grid.id} created.`);
       setGridLabel("");
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Grid creation failed.",
-      );
-   }
+      onModelChange(model, error instanceof Error ? error.message : "Grid creation failed.");
+    }
   }
 
   return (
@@ -185,7 +162,7 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
         Elevation
         <input type="number" value={elevation} onChange={(event) => setElevation(event.target.value)} />
       </label>
-      <button onClick={addLevel}>Create Level</button>
+      <button type="button" onClick={addLevel}>Create Level</button>
 
       <label>
         Grid label
@@ -203,14 +180,14 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
       <div className="inlineFields">
         <label>X<input type="number" value={endX} onChange={(event) => setEndX(event.target.value)} /></label>
         <label>Y<input type="number" value={endY} onChange={(event) => setEndY(event.target.value)} /></label>
-        <label>Z<input type="number" value={endV} onChange={(event) => setEndZ(event.target.value)} /></label>
+        <label>Z<input type="number" value={endZ} onChange={(event) => setEndZ(event.target.value)} /></label>
       </div>
 
-      <button onClick={addGrid}>Create Grid</button>
+      <button type="button" onClick={addGrid}>Create Grid</button>
 
-      {model.grids.length ? (
+      {gridCount > 0 ? (
         <details className="gridEditorDetails">
-          <summary>Edit Existing Grids ({model.grids.length})</summary>
+          <summary>Edit Existing Grids ({gridCount})</summary>
           {model.grids.map((grid) => (
             <GridEditorRow
               key={grid.id}
@@ -223,7 +200,7 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
       ) : null}
 
       <p className="selectionText">
-        Level elevations and grid endpoints are stored as canonical Core v0.5 global geometry.
+        Level elevations and grid endpoints remain canonical Core v0.5 global geometry.
       </p>
     </section>
   );
