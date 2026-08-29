@@ -1,0 +1,323 @@
+:root {
+  --sap-bg: #ececec;
+  --sap-panel: #f7f7f7;
+  --sap-panel-strong: #ffffff;
+  --sap-line: #b8bec6;
+  --sap-line-soft: #d4d8dd;
+  --sap-text: #1f2933;
+  --sap-muted: #5d6670;
+  --sap-select: #dbeeff;
+  --sap-blue: #2673b8;
+}
+
+.sapDesktopShell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--sap-bg);
+}
+
+.sapDesktopShell .appShell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--sap-bg);
+  color: var(--sap-text);
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+.sapDesktopShell .topbar {
+  min-height: 31px;
+  height: 31px;
+  padding: 2px 6px;
+  gap: 6px;
+  background: linear-gradient(#fbfbfb, #e9e9e9);
+  border-bottom: 1px solid var(--sap-line);
+  box-shadow: none;
+}
+
+.sapDesktopShell .topbar strong {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.sapDesktopShell .topActions {
+  gap: 2px;
+}
+
+.sapDesktopShell .topbar button,
+.sapDesktopShell .importbar button,
+.sapDesktopShell .toolbar button,
+.sapDesktopShell .viewControls button {
+  min-height: 22px;
+  border: 1px solid var(--sap-line);
+  border-radius: 1px;
+  padding: 2px 7px;
+  background: linear-gradient(#ffffff, #e7e7e7);
+  color: var(--sap-text);
+  box-shadow: none;
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.sapDesktopShell .topbar button:hover,
+.sapDesktopShell .importbar button:hover,
+.sapDesktopShell .toolbar button:hover,
+.sapDesktopShell .viewControls button:hover {
+  background: var(--sap-select);
+  border-color: #7ca9cf;
+}
+
+.sapDesktopShell .topbar button:active,
+.sapDesktopShell .toolbar button.active {
+  background: #c8e4fa;
+  border-color: #4f8fc4;
+}
+
+.sapDesktopShell .importbar {
+  min-height: 24px;
+  height: 24px;
+  padding: 2px 6px;
+  gap: 10px;
+  background: #f4f4f4;
+  border-bottom: 1px solid var(--sap-line);
+  overflow: hidden;
+}
+
+.sapDesktopShell .importbar span {
+  font-size: 9px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sapDesktopShell .statusText {
+  margin-left: auto;
+  min-width: 0;
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--sap-muted);
+  text-align: right;
+}
+
+.sapDesktopShell .workspace {
+  min-height: 0;
+  grid-template-columns: 176px minmax(0, 1fr);
+  background: var(--sap-bg);
+}
+
+.sapDesktopShell .toolbar {
+  padding: 3px;
+  gap: 3px;
+  background: #ededed;
+  border-right: 1px solid var(--sap-line);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.sapDesktopShell .panelBlock {
+  padding: 4px;
+  gap: 3px;
+  border: 1px solid var(--sap-line-soft);
+  border-radius: 1px;
+  background: var(--sap-panel);
+  box-shadow: none;
+}
+
+.sapDesktopShell .panelBlock h3 {
+  margin: -4px -4px 3px;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--sap-line-soft);
+  background: #e7e7e7;
+  color: #37404a;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.sapDesktopShell .panelBlock input,
+.sapDesktopShell .panelBlock select,
+.sapDesktopShell .sectionSelect {
+  min-height: 22px;
+  border: 1px solid var(--sap-line);
+  border-radius: 1px;
+  padding: 2px 4px;
+  background: var(--sap-panel-strong);
+  color: var(--sap-text);
+  font-size: 9px;
+}
+
+.sapDesktopShell .toolGrid {
+  gap: 2px;
+}
+
+.sapDesktopShell .toolGrid button {
+  padding: 3px 4px;
+  font-size: 9px;
+  text-align: left;
+}
+
+.sapDesktopShell .inlineFields,
+.sapDesktopShell .fieldWithUnit {
+  gap: 2px;
+}
+
+.sapDesktopShell .fieldWithUnit span {
+  font-size: 8px;
+}
+
+.sapDesktopShell .selectionText {
+  padding: 3px 4px;
+  border-radius: 1px;
+  background: #f1f1f1;
+  color: #4b5560;
+  font-size: 9px;
+}
+
+.sapDesktopShell .viewport {
+  min-width: 0;
+  min-height: 0;
+  background: #ffffff;
+  border: 0;
+}
+
+.sapDesktopShell .viewport canvas {
+  background: #ffffff;
+}
+
+.sapDesktopShell .viewControls {
+  top: 4px;
+  right: 4px;
+  padding: 2px 5px;
+  border: 1px solid var(--sap-line);
+  border-radius: 1px;
+  background: rgba(246, 246, 246, 0.94);
+  color: var(--sap-muted);
+  font-size: 9px;
+  box-shadow: none;
+}
+
+.sapDesktopShell .inspector {
+  display: none;
+}
+
+.sapDesktopShell .loadManagerLauncherGroup {
+  top: 58px;
+  right: 6px;
+  gap: 2px;
+  max-width: 360px;
+}
+
+.sapDesktopShell .loadManagerLauncherGroup button,
+.sapDesktopShell .loadManagerLauncher {
+  min-height: 24px;
+  border: 1px solid #7e8791;
+  border-radius: 1px;
+  padding: 3px 7px;
+  background: linear-gradient(#ffffff, #e7e7e7);
+  color: #26323d;
+  box-shadow: none;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.sapDesktopShell .loadManagerDrawer,
+.sapDesktopShell .propertiesDrawer {
+  border-radius: 0;
+}
+
+.sapDesktopShell .loadManagerDrawerHeader,
+.sapDesktopShell .propertiesHeader {
+  min-height: 34px;
+  padding: 4px 6px;
+  background: #ededed;
+  border-bottom: 1px solid var(--sap-line);
+}
+
+.sapDesktopShell .loadManagerModeTabs {
+  gap: 1px;
+  padding: 3px 5px;
+  background: #efefef;
+}
+
+.sapDesktopShell .loadManagerModeTabs button {
+  border-radius: 1px;
+  padding: 4px 3px;
+  font-size: 9px;
+}
+
+.sapDesktopShell .contextMenu {
+  width: 178px;
+  padding: 2px;
+  border: 1px solid #8b9299;
+  border-radius: 1px;
+  background: #f7f7f7;
+  box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.18);
+}
+
+.sapDesktopShell .contextMenu button {
+  border-radius: 0;
+  padding: 5px 7px;
+  font-size: 10px;
+}
+
+.sapDesktopShell .contextMenu button:hover {
+  background: var(--sap-select);
+}
+
+@media (max-width: 760px) {
+  .sapDesktopShell .topbar {
+    height: 30px;
+    min-height: 30px;
+    grid-template-columns: minmax(86px, 110px) minmax(0, 1fr);
+  }
+
+  .sapDesktopShell .topbar strong {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 9px;
+  }
+
+  .sapDesktopShell .importbar {
+    height: 22px;
+    min-height: 22px;
+  }
+
+  .sapDesktopShell .statusText {
+    display: none;
+  }
+
+  .sapDesktopShell .workspace {
+    display: block;
+    position: relative;
+  }
+
+  .sapDesktopShell .viewport {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .sapDesktopShell .toolbar {
+    position: absolute;
+    z-index: 12;
+    top: 4px;
+    left: 4px;
+    width: 128px;
+    max-height: calc(100% - 44px);
+    padding: 3px;
+    border: 1px solid rgba(139, 146, 153, 0.92);
+    background: rgba(240, 240, 240, 0.92);
+    backdrop-filter: blur(5px);
+    box-shadow: 2px 3px 10px rgba(0, 0, 0, 0.14);
+  }
+
+  .sapDesktopShell .loadManagerLauncherGroup {
+    top: 56px;
+    right: 4px;
+  }
+}
