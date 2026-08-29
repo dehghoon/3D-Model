@@ -36,15 +36,42 @@ const tabs: Array<{ id: RibbonTabId; label: string }> = [
   { id: "utilities", label: "Utilities" },
 ];
 
-function clickExistingButton(containerSelector: string, label: string) {
-  const buttons = Array.from(
+function findButton(containerSelector: string, label: string) {
+  return Array.from(
     document.querySelectorAll<HTMLButtonElement>(`${containerSelector} button`),
-  );
-  buttons.find((button) => button.textContent?.trim() === label)?.click();
+  ).find((button) => button.textContent?.trim() === label);
+}
+
+function clickExistingButton(containerSelector: string, label: string) {
+  const button = findButton(containerSelector, label);
+  if (!button || button.disabled) return false;
+  button.click();
+  return true;
 }
 
 function clickFirst(selector: string) {
-  document.querySelector<HTMLElement>(selector)?.click();
+  const element = document.querySelector<HTMLElement>(selector);
+  if (!element) return false;
+  element.click();
+  return true;
+}
+
+function revealToolbarPanel(title: string) {
+  const headings = Array.from(
+    document.querySelectorAll<HTMLElement>(".engineeringEditorStage .toolbar h3"),
+  );
+  const heading = headings.find((item) => item.textContent?.trim() === title);
+  const panel = heading?.closest<HTMLElement>(".panelBlock, section");
+  if (!panel) return false;
+
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+  const input = panel.querySelector<HTMLInputElement | HTMLSelectElement>("input, select");
+  window.setTimeout(() => input?.focus(), 120);
+  return true;
+}
+
+function activateModelTool(label: "Select" | "Beam" | "Column" | "Brace" | "Wall" | "Slab") {
+  return clickExistingButton(".engineeringEditorStage .toolbar", label);
 }
 
 export default function StructuralEditor() {
@@ -63,20 +90,22 @@ export default function StructuralEditor() {
     ],
     geometry: [
       {
-        title: "Model Geometry",
+        title: "Create",
         items: [
-          { id: "model-tools", label: "Model Tools" },
-          { id: "node", label: "Node" },
-          { id: "member", label: "Member" },
-          { id: "surface", label: "Surface" },
-          { id: "support", label: "Support" },
+          { id: "node", label: "Node", action: () => revealToolbarPanel("Create Node") },
+          { id: "beam", label: "Beam", action: () => activateModelTool("Beam") },
+          { id: "column", label: "Column", action: () => activateModelTool("Column") },
+          { id: "brace", label: "Brace", action: () => activateModelTool("Brace") },
+          { id: "wall", label: "Wall", action: () => activateModelTool("Wall") },
+          { id: "slab", label: "Slab", action: () => activateModelTool("Slab") },
         ],
       },
       {
-        title: "Editing",
+        title: "Model Setup",
         items: [
-          { id: "levels", label: "Levels" },
-          { id: "grids", label: "Grids" },
+          { id: "levels", label: "Levels", action: () => revealToolbarPanel("Levels / Grids") },
+          { id: "grids", label: "Grids", action: () => revealToolbarPanel("Levels / Grids") },
+          { id: "sections", label: "CISC Sections", action: () => revealToolbarPanel("CISC W Sections") },
         ],
       },
     ],
@@ -84,16 +113,9 @@ export default function StructuralEditor() {
       {
         title: "Navigation",
         items: [
-          { id: "orbit", label: "Orbit" },
-          { id: "pan", label: "Pan" },
-          { id: "zoom", label: "Zoom" },
-        ],
-      },
-      {
-        title: "Display",
-        items: [
-          { id: "model-view", label: "3D View" },
-          { id: "fit-view", label: "Fit View", disabled: true },
+          { id: "orbit", label: "Orbit", disabled: true },
+          { id: "pan", label: "Pan", disabled: true },
+          { id: "zoom", label: "Zoom", disabled: true },
         ],
       },
     ],
@@ -101,10 +123,12 @@ export default function StructuralEditor() {
       {
         title: "Selection",
         items: [
-          { id: "node-selection", label: "Nodes" },
-          { id: "member-selection", label: "Members" },
-          { id: "surface-selection", label: "Surfaces" },
-          { id: "clear-selection", label: "Clear Selection", action: () => clickExistingButton(".toolbar", "Clear selection") },
+          { id: "select-tool", label: "Select", action: () => activateModelTool("Select") },
+          {
+            id: "clear-selection",
+            label: "Clear Selection",
+            action: () => clickExistingButton(".engineeringEditorStage .toolbar", "Clear selection"),
+          },
         ],
       },
     ],
@@ -112,17 +136,15 @@ export default function StructuralEditor() {
       {
         title: "Definitions",
         items: [
-          { id: "materials", label: "Materials", disabled: true },
-          { id: "sections", label: "Sections", disabled: true },
-          { id: "levels-spec", label: "Levels" },
-          { id: "grids-spec", label: "Grids" },
+          { id: "sections", label: "CISC Sections", action: () => revealToolbarPanel("CISC W Sections") },
+          { id: "levels-spec", label: "Levels", action: () => revealToolbarPanel("Levels / Grids") },
+          { id: "grids-spec", label: "Grids", action: () => revealToolbarPanel("Levels / Grids") },
         ],
       },
       {
         title: "Assignments",
         items: [
-          { id: "supports-spec", label: "Supports" },
-          { id: "releases", label: "Releases", disabled: true },
+          { id: "supports", label: "Supports", action: () => revealToolbarPanel("Support") },
         ],
       },
     ],
@@ -150,8 +172,7 @@ export default function StructuralEditor() {
         title: "Analysis",
         items: [
           { id: "analysis-run", label: "Run Analysis", disabled: true },
-          { id: "analysis-cases", label: "Analysis Cases", disabled: true },
-          { id: "results", label: "Results", disabled: true },
+          { id: "analysis-results", label: "Results", disabled: true },
         ],
       },
       {
@@ -167,8 +188,7 @@ export default function StructuralEditor() {
         title: "Utilities",
         items: [
           { id: "export-json", label: "Export JSON", action: () => clickExistingButton(".topActions", "Save") },
-          { id: "loads-utility", label: "Loads", action: () => clickFirst(".loadManagerLauncher") },
-          { id: "model-json", label: "Model JSON", disabled: true },
+          { id: "loads", label: "Loads", action: () => clickFirst(".loadManagerLauncher") },
         ],
       },
     ],
@@ -192,7 +212,7 @@ export default function StructuralEditor() {
             >
               {tab.label}
             </button>
-          ))}
+           ))}
         </nav>
 
         <div className="ribbonPanel" role="region" aria-label={`${activeTab} commands`}>
@@ -217,7 +237,7 @@ export default function StructuralEditor() {
                     </span>
                     <span>{item.label}</span>
                   </button>
-                ))}
+                 ))}
               </div>
               <div className="ribbonGroupTitle">{group.title}</div>
             </section>
