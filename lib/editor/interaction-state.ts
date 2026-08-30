@@ -31,16 +31,17 @@ export function createInitialInteractionState(): EditorInteractionState {
 export function setActiveTool(
   state: EditorInteractionState,
   activeTool: EditorTool,
-):- EditorInteractionState {
+): EditorInteractionState {
   return {
     ...state,
     activeTool,
     hovered: null,
-    pickedEntityIds: activeTool === state.activeTool ? state.pickedEntityIds : [],
+    pickedEntityIds:
+      activeTool === state.activeTool ? state.pickedEntityIds : [],
   };
 }
 
-export function setSelection((
+export function setSelection(
   state: EditorInteractionState,
   selection: EditorSelection,
 ): EditorInteractionState {
@@ -57,7 +58,7 @@ export function setHovered(
 export function addPickedEntityId(
   state: EditorInteractionState,
   id: string,
-):- EditorInteractionState {
+): EditorInteractionState {
   const normalizedId = id.trim();
   if (!normalizedId) {
     throw new Error("Picked entity id is required.");
