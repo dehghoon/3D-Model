@@ -1,0 +1,179 @@
+.architectWorkspaceFrame{
+  flex:1;
+  min-height:0;
+  display:grid;
+  grid-template-columns:220px minmax(0,1fr);
+  gap:10px;
+  padding:10px 12px 12px;
+  background:var(--ae-bg);
+}
+.mode-advanced .architectWorkspaceFrame{grid-template-columns:minmax(0,1fr)}
+.architectQuickPanel{
+  min-width:0;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:16px;
+  border:1px solid var(--ae-border);
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 6px 22px rgba(31,43,56,.06);
+  overflow:auto;
+}
+.architectPanelHeading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.architectPanelHeading h2{margin:2px 0 0;font-size:15px;line-height:1.1}
+.architectEyebrow{font-size:8px;font-weight:800;letter-spacing:.12em;color:#8993a0}
+.architectPanelBadge{padding:4px 7px;border-radius:999px;background:#eef4fb;color:#315db9;font-size:8px;font-weight:800}
+.architectQuickActions{display:grid;gap:7px}
+.architectQuickActions button{
+  width:100%;
+  display:grid;
+  grid-template-columns:32px minmax(0,1fr);
+  align-items:center;
+  gap:9px;
+  padding:8px;
+  text-align:left;
+  border:1px solid #e4e9f0;
+  border-radius:11px;
+  background:#f9fbfd;
+  color:#263445;
+}
+.architectQuickActions button.active{border-color:#b9ccff;background:#edf3ff;color:#214fae}
+.architectQuickActions button:disabled{opacity:.46;cursor:not-allowed}
+.architectQuickIcon{
+  width:32px;
+  height:32px;
+  border-radius:9px;
+  display:grid;
+  place-items:center;
+  background:#fff;
+  border:1px solid #dfe6ee;
+  font-size:9px;
+  font-weight:900;
+}
+.architectQuickActions strong{display:block;font-size:11px}
+.architectQuickActions small{display:block;margin-top:2px;font-size:8px;color:#798493}
+.architectViewportColumn{min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) 38px}
+.architectViewportStage{position:relative;min-width:0;min-height:0}
+.architectViewportStage .engineeringEditorStage{height:100%;padding:0}
+.mode-simple .engineeringEditorStage>.appShell{height:100%;border-radius:16px 16px 0 0}
+.mode-simple .engineeringEditorStage .workspace{grid-template-columns:minmax(0,1fr) 300px!important}
+.mode-simple .engineeringEditorStage .toolbar{display:none!important}
+.mode-simple .engineeringEditorStage .viewport{grid-column:1!important}
+.mode-simple .engineeringEditorStage .inspector{
+  display:block!important;
+  grid-column:2!important;
+  overflow:auto!important;
+  padding:14px!important;
+  background:#fbfcfe!important;
+  border-left:1px solid var(--ae-border)!important;
+}
+.mode-simple .engineeringEditorStage .inspector:before{
+  content:"Properties";
+  display:block;
+  margin-bottom:12px;
+  font-size:16px;
+  font-weight:800;
+  color:#253244;
+}
+.mode-simple .engineeringEditorStage .inspector .selectionText{
+  padding:12px!important;
+  border:1px solid #e2e8f0!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  font-size:11px!important;
+}
+.mode-simple .engineeringEditorStage .inspector details{display:none}
+.architectFloatingTools{
+  position:absolute;
+  z-index:35;
+  left:18px;
+  top:18px;
+  width:116px;
+  display:grid;
+  gap:6px;
+  padding:9px;
+  border:1px solid rgba(218,225,234,.95);
+  border-radius:14px;
+  background:rgba(255,255,255,.94);
+  backdrop-filter:blur(10px);
+  box-shadow:0 8px 24px rgba(31,43,56,.10);
+}
+.architectFloatingTools button{
+  min-height:36px;
+  display:grid;
+  grid-template-columns:26px minmax(0,1fr);
+  align-items:center;
+  gap:7px;
+  padding:5px 7px;
+  border:1px solid #e3e8ef;
+  border-radius:10px;
+  background:#f9fbfd;
+  color:#344254;
+  font-size:10px;
+  font-weight:700;
+  text-align:left;
+}
+.architectFloatingTools button.active{border-color:#b9ccff;background:#edf3ff;color:#214fae}
+.architectFloatingTools button:disabled{opacity:.42;cursor:not-allowed}
+.architectFloatingIcon{
+  width:26px;height:26px;display:grid;place-items:center;border:1px solid #dde5ee;
+  border-radius:7px;background:#fff;font-size:8px;font-weight:900
+}
+.architectStatusbar{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+  padding:0 14px;
+  border:1px solid var(--ae-border);
+  border-top:0;
+  border-radius:0 0 14px 14px;
+  background:#f8fafc;
+  color:#687585;
+  font-size:10px;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.architectStatusbar span{overflow:hidden;text-overflow:ellipsis}
+.architectStatusbar strong{color:#344254}
+.architectStatusDivider{color:#c2cad4}
+.architectTopActions button:disabled{opacity:.55;cursor:not-allowed}
+
+@media(max-width:1100px){
+  .architectWorkspaceFrame{grid-template-columns:190px minmax(0,1fr)}
+  .mode-simple .engineeringEditorStage .workspace{grid-template-columns:minmax(0,1fr) 250px!important}
+}
+@media(max-width:760px){
+  .architectWorkspaceFrame{position:relative;display:block;padding:5px}
+  .architectQuickPanel{
+    position:absolute;
+    z-index:44;
+    left:10px;
+    top:10px;
+    width:132px;
+    max-height:calc(100% - 20px);
+    padding:8px;
+    gap:7px;
+    border-radius:12px;
+    background:rgba(255,255,255,.95);
+    backdrop-filter:blur(10px);
+  }
+  .architectPanelHeading h2{font-size:11px}
+  .architectPanelBadge{display:none}
+  .architectQuickActions{grid-template-columns:1fr 1fr;gap:4px}
+  .architectQuickActions button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px;text-align:center}
+  .architectQuickIcon{width:26px;height:26px;border-radius:7px;font-size:7px}
+  .architectQuickActions strong{font-size:8px}
+  .architectQuickActions small{display:none}
+  .architectViewportColumn{height:100%;grid-template-rows:minmax(0,1fr) 32px}
+  .mode-simple .engineeringEditorStage .workspace{display:block!important;position:relative!important;height:100%!important}
+  .mode-simple .engineeringEditorStage .viewport{position:absolute!important;inset:0!important;width:100%!important;height:100%!important}
+  .mode-simple .engineeringEditorStage .inspector{display:none!important}
+  .architectFloatingTools{left:auto;right:8px;top:8px;width:88px;padding:6px;gap:4px;border-radius:11px}
+  .architectFloatingTools button{min-height:30px;grid-template-columns:22px minmax(0,1fr);gap:5px;padding:4px 5px;font-size:8px}
+  .architectFloatingIcon{width:22px;height:22px;font-size:6px}
+  .architectStatusbar{gap:6px;padding:0 8px;font-size:8px}
+  .architectStatusbar span:nth-of-type(n+3){display:none}
+}
