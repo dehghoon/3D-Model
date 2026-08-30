@@ -1,285 +1,168 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type {
-  GridLine,
-  Level,
-  StructuralModel,
-} from "@linkoteq/structural-core";
-import {
-  createGridLine,
-  deleteGridLine,
-  updateGridLine,
-} from "../lib/modeling/grid-service";
-import {
-  createLevel,
-  deleteLevel,
-  updateLevel,
-} from "../lib/modeling/level-service";
+import { useState } from "react";
+import type { GridLine, Level, StructuralModel } from "@linkoteq/structural-core";
+import { createGridLine, deleteGridLine, updateGridLine } from "../lib/modeling/grid-service";
+import { createLevel, deleteLevel, updateLevel } from "../lib/modeling/level-service";
 
 interface Props {
   model: StructuralModel;
   onModelChange: (model: StructuralModel, status: string) => void;
 }
 
-function parseFinite(value: string, code: string): number {
+type Tab = "grid" | "levels";
+
+function finite(value: string, code: string) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) throw new Error(code);
   return parsed;
 }
 
-function LevelEditorRow({
-  level,
-  model,
-  onModelChange,
+function reportError(model: StructuralModel, onModelChange: Props["onModelChange"], error: unknown, fallback: string) {
+  onModelChange(model, error instanceof Error ? error.message : fallback);
+}
+
+function closePanel() {
+  document.querySelector(".architect-revealed-panel")?.classList.remove("architect-revealed-panel");
+}
+
+function CoordFields({
+  title, x, y, z, setX, setY, setZ,
 }: {
-  level: Level;
-  model: StructuralModel;
-  onModelChange: Props["onModelChange"];
+  title: string;
+  x: string; y: string; z: string;
+  setX: (value: string) => void;
+  setY: (value: string) => void;
+  setZ: (value: string) => void;
 }) {
+  return (
+    <div className="lgCoords">
+      <span>{title}</span>
+      <div>
+        {[
+          ["X", x, setX],
+          ["Y", y, setY],
+          ["Z", z, setZ],
+        ].map(([label, value, setter]) => (
+          <label key={label as string}>
+            <span>{label as string}</span>
+            <input
+              type="number"
+              value={value as string}
+              onChange={(event) => (setter as (value: string) => void)(event.target.value)}
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LevelRow({ level, model, onModelChange }: { level: Level; model: StructuralModel; onModelChange: Props["onModelChange"] }) {
   const [name, setName] = useState(level.name);
   const [elevation, setElevation] = useState(String(level.elevation));
 
-  function updateExistingLevel() {
+  function save() {
     try {
       const result = updateLevel(model, level.id, {
         name,
-        elevation: parseFinite(
-          elevation,
-          "LEVEL_ELEVATION_MUST_BE_FINITE",
-        ),
+        elevation: finite(elevation, "LEVEL_ELEVATION_MUST_BE_FINITE"),
       });
-      onModelChange(
-        result.model,
-        `Canonical Core v0.5 level ${result.level.id} updated.`,
-      );
+      onModelChange(result.model, `Level ${result.level.id} updated.`);
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Level update failed.",
-      );
+      reportError(model, onModelChange, error, "Level update failed.");
     }
   }
 
-  function removeLevel() {
+  function remove() {
     try {
-      const nextModel = deleteLevel(model, level.id);
-      onModelChange(
-        nextModel,
-        `Canonical Core v0.5 level ${level.id} removed.`,
-      );
+      onModelChange(deleteLevel(model, level.id), `Level ${level.id} removed.`);
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Level removal failed.",
-      );
+      reportError(model, onModelChange, error, "Level removal failed.");
     }
   }
 
   return (
-    <div className="gridEditRow">
-      <label>
-        Name
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </label>
-
-      <label>
-        Elevation
-        <input
-          type="number"
-          value={elevation}
-          onChange={(event) => setElevation(event.target.value)}
-        />
-      </label>
-
-      <div className="toolGrid twoCol">
-        <button type="button" onClick={updateExistingLevel}>
-          Update Level
-        </button>
-        <button type="button" onClick={removeLevel}>
-          Remove Level
-        </button>
+    <article className="lgItem">
+      <div className="lgItemHead">
+        <div><strong>{level.name}</strong><small>{level.id}</small></div>
+        <span>{level.elevation}</span>
       </div>
-    </div>
+      <div className="lgTwo">
+        <label><span>Name</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <label><span>Elevation</span><input type="number" value={elevation} onChange={(e) => setElevation(e.target.value)} /></label>
+      </div>
+      <div className="lgActions">
+        <button type="button" onClick={save}>Update</button>
+        <button type="button" className="danger" onClick={remove}>Delete</button>
+      </div>
+    </article>
   );
 }
 
-function GridEditorRow({
-  grid,
-  model,
-  onModelChange,
-}: {
-  grid: GridLine;
-  model: StructuralModel;
-  onModelChange: Props["onModelChange"];
-}) {
+function GridRow({ grid, model, onModelChange }: { grid: GridLine; model: StructuralModel; onModelChange: Props["onModelChange"] }) {
   const [label, setLabel] = useState(grid.label);
-  const [startX, setStartX] = useState(String(grid.start.x));
-  const [startY, setStartY] = useState(String(grid.start.y));
-  const [startZ, setStartZ] = useState(String(grid.start.z));
-  const [endX, setEndX] = useState(String(grid.end.x));
-  const [endY, setEndY] = useState(String(grid.end.y));
-  const [endZ, setEndZ] = useState(String(grid.end.z));
+  const [sx, setSx] = useState(String(grid.start.x));
+  const [sy, setSy] = useState(String(grid.start.y));
+  const [sz, setSz] = useState(String(grid.start.z));
+  const [ex, setEx] = useState(String(grid.end.x));
+  const [ey, setEy] = useState(String(grid.end.y));
+  const [ez, setEz] = useState(String(grid.end.z));
 
-  function updateGrid() {
+  function save() {
     try {
       const result = updateGridLine(model, grid.id, {
         label,
-        start: {
-          x: parseFinite(startX, "GRID_START_MUST_BE_FINITE"),
-          y: parseFinite(startY, "GRID_START_MUST_BE_FINITE"),
-          z: parseFinite(startZ, "GRID_START_MUST_BE_FINITE"),
-        },
-        end: {
-          x: parseFinite(endX, "GRID_END_MUST_BE_FINITE"),
-          y: parseFinite(endY, "GRID_END_MUST_BE_FINITE"),
-          z: parseFinite(endZ, "GRID_END_MUST_BE_FINITE"),
-        },
+        start: { x: finite(sx, "GRID_START_MUST_BE_FINITE"), y: finite(sy, "GRID_START_MUST_BE_FINITE"), z: finite(sz, "GRID_START_MUST_BE_FINITE") },
+        end: { x: finite(ex, "GRID_END_MUST_BE_FINITE"), y: finite(ey, "GRID_END_MUST_BE_FINITE"), z: finite(ez, "GRID_END_MUST_BE_FINITE") },
       });
-      onModelChange(
-        result.model,
-        `Canonical Core v0.5 grid ${result.grid.id} updated.`,
-      );
+      onModelChange(result.model, `Grid ${result.grid.id} updated.`);
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Grid update failed.",
-      );
+      reportError(model, onModelChange, error, "Grid update failed.");
     }
   }
 
-  function removeGrid() {
+  function remove() {
     try {
-      const nextModel = deleteGridLine(model, grid.id);
-      onModelChange(
-        nextModel,
-        `Canonical Core v0.5 grid ${grid.id} removed.`,
-      );
+      onModelChange(deleteGridLine(model, grid.id), `Grid ${grid.id} removed.`);
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Grid removal failed.",
-      );
+      reportError(model, onModelChange, error, "Grid removal failed.");
     }
   }
 
   return (
-    <div className="gridEditRow">
-      <label>
-        Label
-        <input
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
-        />
-      </label>
-
-      <div className="selectionText">Start</div>
-      <div className="inlineFields">
-        <label>
-          X
-          <input
-            type="number"
-            value={startX}
-            onChange={(event) => setStartX(event.target.value)}
-          />
-        </label>
-        <label>
-          Y
-          <input
-            type="number"
-            value={startY}
-            onChange={(event) => setStartY(event.target.value)}
-          />
-        </label>
-        <label>
-          Z
-          <input
-            type="number"
-            value={startZ}
-            onChange={(event) => setStartZ(event.target.value)}
-          />
-        </label>
+    <article className="lgItem">
+      <div className="lgItemHead"><div><strong>{grid.label}</strong><small>{grid.id}</small></div><span>Grid line</span></div>
+      <label><span>Label</span><input value={label} onChange={(e) => setLabel(e.target.value)} /></label>
+      <CoordFields title="Start" x={sx} y={sy} z={sz} setX={setSx} setY={setSy} setZ={setSz} />
+      <CoordFields title="End" x={ex} y={ey} z={ez} setX={setEx} setY={setEy} setZ={setEz} />
+      <div className="lgActions">
+        <button type="button" onClick={save}>Update</button>
+        <button type="button" className="danger" onClick={remove}>Delete</button>
       </div>
-
-      <div className="selectionText">End</div>
-      <div className="inlineFields">
-        <label>
-          X
-          <input
-            type="number"
-            value={endX}
-            onChange={(event) => setEndX(event.target.value)}
-          />
-        </label>
-        <label>
-          Y
-          <input
-            type="number"
-            value={endY}
-            onChange={(event) => setEndY(event.target.value)}
-          />
-        </label>
-        <label>
-          Z
-          <input
-            type="number"
-            value={endZ}
-            onChange={(event) => setEndZ(event.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="toolGrid twoCol">
-        <button type="button" onClick={updateGrid}>
-          Update Grid
-        </button>
-        <button type="button" onClick={removeGrid}>
-          Remove Grid
-        </button>
-      </div>
-    </div>
+    </article>
   );
 }
 
-export default function LevelGridEditorV05({
-  model,
-  onModelChange,
-}: Props) {
+export default function LevelGridEditorV05({ model, onModelChange }: Props) {
+  const [tab, setTab] = useState<Tab>("grid");
   const [levelName, setLevelName] = useState("");
   const [elevation, setElevation] = useState("0");
   const [gridLabel, setGridLabel] = useState("");
-  const [startX, setStartX] = useState("0");
-  const [startY, setStartY] = useState("0");
-  const [startZ, setStartZ] = useState("0");
-  const [endX, setEndX] = useState("10");
-  const [endY, setEndY] = useState("0");
-  const [endZ, setEndZ] = useState("0");
-
-  const levelCount = useMemo(() => model.levels.length, [model.levels.length]);
-  const gridCount = useMemo(() => model.grids.length, [model.grids.length]);
+  const [sx, setSx] = useState("0");
+  const [sy, setSy] = useState("0");
+  const [sz, setSz] = useState("0");
+  const [ex, setEx] = useState("10");
+  const [ey, setEy] = useState("0");
+  const [ez, setEz] = useState("0");
 
   function addLevel() {
     try {
-      const result = createLevel(model, {
-        name: levelName,
-        elevation: parseFinite(
-          elevation,
-          "LEVEL_ELEVATION_MUST_BE_FINITE",
-        ),
-      });
-      onModelChange(
-        result.model,
-        `Canonical Core v0.5 level ${result.level.id} created.`,
-      );
+      const result = createLevel(model, { name: levelName, elevation: finite(elevation, "LEVEL_ELEVATION_MUST_BE_FINITE") });
+      onModelChange(result.model, `Level ${result.level.id} created.`);
       setLevelName("");
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Level creation failed.",
-      );
+      reportError(model, onModelChange, error, "Level creation failed.");
     }
   }
 
@@ -287,152 +170,70 @@ export default function LevelGridEditorV05({
     try {
       const result = createGridLine(model, {
         label: gridLabel,
-        start: {
-          x: parseFinite(startX, "GRID_START_MUST_BE_FINITE"),
-          y: parseFinite(startY, "GRID_START_MUST_BE_FINITE"),
-          z: parseFinite(startZ, "GRID_START_MUST_BE_FINITE"),
-        },
-        end: {
-          x: parseFinite(endX, "GRID_END_MUST_BE_FINITE"),
-          y: parseFinite(endY, "GRID_END_MUST_BE_FINITE"),
-          z: parseFinite(endZ, "GRID_END_MUST_BE_FINITE"),
-        },
+        start: { x: finite(sx, "GRID_START_MUST_BE_FINITE"), y: finite(sy, "GRID_START_MUST_BE_FINITE"), z: finite(sz, "GRID_START_MUST_BE_FINITE") },
+        end: { x: finite(ex, "GRID_END_MUST_BE_FINITE"), y: finite(ey, "GRID_END_MUST_BE_FINITE"), z: finite(ez, "GRID_END_MUST_BE_FINITE") },
       });
-      onModelChange(
-        result.model,
-        `Canonical Core v0.5 grid ${result.grid.id} created.`,
-      );
+      onModelChange(result.model, `Grid ${result.grid.id} created.`);
       setGridLabel("");
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Grid creation failed.",
-      );
+      reportError(model, onModelChange, error, "Grid creation failed.");
     }
   }
 
   return (
-    <section className="panelBlock">
-      <h3>Levels / Grids</h3>
+    <section className="panelBlock lgPanel">
+      <header className="lgHeader">
+        <div>
+          <span>MODEL SETUP</span>
+          <h3>Grid & Levels</h3>
+          <p>Define the reference system used to place model elements.</p>
+        </div>
+        <button type="button" onClick={closePanel} aria-label="Close Grid and Levels">×</button>
+      </header>
 
-      <label>
-        Level name
-        <input
-          value={levelName}
-          onChange={(event) => setLevelName(event.target.value)}
-        />
-      </label>
-      <label>
-        Elevation
-        <input
-          type="number"
-          value={elevation}
-          onChange={(event) => setElevation(event.target.value)}
-        />
-      </label>
-      <button type="button" onClick={addLevel}>
-        Create Level
-      </button>
-
-      {levelCount > 0 ? (
-        <details className="gridEditorDetails">
-          <summary>Edit Existing Levels ({levelCount})</summary>
-          {model.levels.map((level) => (
-            <LevelEditorRow
-              key={level.id}
-              level={level}
-              model={model}
-              onModelChange={onModelChange}
-            />
-         ))}
-        </details>
-      ) : null}
-
-      <label>
-        Grid label
-        <input
-          value={gridLabel}
-          onChange={(event) => setGridLabel(event.target.value)}
-        />
-      </label>
-
-      <div className="selectionText">Start global coordinates</div>
-      <div className="inlineFields">
-        <label>
-          X
-          <input
-            type="number"
-            value={startX}
-            onChange={(event) => setStartX(event.target.value)}
-          />
-        </label>
-        <label>
-          Y
-          <input
-            type="number"
-            value={startY}
-            onChange={(event) => setStartY(event.target.value)}
-          />
-        </label>
-        <label>
-          Z
-          <input
-            type="number"
-            value={startZ}
-            onChange={(event) => setStartZ(event.target.value)}
-          />
-        </label>
+      <div className="lgSummary">
+        <div><strong>{model.grids.length}</strong><span>Grids</span></div>
+        <div><strong>{model.levels.length}</strong><span>Levels</span></div>
+        <div><span>Core</span><strong>0.5</strong></div>
       </div>
 
-      <div className="selectionText">End global coordinates</div>
-      <div className="inlineFields">
-        <label>
-          X
-          <input
-            type="number"
-            value={endX}
-            onChange={(event) => setEndX(event.target.value)}
-          />
-        </label>
-        <label>
-          Y
-          <input
-            type="number"
-            value={endY}
-            onChange={(event) => setEndY(event.target.value)}
-          />
-        </label>
-        <label>
-          Z
-          <input
-            type="number"
-            value={endZ}
-            onChange={(event) => setEndZ(event.target.value)}
-          />
-        </label>
+      <div className="lgTabs">
+        <button type="button" className={tab === "grid" ? "active" : ""} onClick={() => setTab("grid")}>Grid</button>
+        <button type="button" className={tab === "levels" ? "active" : ""} onClick={() => setTab("levels")}>Levels</button>
       </div>
 
-      <button type="button" onClick={addGrid}>
-        Create Grid
-      </button>
+      {tab === "grid" ? (
+        <div className="lgBody">
+          <section className="lgCard">
+            <div className="lgTitle"><span>NEW GRID LINE</span><strong>Create reference line</strong></div>
+            <label><span>Grid label</span><input value={gridLabel} onChange={(e) => setGridLabel(e.target.value)} placeholder="A" /></label>
+            <CoordFields title="Start point" x={sx} y={sy} z={sz} setX={setSx} setY={setSy} setZ={setSz} />
+            <CoordFields title="End point" x={ex} y={ey} z={ez} setX={setEx} setY={setEy} setZ={setEz} />
+            <button type="button" className="lgPrimary" onClick={addGrid}>Create Grid</button>
+          </section>
+          <section className="lgCard">
+            <div className="lgTitle row"><div><span>MODEL</span><strong>Existing grids</strong></div><b>{model.grids.length}</b></div>
+            {model.grids.length ? <div className="lgList">{model.grids.map((grid) => <GridRow key={grid.id} grid={grid} model={model} onModelChange={onModelChange} />)}</div> : <div className="lgEmpty">No grid lines yet.</div>}
+          </section>
+        </div>
+      ) : (
+        <div className="lgBody">
+          <section className="lgCard">
+            <div className="lgTitle"><span>NEW LEVEL</span><strong>Create elevation reference</strong></div>
+            <div className="lgTwo">
+              <label><span>Level name</span><input value={levelName} onChange={(e) => setLevelName(e.target.value)} placeholder="Ground" /></label>
+              <label><span>Elevation</span><input type="number" value={elevation} onChange={(e) => setElevation(e.target.value)} /></label>
+            </div>
+            <button type="button" className="lgPrimary" onClick={addLevel}>Create Level</button>
+          </section>
+          <section className="lgCard">
+            <div className="lgTitle row"><div><span>MODEL</span><strong>Existing levels</strong></div><b>{model.levels.length}</b></div>
+            {model.levels.length ? <div className="lgList">{model.levels.map((level) => <LevelRow key={level.id} level={level} model={model} onModelChange={onModelChange} />)}</div> : <div className="lgEmpty">No levels yet.</div>}
+          </section>
+        </div>
+      )}
 
-      {gridCount > 0 ? (
-        <details className="gridEditorDetails">
-          <summary>Edit Existing Grids ({gridCount})</summary>
-          {model.grids.map((grid) => (
-            <GridEditorRow
-              key={grid.id}
-              grid={grid}
-              model={model}
-              onModelChange={onModelChange}
-            />
-          ))}
-        </details>
-      ) : null}
-
-      <p className="selectionText">
-        Level elevations and grid endpoints remain canonical Core v0.5 global geometry.
-      </p>
+      <footer className="lgFooter">Global coordinates · Canonical Core 0.5 model</footer>
     </section>
   );
 }
