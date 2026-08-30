@@ -5,17 +5,21 @@ import { Grid, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import type { Member, Node, StructuralModel, Surface } from "@linkoteq/structural-core";
+
+import ElementProperties from "./ElementProperties";
 import LoadManager from "./LoadManager";
 import ModelToolsV05 from "./ModelToolsV05";
 import NodeCreatorV05 from "./NodeCreatorV05";
 import SelectedNodeSupportV05 from "./SelectedNodeSupportV05";
 import { assertCanonicalV05, migrateProjectToV05 } from "../lib/core-v05";
-
-type Selection =
-  | { type: "node"; id: string }
-  | { type: "member"; id: string }
-  | { type: "surface"; id: string }
-  | null;
+import { deleteSelection } from "../lib/editor/commands";
+import {
+  clearSelection,
+  createSelection,
+  getSelectionLabel,
+  reconcileSelection,
+  type EditorSelection,
+} from "../lib/editor/selection";
 
 function emptyModel(): StructuralModel {
   return {
@@ -65,7 +69,6 @@ function MemberMesh({
 }) {
   const start = nodes.find((node) => node.id === member.startNodeId);
   const end = nodes.find((node) => node.id === member.endNodeId);
-
   const geometry = useMemo(() => {
     if (!start || !end) return null;
     const a = new THREE.Vector3(...position(start));
@@ -73,7 +76,6 @@ function MemberMesh({
     const direction = b.clone().sub(a);
     const length = direction.length();
     if (!length) return null;
-
     const box = new THREE.BoxGeometry(selected ? 0.28 : 0.22, length, selected ? 0.28 : 0.22);
     box.translate(0, length / 2, 0);
     box.applyQuaternion(
@@ -87,7 +89,6 @@ function MemberMesh({
   }, [start, end, selected]);
 
   if (!geometry) return null;
-
   return (
     <mesh
       geometry={geometry}
@@ -105,7 +106,6 @@ function MemberMesh({
 
 function buildSurfaceGeometry(points: Node[]): THREE.BufferGeometry | null {
   if (points.length < 3) return null;
-
   const vertices = points.map((node) => new THREE.Vector3(...position(node)));
   const origin = vertices[0];
   const normal = new THREE.Vector3();
@@ -121,7 +121,6 @@ function buildSurfaceGeometry(points: Node[]): THREE.BufferGeometry | null {
 
   if (normal.lengthSq() < 1e-12) return null;
   normal.normalize();
-
   const firstOffset = vertices.find(
     (vertex, index) => index > 0 && vertex.distanceToSquared(origin) > 1e-12,
   );
@@ -133,14 +132,16 @@ function buildSurfaceGeometry(points: Node[]): THREE.BufferGeometry | null {
     const relative = vertex.clone().sub(origin);
     return new THREE.Vector2(relative.dot(uAxis), relative.dot(vAxis));
   });
-
   const faces = THREE.ShapeUtils.triangulateShape(contour, []);
   if (!faces.length) return null;
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
-    new THREE.Float32BufferAttribute(vertices.flatMap((vertex) => [vertex.x, vertex.y, vertex.z]), 3),
+    new THREE.Float32BufferAttribute(
+      vertices.flatMap((vertex) => [vertex.x, vertex.y, vertex.z]),
+      3,
+    ),
   );
   geometry.setIndex(faces.flat());
   geometry.computeVertexNormals();
@@ -192,8 +193,8 @@ function Scene({
   onSelect,
 }: {
   model: StructuralModel;
-  selection: Selection;
-  onSelect: (selection: Selection) => void;
+  selection: EditorSelection;
+  onSelect: (selection: EditorSelection) => void;
 }) {
   const ambient = useMemo(() => new THREE.AmbientLight(0xffffff, 1.1), []);
   const keyLight = useMemo(() => {
@@ -213,7 +214,7 @@ function Scene({
           surface={surface}
           nodes={model.nodes}
           selected={selection?.type === "surface" && selection.id === surface.id}
-          onSelect={() => onSelect({ type: "surface", id: surface.id })}
+          onSelect={() => onSelect(createSelection("surface", surface.id))}
         />
       ))}
 
@@ -223,7 +224,7 @@ function Scene({
           member={member}
           nodes={model.nodes}
           selected={selection?.type === "member" && selection.id === member.id}
-          onSelect={() => onSelect({ type: "member", id: member.id })}
+          onSelect={() => onSelect(createSelection("member", member.id))}
         />
       ))}
 
@@ -235,7 +236,7 @@ function Scene({
             position={position(node)}
             onClick={(event) => {
               event.stopPropagation();
-              onSelect({ type: "node", id: node.id });
+              onSelect(createSelection("node", node.id));
             }}
           >
             <sphereGeometry args={[selected ? 0.15 : 0.095, 16, 16]} />
@@ -252,7 +253,7 @@ function Scene({
 
 export default function StructuralEditorV05() {
   const [model, setModel] = useState<StructuralModel>(() => emptyModel());
-  const [selection, setSelection] = useState<Selection>(null);
+  const [selection, setSelection] = useState<EditorSelection>(null);
   const [message, setMessage] = useState("Core v0.5 model ready.");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -261,7 +262,7 @@ export default function StructuralEditorV05() {
     const migrated = migrateProjectToV05(parsed);
     assertCanonicalV05(migrated.model);
     setModel(migrated.model as StructuralModel);
-    setSelection(null);
+    setSelection(clearSelection());
     setMessage(
       migrated.warnings.length
         ? migrated.warnings.join(" ")
@@ -273,6 +274,7 @@ export default function StructuralEditorV05() {
     try {
       assertCanonicalV05(next);
       setModel(next);
+      setSelection((current) => reconcileSelection(next, current));
       setMessage(status);
     } catch (error) {
       setMessage(
@@ -283,14 +285,38 @@ export default function StructuralEditorV05() {
     }
   }
 
-  const selectedNodes =
-    selection?.type === "node"
-      ? model.nodes.filter((item) => item.id === selection.id)
-      : [];
+  function handleDeleteSelection() {
+    if (!selection) return;
 
-  const selectedLabel = selection
-    ? `${selection.type}: ${selection.id}`
-    : "None";
+    try {
+      const result = deleteSelection(model, selection);
+      assertCanonicalV05(result.model);
+      setModel(result.model);
+      setSelection(clearSelection());
+      setMessage(`${result.deleted.type} ${result.deleted.id} deleted.`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Delete blocked: ${error.message}`
+          : "Delete blocked by model validation.",
+      );
+    }
+  }
+
+  const selectedNode =
+    selection?.type === "node"
+      ? model.nodes.find((item) => item.id === selection.id)
+      : undefined;
+  const selectedMember =
+    selection?.type === "member"
+      ? model.members.find((item) => item.id === selection.id)
+      : undefined;
+  const selectedSurface =
+    selection?.type === "surface"
+      ? model.surfaces.find((item) => item.id === selection.id)
+      : undefined;
+  const selectedNodes = selectedNode ? [selectedNode] : [];
+  const selectedLabel = getSelectionLabel(selection);
 
   return (
     <div className="appShell">
@@ -300,7 +326,7 @@ export default function StructuralEditorV05() {
           <button
             onClick={() => {
               setModel(emptyModel());
-              setSelection(null);
+              setSelection(clearSelection());
               setMessage("New Core v0.5 project created.");
             }}
           >
@@ -336,14 +362,14 @@ export default function StructuralEditorV05() {
         <aside className="toolbar">
           <ModelToolsV05
             model={model}
-            selectedNodeId={selection?.type === "node" ? selection.id : undefined}
+            selectedNodeId={selectedNode?.id}
             onModelChange={applyModelChange}
           />
 
           <NodeCreatorV05
             model={model}
             onModelChange={applyModelChange}
-            onNodeCreated={(nodeId) => setSelection({ type: "node", id: nodeId })}
+            onNodeCreated={(nodeId) => setSelection(createSelection("node", nodeId))}
           />
 
           <SelectedNodeSupportV05
@@ -355,8 +381,14 @@ export default function StructuralEditorV05() {
           <section className="panelBlock">
             <h3>Selection</h3>
             <div className="selectionText">{selectedLabel}</div>
-            <button onClick={() => setSelection(null)} disabled={!selection}>
+            <button
+              onClick={() => setSelection(clearSelection())}
+              disabled={!selection}
+            >
               Clear selection
+            </button>
+            <button onClick={handleDeleteSelection} disabled={!selection}>
+              Delete selected
             </button>
           </section>
         </aside>
@@ -368,7 +400,7 @@ export default function StructuralEditorV05() {
           <Canvas
             shadows
             camera={{ position: [18, 12, 18], fov: 45 }}
-            onPointerMissed={() => setSelection(null)}
+            onPointerMissed={() => setSelection(clearSelection())}
           >
             <Scene
               model={model}
@@ -389,22 +421,24 @@ export default function StructuralEditorV05() {
         </aside>
       </main>
 
+      <ElementProperties
+        model={model}
+        node={selectedNode}
+        member={selectedMember}
+        surface={selectedSurface}
+        open={Boolean(selection)}
+        onClose={() => setSelection(clearSelection())}
+      />
+
       <LoadManager
         model={model}
-        selectedSurfaces={
-          selection?.type === "surface"
-            ? model.surfaces.filter((item) => item.id === selection.id)
-            : []
-        }
-        selectedMembers={
-          selection?.type === "member"
-            ? model.members.filter((item) => item.id === selection.id)
-            : []
-        }
+        selectedSurfaces={selectedSurface ? [selectedSurface] : []}
+        selectedMembers={selectedMember ? [selectedMember] : []}
         selectedNodes={selectedNodes}
         onModelChange={(next, status) => {
           assertCanonicalV05(next);
           setModel(next);
+          setSelection((current) => reconcileSelection(next, current));
           if (status) setMessage(status);
         }}
         onBeginTargetSelection={() =>
