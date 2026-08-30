@@ -6,6 +6,7 @@ import "./sap2000-shell.css";
 import "./engineering-ribbon.css";
 import "./architect-editor.css";
 import "./architect-workspace.css";
+import "./contextual-helper.css";
 
 export const metadata = {
   title: "LinkoTeq 3D Structural Model",
