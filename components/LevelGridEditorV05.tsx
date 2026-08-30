@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 import type { GridLine, StructuralModel } from "@linkoteq/structural-core";
-import { createGridLine, createLevel } from "../lib/editor-modeling-v05";
+import { createLevel } from "../lib/editor-modeling-v05";
+import {
+  createGridLine,
+  deleteGridLine,
+  updateGridLine,
+} from "../lib/modeling/grid-service";
 
 interface Props {
   model: StructuralModel;
@@ -34,43 +39,44 @@ function GridEditorRow({
 
   function updateGrid() {
     try {
-      const nextLabel = label.trim();
-      if (!nextLabel) throw new Error("GRID_LABEL_REQUIRED");
-
-      const start = {
-        x: parseFinite(startX, "GRID_START_MUST_BE_FINITE"),
-        y: parseFinite(startY, "GRID_START_MUST_BE_FINITE"),
-        z: parseFinite(startZ, "GRID_START_MUST_BE_FINITE"),
-      };
-      const end = {
-        x: parseFinite(endX, "GRID_END_MUST_BE_FINITE"),
-        y: parseFinite(endY, "GRID_END_MUST_BE_FINITE"),
-        z: parseFinite(endZ, "GRID_END_MUST_BE_FINITE"),
-      };
-
-      if (start.x === end.x && start.y === end.y && start.z === end.z) {
-        throw new Error("GRID_DISTINCT_POINTS_REQUIRED");
-      }
-
-      onModelChange(
-        {
-          ...model,
-          grids: model.grids.map((item) =>
-            item.id === grid.id ? { ...item, label: nextLabel, start, end } : item,
-          ),
+      const result = updateGridLine(model, grid.id, {
+        label,
+        start: {
+          x: parseFinite(startX, "GRID_START_MUST_BE_FINITE"),
+          y: parseFinite(startY, "GRID_START_MUST_BE_FINITE"),
+          z: parseFinite(startZ, "GRID_START_MUST_BE_FINITE"),
         },
-        `Canonical Core v0.5 grid ${grid.id} updated.`,
+        end: {
+          x: parseFinite(endX, "GRID_END_MUST_BE_FINITE"),
+          y: parseFinite(endY, "GRID_END_MUST_BE_FINITE"),
+          z: parseFinite(endZ, "GRID_END_MUST_BE_FINITE"),
+        },
+      });
+      onModelChange(
+        result.model,
+        `Canonical Core v0.5 grid ${result.grid.id} updated.`,
       );
     } catch (error) {
-      onModelChange(model, error instanceof Error ? error.message : "Grid update failed.");
+      onModelChange(
+        model,
+        error instanceof Error ? error.message : "Grid update failed.",
+      );
     }
   }
 
   function removeGrid() {
-    onModelChange(
-      { ...model, grids: model.grids.filter((item) => item.id !== grid.id) },
-      `Canonical Core v0.5 grid ${grid.id} removed.`,
-    );
+    try {
+      const nextModel = deleteGridLine(model, grid.id);
+      onModelChange(
+        nextModel,
+        `Canonical Core v0.5 grid ${grid.id} removed.`,
+      );
+    } catch (error) {
+      onModelChange(
+        model,
+        error instanceof Error ? error.message : "Grid removal failed.",
+      );
+    }
   }
 
   return (
@@ -121,10 +127,16 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
         name: levelName,
         elevation: parseFinite(elevation, "LEVEL_ELEVATION_MUST_BE_FINITE"),
       });
-      onModelChange(result.model, `Canonical Core v0.5 level ${result.level.id} created.`);
+      onModelChange(
+        result.model,
+        `Canonical Core v0.5 level ${result.level.id} created.`,
+      );
       setLevelName("");
     } catch (error) {
-      onModelChange(model, error instanceof Error ? error.message : "Level creation failed.");
+      onModelChange(
+        model,
+        error instanceof Error ? error.message : "Level creation failed.",
+      );
     }
   }
 
@@ -143,10 +155,16 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
           z: parseFinite(endZ, "GRID_END_MUST_BE_FINITE"),
         },
       });
-      onModelChange(result.model, `Canonical Core v0.5 grid ${result.grid.id} created.`);
+      onModelChange(
+        result.model,
+        `Canonical Core v0.5 grid ${result.grid.id} created.`,
+      );
       setGridLabel("");
     } catch (error) {
-      onModelChange(model, error instanceof Error ? error.message : "Grid creation failed.");
+      onModelChange(
+        model,
+        error instanceof Error ? error.message : "Grid creation failed.",
+      );
     }
   }
 
