@@ -3,38 +3,14 @@
 import { useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
 
-type RibbonTabId =
-  | "file"
-  | "geometry"
-  | "view"
-  | "select"
-  | "specification"
-  | "loading"
-  | "analysis"
-  | "utilities";
+type WorkspaceMode = "simple" | "advanced";
 
-type RibbonItem = {
+type QuickCommand = {
   id: string;
   label: string;
-  action?: () => void;
-  disabled?: boolean;
+  short: string;
+  action: () => boolean;
 };
-
-type RibbonGroup = {
-  title: string;
-  items: RibbonItem[];
-};
-
-const tabs: Array<{ id: RibbonTabId; label: string }> = [
-  { id: "file", label: "File" },
-  { id: "geometry", label: "Geometry" },
-  { id: "view", label: "View" },
-  { id: "select", label: "Select" },
-  { id: "specification", label: "Specification" },
-  { id: "loading", label: "Loading" },
-  { id: "analysis", label: "Analysis and Design" },
-  { id: "utilities", label: "Utilities" },
-];
 
 function findButton(containerSelector: string, label: string) {
   return Array.from(
@@ -42,21 +18,21 @@ function findButton(containerSelector: string, label: string) {
   ).find((button) => button.textContent?.trim() === label);
 }
 
-function clickExistingButton(containerSelector: string, label: string) {
+function clickExistingButton(containerSelector: string, label: string): boolean {
   const button = findButton(containerSelector, label);
   if (!button || button.disabled) return false;
   button.click();
   return true;
 }
 
-function clickFirst(selector: string) {
+function clickFirst(selector: string): boolean {
   const element = document.querySelector<HTMLElement>(selector);
   if (!element) return false;
   element.click();
   return true;
 }
 
-function revealToolbarPanel(title: string) {
+function revealToolPanel(title: string): boolean {
   const headings = Array.from(
     document.querySelectorAll<HTMLElement>(".engineeringEditorStage .toolbar h3"),
   );
@@ -70,180 +46,84 @@ function revealToolbarPanel(title: string) {
   return true;
 }
 
-function activateModelTool(label: "Select" | "Beam" | "Column" | "Brace" | "Wall" | "Slab") {
+function activateModelTool(
+  label: "Select" | "Beam" | "Column" | "Brace" | "Wall" | "Slab",
+): boolean {
   return clickExistingButton(".engineeringEditorStage .toolbar", label);
 }
 
 export default function StructuralEditor() {
-  const [activeTab, setActiveTab] = useState<RibbonTabId>("geometry");
+  const [mode, setMode] = useState<WorkspaceMode>("simple");
+  const [activeCommand, setActiveCommand] = useState("select");
 
-  const groups: Record<RibbonTabId, RibbonGroup[]> = {
-    file: [
-      {
-        title: "Project",
-        items: [
-          { id: "new", label: "New", action: () => clickExistingButton(".topActions", "New") },
-          { id: "open", label: "Open", action: () => clickExistingButton(".topActions", "Open") },
-          { id: "save", label: "Save", action: () => clickExistingButton(".topActions", "Save") },
-        ],
-      },
-    ],
-    geometry: [
-      {
-        title: "Create",
-        items: [
-          { id: "node", label: "Node", action: () => revealToolbarPanel("Create Node") },
-          { id: "beam", label: "Beam", action: () => activateModelTool("Beam") },
-          { id: "column", label: "Column", action: () => activateModelTool("Column") },
-          { id: "brace", label: "Brace", action: () => activateModelTool("Brace") },
-          { id: "wall", label: "Wall", action: () => activateModelTool("Wall") },
-          { id: "slab", label: "Slab", action: () => activateModelTool("Slab") },
-        ],
-      },
-      {
-        title: "Model Setup",
-        items: [
-          { id: "levels", label: "Levels", action: () => revealToolbarPanel("Levels / Grids") },
-          { id: "grids", label: "Grids", action: () => revealToolbarPanel("Levels / Grids") },
-          { id: "sections", label: "CISC Sections", action: () => revealToolbarPanel("CISC W Sections") },
-        ],
-      },
-    ],
-    view: [
-      {
-        title: "Navigation",
-        items: [
-          { id: "orbit", label: "Orbit", disabled: true },
-          { id: "pan", label: "Pan", disabled: true },
-          { id: "zoom", label: "Zoom", disabled: true },
-        ],
-      },
-    ],
-    select: [
-      {
-        title: "Selection",
-        items: [
-          { id: "select-tool", label: "Select", action: () => activateModelTool("Select") },
-          {
-            id: "clear-selection",
-            label: "Clear Selection",
-            action: () => clickExistingButton(".engineeringEditorStage .toolbar", "Clear selection"),
-          },
-        ],
-      },
-    ],
-    specification: [
-      {
-        title: "Definitions",
-        items: [
-          { id: "sections", label: "CISC Sections", action: () => revealToolbarPanel("CISC W Sections") },
-          { id: "levels-spec", label: "Levels", action: () => revealToolbarPanel("Levels / Grids") },
-          { id: "grids-spec", label: "Grids", action: () => revealToolbarPanel("Levels / Grids") },
-        ],
-      },
-      {
-        title: "Assignments",
-        items: [
-          { id: "supports", label: "Supports", action: () => revealToolbarPanel("Support") },
-        ],
-      },
-    ],
-    loading: [
-      {
-        title: "Loading",
-        items: [
-          { id: "load-manager", label: "Load Manager", action: () => clickFirst(".loadManagerLauncher") },
-          { id: "load-items", label: "Load Items", action: () => clickFirst(".loadManagerLauncher") },
-          { id: "load-cases", label: "Load Cases", action: () => clickFirst(".loadManagerLauncher") },
-          { id: "combinations", label: "Combinations", action: () => clickFirst(".loadManagerLauncher") },
-        ],
-      },
-      {
-        title: "Load Generation",
-        items: [
-          { id: "snow", label: "Snow Load", action: () => clickFirst(".loadManagerLauncher") },
-          { id: "wind", label: "Wind Load", disabled: true },
-          { id: "seismic", label: "Seismic", disabled: true },
-        ],
-      },
-    ],
-    analysis: [
-      {
-        title: "Analysis",
-        items: [
-          { id: "analysis-run", label: "Run Analysis", disabled: true },
-          { id: "analysis-results", label: "Results", disabled: true },
-        ],
-      },
-      {
-        title: "Design",
-        items: [
-          { id: "design", label: "Design Check", disabled: true },
-          { id: "design-results", label: "Design Results", disabled: true },
-        ],
-      },
-    ],
-    utilities: [
-      {
-        title: "Utilities",
-        items: [
-          { id: "export-json", label: "Export JSON", action: () => clickExistingButton(".topActions", "Save") },
-          { id: "loads", label: "Loads", action: () => clickFirst(".loadManagerLauncher") },
-        ],
-      },
-    ],
-  };
+  const commands: QuickCommand[] = [
+    { id: "select", label: "Select", short: "S", action: () => activateModelTool("Select") },
+    { id: "grid", label: "Grid", short: "G", action: () => revealToolPanel("Levels / Grids") },
+    { id: "column", label: "Column", short: "C", action: () => activateModelTool("Column") },
+    { id: "beam", label: "Beam", short: "B", action: () => activateModelTool("Beam") },
+    { id: "brace", label: "Brace", short: "BR", action: () => activateModelTool("Brace") },
+    { id: "slab", label: "Slab", short: "SL", action: () => activateModelTool("Slab") },
+    { id: "wall", label: "Wall", short: "W", action: () => activateModelTool("Wall") },
+    { id: "support", label: "Support", short: "SP", action: () => revealToolPanel("Node Support") },
+    { id: "loads", label: "Loads", short: "L", action: () => clickFirst(".loadManagerLauncher") },
+  ];
+
+  function runCommand(command: QuickCommand) {
+    if (command.action()) setActiveCommand(command.id);
+  }
 
   return (
-    <div className={`engineeringRibbonHost ribbonTab-${activeTab}`}>
-      <section className="engineeringRibbon" aria-label="Engineering application ribbon">
-        <div className="ribbonTitleRow">
-          <strong>Linkoteq 3D Structural Editor</strong>
-          <span>Core schema 0.5</span>
+    <div className={`architectEditorShell mode-${mode}`}>
+      <header className="architectTopbar">
+        <div className="architectBrand">
+          <span className="architectBrandMark" aria-hidden="true">L</span>
+          <div>
+            <strong>Structural Concept Modeler</strong>
+            <span>Core 0.5</span>
+          </div>
         </div>
 
-        <nav className="ribbonTabs" aria-label="Application menu">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={activeTab === tab.id ? "ribbonTab active" : "ribbonTab"}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-           ))}
-        </nav>
-
-        <div className="ribbonPanel" role="region" aria-label={`${activeTab} commands`}>
-          {groups[activeTab].map((group) => (
-            <section key={group.title} className="ribbonGroup">
-              <div className="ribbonGroupCommands">
-                {group.items.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="ribbonCommand"
-                    disabled={item.disabled}
-                    onClick={item.action}
-                    title={
-                      item.disabled
-                        ? "This command is not connected in the current repository yet."
-                        : item.label
-                    }
-                  >
-                    <span className="ribbonCommandIcon" aria-hidden="true">
-                      {item.label.slice(0, 1)}
-                    </span>
-                    <span>{item.label}</span>
-                  </button>
-                 ))}
-              </div>
-              <div className="ribbonGroupTitle">{group.title}</div>
-            </section>
-          ))}
+        <div className="architectModeSwitch" aria-label="Workspace mode">
+          <button type="button" className={mode === "simple" ? "active" : ""} onClick={() => setMode("simple")}>
+            Simple Mode
+          </button>
+          <button type="button" className={mode === "advanced" ? "active" : ""} onClick={() => setMode("advanced")}>
+            Advanced Mode
+          </button>
         </div>
-      </section>
+
+        <div className="architectTopActions">
+          <button type="button" onClick={() => clickExistingButton(".topActions", "Save")}>Save</button>
+          <button type="button" disabled title="Analysis will be connected in a later stage.">Analyze</button>
+        </div>
+      </header>
+
+      <nav className="architectToolstrip" aria-label="Modeling tools">
+        {commands.map((command) => (
+          <button
+            key={command.id}
+            type="button"
+            className={activeCommand === command.id ? "active" : ""}
+            onClick={() => runCommand(command)}
+          >
+            <span className="architectToolIcon" aria-hidden="true">{command.short}</span>
+            <span>{command.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="architectContextbar">
+        <span className="architectContextTitle">3D Workspace</span>
+        <span className="architectContextHint">
+          {activeCommand === "select"
+            ? "Select an object to inspect and edit its properties."
+            : `${commands.find((item) => item.id === activeCommand)?.label ?? "Tool"} tool active.`}
+        </span>
+        <div className="architectViewPills" aria-label="View status">
+          <span>Perspective</span>
+          <span>Snap: ON</span>
+        </div>
+      </div>
 
       <div className="engineeringEditorStage">
         <StructuralEditorV05 />
