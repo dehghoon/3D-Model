@@ -3,7 +3,7 @@ import type { EditorSelection } from "./selection";
 
 export interface DeleteSelectionResult {
   model: StructuralModel;
-  deleted: EditorSelection exclude null;
+  deleted: Exclude<EditorSelection, null>;
 }
 
 export function deleteSelection(
@@ -20,7 +20,10 @@ export function deleteSelection(
         throw new Error(`UNKNOWN_NODE:${selection.id}`);
       }
       return {
-        model: { ...model, nodes: model.nodes.filter((item) => item.id !== selection.id) },
+        model: {
+          ...model,
+          nodes: model.nodes.filter((item) => item.id !== selection.id),
+        },
         deleted: selection,
       };
     }
@@ -30,7 +33,10 @@ export function deleteSelection(
         throw new Error(`UNKNOWN_MEMBER:${selection.id}`);
       }
       return {
-        model: { ...model, members: model.members.filter((item) => item.id !== selection.id) },
+        model: {
+          ...model,
+          members: model.members.filter((item) => item.id !== selection.id),
+        },
         deleted: selection,
       };
     }
@@ -40,7 +46,10 @@ export function deleteSelection(
         throw new Error(`UNKNOWN_SURFACE:${selection.id}`);
       }
       return {
-        model: { ...model, surfaces: model.surfaces.filter((item) => item.id !== selection.id) },
+        model: {
+          ...model,
+          surfaces: model.surfaces.filter((item) => item.id !== selection.id),
+        },
         deleted: selection,
       };
     }
