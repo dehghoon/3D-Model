@@ -6,12 +6,15 @@ import {
   applyGridOffsetSystem,
   readGridOffsetSystem,
   type GridOffsetLine,
+  type GridOffsetSystem,
 } from "../lib/modeling/grid-system-service";
 
 interface Props {
   model: StructuralModel;
   onModelChange: (model: StructuralModel, status: string) => void;
 }
+
+const STORAGE_PREFIX = "linkoteq:grid-offsets:v05:";
 
 function nextAlpha(index: number): string {
   let value = index + 1;
@@ -25,11 +28,61 @@ function nextAlpha(index: number): string {
 }
 
 function defaultLines(axis: "x" | "y"): GridOffsetLine[] {
-  const offsets = [0, 6, 12];
-  return offsets.map((offset, index) => ({
+  return [0, 6, 12, 18].map((offset, index) => ({
     label: axis === "x" ? String(index + 1) : nextAlpha(index),
     offset,
   }));
+}
+
+function storageKey(projectId: string): string {
+  return `${STORAGE_PREFIX}${projectId}`;
+}
+
+function loadStoredSystem(projectId: string): GridOffsetSystem | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey(projectId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<GridOffsetSystem>;
+    if (!Array.isArray(parsed.xLines) || !Array.isArray(parsed.yLines)) return null;
+
+    const valid = (line: GridOffsetLine) =>
+      typeof line?.label === "string" &&
+      line.label.trim().length > 0 &&
+      Number.isFinite(line.offset);
+
+    if (!parsed.xLines.every(valid) || !parsed.yLines.every(valid)) return null;
+    if (parsed.xLines.length < 2 || parsed.yLines.length < 2) return null;
+
+    return {
+      xLines: parsed.xLines.map(({ label, offset }) => ({ label, offset })),
+      yLines: parsed.yLines.map(({ label, offset }) => ({ label, offset })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredSystem(projectId: string, system: GridOffsetSystem) {
+  if (typeof window === "undefined") return;
+  const portable: GridOffsetSystem = {
+    xLines: system.xLines.map(({ label, offset }) => ({ label, offset })),
+    yLines: system.yLines.map(({ label, offset }) => ({ label, offset })),
+  };
+  window.localStorage.setItem(storageKey(projectId), JSON.stringify(portable));
+}
+
+function initialSystem(model: StructuralModel): GridOffsetSystem {
+  const current = readGridOffsetSystem(model);
+  if (current.xLines.length >= 2 && current.yLines.length >= 2) return current;
+
+  const stored = loadStoredSystem(model.project.id);
+  if (stored) return stored;
+
+  return {
+    xLines: defaultLines("x"),
+    yLines: defaultLines("y"),
+  };
 }
 
 function GridAxisEditor({
@@ -48,12 +101,17 @@ function GridAxisEditor({
   }
 
   function add() {
-    const last = lines[lines.length - 1];
-    const previous = lines[lines.length - 2];
-    const step = last && previous ? Math.max(Math.abs(last.offset - previous.offset), 1) : 6;
-    const offset = last ? last.offset + step : 0;
-    const label = axis === "x" ? String(lines.length + 1) : nextAlpha(lines.length);
-    onChange([...lines, { label, offset }]);
+    const last = lines.at(-1);
+    const previous = lines.at(-2);
+    const step =
+      last && previous ? Math.max(Math.abs(last.offset - previous.offset), 1) : 6;
+    onChange([
+      ...lines,
+      {
+        label: axis === "x" ? String(lines.length + 1) : nextAlpha(lines.length),
+        offset: last ? last.offset + step : 0,
+      },
+    ]);
   }
 
   function remove(index: number) {
@@ -110,12 +168,10 @@ function GridAxisEditor({
 
 export default function GridOffsetEditorV05({ model, onModelChange }: Props) {
   const snapshot = useMemo(() => readGridOffsetSystem(model), [model.grids]);
-  const [xLines, setXLines] = useState<GridOffsetLine[]>(
-    snapshot.xLines.length >= 2 ? snapshot.xLines : defaultLines("x"),
-  );
-  const [yLines, setYLines] = useState<GridOffsetLine[]>(
-    snapshot.yLines.length >= 2 ? snapshot.yLines : defaultLines("y"),
-  );
+  const initial = useMemo(() => initialSystem(model), [model.project.id]);
+  const [xLines, setXLines] = useState<GridOffsetLine[]>(initial.xLines);
+  const [yLines, setYLines] = useState<GridOffsetLine[]>(initial.yLines);
+  const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
     if (snapshot.xLines.length >= 2) setXLines(snapshot.xLines);
@@ -124,13 +180,13 @@ export default function GridOffsetEditorV05({ model, onModelChange }: Props) {
 
   function save() {
     try {
-      const next = applyGridOffsetSystem(model, { xLines, yLines });
-      onModelChange(next, "Grid system updated from origin offsets.");
+      const system = { xLines, yLines };
+      const next = applyGridOffsetSystem(model, system);
+      saveStoredSystem(model.project.id, system);
+      onModelChange(next, "Grid system saved.");
+      setFeedback("Saved");
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Grid system update failed.",
-      );
+      setFeedback(error instanceof Error ? error.message : "Grid system update failed.");
     }
   }
 
@@ -154,11 +210,12 @@ export default function GridOffsetEditorV05({ model, onModelChange }: Props) {
         onChange={setYLines}
       />
 
-      <button type="button" className="lgPrimary gridOffsetSave" onClick={save}>
-        {snapshot.xLines.length >= 2 && snapshot.yLines.length >= 2
-          ? "Update Grid System"
-          : "Create Grid System"}
-      </button>
+      <div className="gridOffsetSaveRow">
+        <button type="button" className="lgPrimary gridOffsetSave" onClick={save}>
+          Save Grid System
+        </button>
+        {feedback ? <span className="gridOffsetFeedback">{feedback}</span> : null}
+      </div>
     </div>
   );
 }
