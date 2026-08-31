@@ -6,232 +6,163 @@ import {
   updateGridLine,
 } from "./grid-service";
 
-export interface OrthogonalGridSystemInput {
-  xCount: number;
-  xSpacing: number;
-  yCount: number;
-  ySpacing: number;
-  originX?: number;
-  originY?: number;
+export type GridAxis = "x" | "y";
+
+export interface GridOffsetLine {
+  id?: string;
+  label: string;
+  offset: number;
 }
 
-export interface OrthogonalGridSystemSnapshot {
-  xCount: number;
-  xSpacing: number;
-  yCount: number;
-  ySpacing: number;
-  originX: number;
-  originY: number;
+export interface GridOffsetSystem {
+  xLines: GridOffsetLine[];
+  yLines: GridOffsetLine[];
 }
 
-type Axis = "x" | "y";
-
-interface AxisGrid {
-  axis: Axis;
-  position: number;
+interface ClassifiedGrid {
+  axis: GridAxis;
+  offset: number;
   grid: GridLine;
 }
 
-function requireCount(value: number, code: string): number {
-  if (!Number.isInteger(value) || value < 2) throw new Error(code);
+const EPSILON = 1e-9;
+const MIN_EXTENSION = 2;
+
+function requireFinite(value: number, code: string): number {
+  if (!Number.isFinite(value)) throw new Error(code);
   return value;
 }
 
-function requireSpacing(value: number, code: string): number {
-  if (!Number.isFinite(value) || value <= 0) throw new Error(code);
-  return value;
-}
-
-function alphaLabel(index: number): string {
-  let value = index + 1;
-  let label = "";
-  while (value > 0) {
-    value -= 1;
-    label = String.fromCharCode(65 + (value % 26)) + label;
-    value = Math.floor(value / 26);
-  }
-  return label;
-}
-
-function classifyGrid(grid: GridLine): AxisGrid | null {
-  const atZero =
-    Math.abs(grid.start.z) < 1e-9 &&
-    Math.abs(grid.end.z) < 1e-9;
+function classifyGrid(grid: GridLine): ClassifiedGrid | null {
+  const atZero=
+    Math.abs(grid.start.z) < EPSILON &&
+    Math.abs(grid.end.z) < EPSILON;
 
   if (!atZero) return null;
 
-  if (
-    Math.abs(grid.start.x - grid.end.x) < 1e-9 &&
-    Math.abs(grid.start.y - grid.end.y) > 1e-9
-  ) {
-    return { axis: "x", position: grid.start.x, grid };
+  const vertical=
+    Math.abs(grid.start.x - grid.end.x) < EPSILON &&
+    Math.abs(grid.start.y - grid.end.y) > EPSILON;
+
+  if (vertical) {
+    return { axis: "x", offset: grid.start.x, grid };
   }
 
-  if (
-    Math.abs(grid.start.y - grid.end.y) < 1e-9 &&
-    Math.abs(grid.start.x - grid.end.x) > 1e-9
-  ) {
-    return { axis: "y", position: grid.start.y, grid };
+  const horizontal=
+    Math.abs(grid.start.y - grid.end.y) < EPSILON &&
+    Math.abs(grid.start.x - grid.end.x) > EPSILON;
+
+  if (horizontal) {
+    return { axis: "y", offset: grid.start.y, grid };
   }
 
   return null;
 }
 
-function axisGrids(model: StructuralModel, axis: Axis): AxisGrid[] {
+function classifiedAxis(model: StructuralModel, axis: GridAxis): ClassifiedGrid[] {
   return model.grids
     .map(classifyGrid)
-    .filter((item): item is AxisGrid => item !== null && item.axis === axis)
-    .sort((a, b) => a.position - b.position);
+    .filter((item): item is ClassifiedGrid => item !== null && item.axis === axis)
+    .sort((a, b) => a.offset - b.offset);
 }
 
-function spacingFrom(items: AxisGrid[]): number {
-  if (items.length < 2) return 0;
-  return items[1].position - items[0].position;
-}
-
-export function inspectOrthogonalGridSystem(
-  model: StructuralModel,
-): OrthogonalGridSystemSnapshot | null {
-  const xItems = axisGrids(model, "x");
-  const yItems = axisGrids(model, "y");
-
-  if (xItems.length < 2 || yItems.length < 2) return null;
-
-  const xSpacing = spacingFrom(xItems);
-  const ySpacing = spacingFrom(yItems);
-
-  if (xSpacing <= 0 || ySpacing <= 0) return null;
-
+export function readGridOffsetSystem(model: StructuralModel): GridOffsetSystem {
   return {
-    xCount: xItems.length,
-    xSpacing,
-    yCount: yItems.length,
-    ySpacing,
-    originX: xItems[0].position,
-    originY: yItems[0].position,
+    xLines: classifiedAxis(model, "x").map(({ grid, offset }) => ({
+      id: grid.id,
+      label: grid.label,
+      offset,
+    })),
+    yLines: classifiedAxis(model, "y").map(({ grid, offset }) => ({
+      id: grid.id,
+      label: grid.label,
+      offset,
+    })),
   };
 }
 
-function normalizedInput(
-  input: OrthogonalGridSystemInput,
-): Required<OrthogonalGridSystemInput> {
-  const xCount = requireCount(
-    input.xCount,
-    "GRID_X_COUNT_MUST_BE_AT_LEAST_2",
-  );
-  const yCount = requireCount(
-    input.yCount,
-    "GRID_Y_COUNT_MUST_BE_AT_LEAST_2",
-  );
-  const xSpacing = requireSpacing(
-    input.xSpacing,
-    "GRID_X_SPACING_MUST_BE_POSITIVE",
-  );
-  const ySpacing = requireSpacing(
-    input.ySpacing,
-    "GRID_Y_SPACING_MUST_BE_POSITIVE",
-  );
-  const originX = input.originX ?? 0;
-  const originY = input.originY ?? 0;
+function normalizeLines(lines: GridOffsetLine[], axis: GridAxis): GridOffsetLine[] {
+  const code = axis === "x" ? "GRID_X" : "GRID_Y";
+  if (lines.length < 2) throw new Error(`${code}_REQUIRES_AT_LEAST_TWO_LINES`);
 
-  if (!Number.isFinite(originX) || !Number.isFinite(originY)) {
-    throw new Error("GRID_ORIGIN_MUST_BE_FINITE");
-  }
+  const labels = new Set<string>();
+  const offsets = new Set<number>();
 
-  return { xCount, xSpacing, yCount, ySpacing, originX, originY };
+  return lines.map((line, index) => {
+    const label = line.label.trim();
+    if (!label) throw new Error(`${code}_LABEL_REQUIRED_${index + 1}`);
+
+    const offset = requireFinite(line.offset, `${code}_OFFSET_MUST_BE_FINITE_${index + 1}`);
+    if (labels.has(label)) throw new Error(`${code}_LABEL_MUST_BE_UNIQUE_${label}`);
+    if (offsets.has(offset)) throw new Error(`${code}_OFFSET_MUST_BE_UNIQUE_${offset}`);
+
+    labels.add(label);
+    offsets.add(offset);
+    return { id: line.id, label, offset };
+  });
 }
 
-function updateAxis(
+function extendedBounds(values: number[]): { min: number; max: number } {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(max - min, 1);
+  const extension = Math.max(MIN_EXTENSION, span * 0.08);
+  return { min: min - extension, max: max + extension };
+}
+
+function syncAxis(
   model: StructuralModel,
-  axis: Axis,
-  count: number,
-  spacing: number,
-  originX: number,
-  originY: number,
-  xMax: number,
-  yMax: number,
+  axis: GridAxis,
+  desired: GridOffsetLine[],
+  xBounds: { min: number; max: number },
+  yBounds: { min: number; max: number },
 ): StructuralModel {
-  const existing = axisGrids(model, axis);
+  const existing = classifiedAxis(model, axis);
+  const byId = new Map(existing.map((item) => [item.grid.id, item.grid]));
+  const retained = new Set<string>();
   let next = model;
 
-  for (let index = 0; index < count; index += 1) {
-    const label = axis === "x" ? String(index + 1) : alphaLabel(index);
-    const position =
-      axis === "x"
-        ? originX + index * spacing
-        : originY + index * spacing;
-
+  for (const line of desired) {
     const start =
       axis === "x"
-        ? { x: position, y: originY, z: 0 }
-        : { x: originX, y: position, z: 0 };
-
+        ? { x: line.offset, y: yBounds.min, z: 0 }
+        : { x: xBounds.min, y: line.offset, z: 0 };
     const end =
       axis === "x"
-        ? { x: position, y: yMax, z: 0 }
-        : { x: xMax, y: position, z: 0 };
+        ? { x: line.offset, y: yBounds.max, z: 0 }
+        : { x: xBounds.max, y: line.offset, z: 0 };
 
-    const current = existing[index];
+    const existingGrid = line.id ? byId.get(line.id) : undefined;
 
-    if (current) {
-      next = updateGridLine(next, current.grid.id, {
-        label,
+    if (existingGrid) {
+      const result = updateGridLine(next, existingGrid.id, {
+        label: line.label,
         start,
         end,
-      }).model;
+      });
+      next = result.model;
+      retained.add(existingGrid.id);
     } else {
-      next = createGridLine(next, { label, start, end }).model;
+      const result = createGridLine(next, { label, start, end });
+      next = result.model;
+      retained.ad(result.grid.id);
     }
   }
 
-  for (const extra of existing.slice(count)) {
-    next = deleteGridLine(next, extra.grid.id);
+  for (const item of existing) {
+    if (!retained.has(item.grid.id)) next = deleteGridLine(next, item.grid.id);
   }
 
   return next;
 }
 
-export function updateOrthogonalGridSystem(
-  model: StructuralModel,
-  input: OrthogonalGridSystemInput,
-): StructuralModel {
-  const normalized = normalizedInput(input);
-  const xMax =
-    normalized.originX +
-    (normalized.xCount - 1) * normalized.xSpacing;
-  const yMax =
-    normalized.originY +
-    (normalized.yCount - 1) * normalized.ySpacing;
+export function applyGridOffsetSystem(model: StructuralModel, input: GridOffsetSystem): StructuralModel {
+  const xLines = normalizeLines(input.xLines, "x");
+  const yLines = normalizeLines(input.yLines, "y");
+  const xBounds = extendedBounds(xLines.map((line) => line.offset));
+  const yBounds = extendedBounds(yLines.map((line) => line.offset));
 
-  let next = updateAxis(
-    model,
-    "x",
-    normalized.xCount,
-    normalized.xSpacing,
-    normalized.originX,
-    normalized.originY,
-    xMax,
-    yMax,
-  );
-
-  next = updateAxis(
-    next,
-    "y",
-    normalized.yCount,
-    normalized.ySpacing,
-    normalized.originX,
-    normalized.originY,
-    xMax,
-    yMax,
-  );
-
+  let next = syncAxis(model, "x", xLines, xBounds, yBounds);
+  next = syncAxis(next, "y", yLines, xBounds, yBounds);
   return next;
-}
-
-export function createOrthogonalGridSystem(
-  model: StructuralModel,
-  input: OrthogonalGridSystemInput,
-): StructuralModel {
-  const preserved = model.grids.filter((grid) => !classifyGrid(grid));
-  return updateOrthogonalGridSystem({ ...model, grids: preserved }, input);
 }
