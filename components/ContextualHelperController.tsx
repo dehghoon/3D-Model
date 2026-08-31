@@ -12,47 +12,45 @@ const MODELING_TOOLS = new Set([
 ]);
 
 function closeTemporaryPanels() {
-  document.querySelectorAll(".architect-revealed-panel").forEach((element) => {
-    element.classList.remove("architect-revealed-panel");
-  });
+  document
+    .querySelectorAll(".architect-revealed-panel")
+    .forEach((element) => {
+      element.classList.remove("architect-revealed-panel");
+    });
 }
 
-function toggleGridPanel() {
+function openGridPanel() {
   const panel = document.querySelector<HTMLElement>(
     ".engineeringEditorStage .lgPanel",
   );
   if (!panel) return;
 
-  const isOpen = panel.classList.contains("architect-revealed-panel");
   closeTemporaryPanels();
+  panel.classList.add("architect-revealed-panel");
 
-  if (!isOpen) {
-    panel.classList.add("architect-revealed-panel");
-    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    window.setTimeout(
-      () => panel.querySelector<HTMLInputElement>("input")?.focus(),
-      120,
-    );
-  }
+  window.setTimeout(() => {
+    panel
+      .querySelector<HTMLInputElement | HTMLSelectElement>("input, select")
+      ?.focus();
+  }, 80);
 }
 
 export default function ContextualHelperController() {
   useEffect(() => {
-    const root = document.querySelector(".architectToolstrip");
-    if (!root) return;
-
-    const handleClick = (event: Event) => {
+    const handleClick = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
 
-      const button = target.closest<HTMLButtonElement>("button");
+      const button = target.closest<HTMLButtonElement>(
+        ".architectToolsStrip button",
+      );
       if (!button) return;
 
       const label = button.textContent?.trim();
       if (!label || !MODELING_TOOLS.has(label)) return;
 
       if (label === "Grid") {
-        window.setTimeout(toggleGridPanel, 0);
+        window.setTimeout(openGridPanel, 0);
         return;
       }
 
@@ -63,11 +61,11 @@ export default function ContextualHelperController() {
       if (event.key === "Escape") closeTemporaryPanels();
     };
 
-    root.addEventListener("click", handleClick);
+    document.addEventListener("click", handleClick);
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      root.removeEventListener("click", handleClick);
+      document.removeEventListener("click", handleClick);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
