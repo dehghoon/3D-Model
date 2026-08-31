@@ -80,7 +80,7 @@ function classifyGrid(grid: GridLine): AxisGrid | null {
 function axisGrids(model: StructuralModel, axis: Axis): AxisGrid[] {
   return model.grids
     .map(classifyGrid)
-    .filter((item): item is AxisGrid => Boolean(item) && item.axis === axis)
+    .filter((item): item is AxisGrid => item !== null && item.axis === axis)
     .sort((a, b) => a.position - b.position);
 }
 
