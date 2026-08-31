@@ -1,18 +1,90 @@
 "use client";
 
-import { Html } from "@react-three/drei";
-import { useMemo } from "react";
-import * as THREE from "three";
+import { Html, Line } from "@react-three/drei";
 import type { GridLine, Vec3 } from "@linkoteq/structural-core";
 
-const GRID_ELEVATION_OFFSET = 0.06;
-const GRID_THICKNESS = 0.055;
+const GRID_ELEVATION_OFFSET = 0.025;
+const GRID_LABEL_OFFSET = 0.75;
 
-function toScenePoint(position: Vec3): THREE.Vector3 {
-  return new THREE.Vector3(
-    position.x,
-    position.z + GRID_ELEVATION_OFFSET,
-    position.y,
+function toScenePoint(position: Vec3): [number, number, number] {
+  return [position.x, position.z + GRID_ELEVATION_OFFSET, position.y];
+}
+
+function offsetPoint(
+  point: [number, number, number],
+  from: [number, number, number],
+  distance: number,
+): [number, number, number] {
+  const dx = point[0] - from[0];
+  const dz = point[2] - from[2];
+  const length = Math.hypot(dx, dz) || 1;
+
+  return [
+    point[0] + (dx / length) * distance,
+    point[1] + 0.04,
+    point[2] + (dz / length) * distance,
+  ];
+}
+
+function GridBubble({
+  label,
+  position,
+}: {
+  label: string;
+  position: [number, number, number];
+}) {
+  return (
+    <Html
+      position={position}
+      center
+      transform={false}
+      zIndexRange={[80, 0]}
+      style={{ pointerEvents: "none" }}
+    >
+      <span
+        style={{
+          display: "grid",
+          placeItems: "center",
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          border: "1.5px solid #667085",
+          background: "rgba(255,255,255,0.96)",
+          color: "#344054",
+          fontSize: 12,
+          fontWeight: 700,
+          boxShadow: "0 1px 4px rgba(16,24,40,0.08)",
+        }}
+      >
+        {label}
+      </span>
+    </Html>
+  );
+}
+
+function GridLineVisual({ grid }: { grid: GridLine }) {
+  const start = toScenePoint(grid.start);
+  const end = toScenePoint(grid.end);
+  const startLabel = offsetPoint(start, end, GRID_LABEL_OFFSET);
+  const endLabel = offsetPoint(end, start, GRID_LABEL_OFFSET);
+
+  return (
+    <group renderOrder={25}>
+      <Line
+        points={[start, end]}
+        color="#98a2b3"
+        lineWidth={1.6}
+        dashed
+        dashSize={0.45}
+        gapSize={0.28}
+        transparent
+        opacity={0.92}
+        depthTest={false}
+        renderOrder={25}
+      />
+      <GridBubble label={grid.label || grid.id} position={startLabel} />
+      <GridBubble label={grid.label || grid.id} position={endLabel} />
+    </group>
   );
 }
 
@@ -23,95 +95,5 @@ export default function GridLinesV05({ grids }: { grids: GridLine[] }) {
         <GridLineVisual key={grid.id} grid={grid} />
       ))}
     </>
-  );
-}
-
-function GridLineVisual({ grid }: { grid: GridLine }) {
-  const { geometry, start, end, labelPosition } = useMemo(() => {
-    const startPoint = toScenePoint(grid.start);
-    const endPoint = toScenePoint(grid.end);
-    const direction = endPoint.clone().sub(startPoint);
-    const length = direction.length();
-
-    if (!Number.isFinite(length) || length <= 0) {
-      return {
-        geometry: null,
-        start: startPoint,
-        end: endPoint,
-        labelPosition: startPoint.clone(),
-      };
-    }
-
-    const box = new THREE.BoxGeometry(
-      GRID_THICKNESS,
-      length,
-      GRID_THICKNESS,
-    );
-    box.translate(0, length / 2, 0);
-    box.applyQuaternion(
-      new THREE.Quaternion().setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        direction.normalize(),
-      ),
-    );
-    box.translate(startPoint.x, startPoint.y, startPoint.z);
-
-    return {
-      geometry: box,
-      start: startPoint,
-      end: endPoint,
-      labelPosition: startPoint.clone().add(new THREE.Vector3(0, 0.18, 0)),
-    };
-  }, [
-    grid.start.x,
-    grid.start.y,
-    grid.start.z,
-    grid.end.x,
-    grid.end.y,
-    grid.end.z,
-  ]);
-
-  if (!geometry) return null;
-
-  return (
-    <group renderOrder={30}>
-      <mesh geometry={geometry} renderOrder={30}>
-        <meshBasicMaterial
-          color="#1d4ed8"
-          depthTest={false}
-          depthWrite={false}
-        />
-      </mesh>
-
-      <mesh position={start} renderOrder={31}>
-        <sphereGeometry args={[0.10, 16, 16]} />
-        <meshBasicMaterial
-          color="#1d4ed8"
-          depthTest={false}
-          depthWrite={false}
-        />
-      </mesh>
-
-      <mesh position={end} renderOrder={31}>
-        <sphereGeometry args={[0.10, 16, 16]} />
-        <meshBasicMaterial
-          color="#1d4ed8"
-          depthTest={false}
-          depthWrite={false}
-        />
-      </mesh>
-
-      <Html
-        position={labelPosition}
-        center
-        transform={false}
-        zIndexRange={[60, 0]}
-        wrapperClass="coreGridLabelWrapper"
-      >
-        <span className="coreGridLabel">
-          {grid.label || grid.id}
-        </span>
-      </Html>
-    </group>
   );
 }
