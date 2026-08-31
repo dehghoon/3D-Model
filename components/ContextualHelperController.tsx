@@ -46,6 +46,8 @@ export default function ContextualHelperController() {
       if (!(target instanceof Element)) return;
 
       const button = target.closest<HTMLButtonElement>("button");
+      if (!button) return;
+
       const label = button.textContent?.trim();
       if (!label || !MODELING_TOOLS.has(label)) return;
 
