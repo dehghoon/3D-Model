@@ -11,30 +11,6 @@ const MODELING_TOOLS = new Set([
   "Wall",
 ]);
 
-function closeTemporaryPanels() {
-  document
-    .querySelectorAll(".architect-revealed-panel")
-    .forEach((element) => {
-      element.classList.remove("architect-revealed-panel");
-    });
-}
-
-function openGridPanel() {
-  const panel = document.querySelector<HTMLElement>(
-    ".engineeringEditorStage .lgPanel",
-  );
-  if (!panel) return;
-
-  closeTemporaryPanels();
-  panel.classList.add("architect-revealed-panel");
-
-  window.setTimeout(() => {
-    panel
-      .querySelector<HTMLInputElement | HTMLSelectElement>("input, select")
-      ?.focus();
-  }, 80);
-}
-
 function getToolLabel(button: HTMLButtonElement): string {
   const explicitLabel = button
     .querySelector<HTMLElement>("span:last-child")
@@ -58,15 +34,17 @@ export default function ContextualHelperController() {
       if (!MODELING_TOOLS.has(label)) return;
 
       if (label === "Grid") {
-        window.setTimeout(openGridPanel, 0);
+        window.dispatchEvent(new Event("linkoteq:grid-panel-open"));
         return;
       }
 
-      closeTemporaryPanels();
+      window.dispatchEvent(new Event("linkoteq:grid-panel-close"));
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeTemporaryPanels();
+      if (event.key === "Escape") {
+        window.dispatchEvent(new Event("linkoteq:grid-panel-close"));
+      }
     };
 
     document.addEventListener("click", handleClick);
