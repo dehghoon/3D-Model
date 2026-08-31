@@ -35,6 +35,14 @@ function openGridPanel() {
   }, 80);
 }
 
+function getToolLabel(button: HTMLButtonElement): string {
+  const explicitLabel = button
+    .querySelector<HTMLElement>("span:last-child")
+    ?.textContent?.trim();
+
+  return explicitLabel || button.textContent?.trim() || "";
+}
+
 export default function ContextualHelperController() {
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -46,8 +54,8 @@ export default function ContextualHelperController() {
       );
       if (!button) return;
 
-      const label = button.textContent?.trim();
-      if (!label || !MODELING_TOOLS.has(label)) return;
+      const label = getToolLabel(button);
+      if (!MODELING_TOOLS.has(label)) return;
 
       if (label === "Grid") {
         window.setTimeout(openGridPanel, 0);
