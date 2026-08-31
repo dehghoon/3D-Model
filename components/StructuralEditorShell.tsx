@@ -14,10 +14,13 @@ const tools: Array<{ id: ModelingTool; label: string; short: string }> = [
   { id: "wall", label: "Wall", short: "W" },
 ];
 
-function clickLegacyTool(label: string) {
+function clickLegacyTool(label: string): boolean {
   const button = Array.from(
-    document.querySelectorAll<HTMLButtonElement>(".engineeringEditorStage .toolbar button"),
+    document.querySelectorAll<HTMLButtonElement>(
+      ".engineeringEditorStage .toolbar button",
+    ),
   ).find((item) => item.textContent?.trim() === label);
+
   if (!button || button.disabled) return false;
   button.click();
   return true;
@@ -34,18 +37,15 @@ export default function StructuralEditorShell() {
       return;
     }
 
-    const label =
-      tool === "column"
-        ? "Column"
-        : tool === "beam"
-          ? "Beam"
-          : tool === "brace"
-            ? "Brace"
-            : tool === "slab"
-              ? "Slab"
-              : "Wall";
+    const labels: Record<Exclude<ModelingTool, "grid">, string> = {
+      column: "Column",
+      beam: "Beam",
+      brace: "Brace",
+      slab: "Slab",
+      wall: "Wall",
+    };
 
-    if (clickLegacyTool(label)) setActiveTool(tool);
+    if (clickLegacyTool(labels[tool])) setActiveTool(tool);
   }
 
   return (
@@ -86,14 +86,16 @@ export default function StructuralEditorShell() {
             onClick={() => activateTool(tool.id)}
           >
             <span className="architectToolIcon" aria-hidden="true">{tool.short}</span>
-            <span#ç´ool.label}</span>
+            <span>{tool.label}</span>
           </button>
         ))}
       </nav>
 
       <div className="architectContextbar">
         <span className="architectContextTitle">3D Workspace</span>
-        <span className="architectContextHint">Add: {activeTool ?? "None"}</span>
+        <span className="architectContextHint">
+          Add: {activeTool ?? "None"}
+        </span>
         <div className="architectViewPills" aria-label="View status">
           <span>Perspective</span>
           <span>Snap: ON</span>
