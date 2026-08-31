@@ -3,7 +3,10 @@
 import dynamic from "next/dynamic";
 import ContextualHelperController from "../components/ContextualHelperController";
 
-const StructuralEditor = dynamic(() => import("../components/StructuralEditor"), { ssr: false });
+const StructuralEditor = dynamic(
+  () => import("../components/StructuralEditorShell"),
+  { ssr: false },
+);
 
 export default function Page() {
   return (
