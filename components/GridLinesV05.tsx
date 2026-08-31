@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
-import * as THREE from "three";
-import type { GridLine } from "@linkoteq/structural-core";
+import { Html, Line } from "@react-three/drei";
+import type { GridLine, Vec3 } from "@linkoteq/structural-core";
 
-function point(position: { x: number; y: number; z: number }): [number, number, number] {
-  return [position.x, position.z + 0.025, position.y];
+const GRID_ELEVATION_OFFSET = 0.08;
+
+function toScenePoint(position: Vec3): [number, number, number] {
+  return [position.x, position.z + GRID_ELEVATION_OFFSET, position.y];
 }
 
 export default function GridLinesV05({ grids }: { grids: GridLine[] }) {
@@ -19,25 +20,38 @@ export default function GridLinesV05({ grids }: { grids: GridLine[] }) {
 }
 
 function GridLineVisual({ grid }: { grid: GridLine }) {
-  const geometry = useMemo(() => {
-    const next = new THREE.BufferGeometry();
-    next.setFromPoints([
-      new THREE.Vector3(...point(grid.start)),
-      new THREE.Vector3(...point(grid.end)),
-    ]);
-    return next;
-  }, [
-    grid.start.x,
-    grid.start.y,
-    grid.start.z,
-    grid.end.x,
-    grid.end.y,
-    grid.end.z,
-  ]);
+  const start = toScenePoint(grid.start);
+  const end = toScenePoint(grid.end);
+  const labelPosition: [number, number, number] = [
+    start[0],
+    start[1] + 0.12,
+    start[2],
+  ];
 
   return (
-    <line geometry={geometry} renderOrder={4}>
-      <lineBasicMaterial color="#4f6f9f" depthTest={false} />
-    </line>
+    <group renderOrder={20}>
+      <Line
+        points={[start, end]}
+        color="#2563eb"
+        lineWidth={3.5}
+        transparent
+        opacity={0.95}
+        depthTest={false}
+        renderOrder={20}
+      />
+      <mesh position={start} renderOrder={21}>
+        <sphereGeometry args={[0.11, 16, 16]} />
+        <meshBasicMaterial color="#2563eb" depthTest={false} />
+      </mesh>
+      <Html
+        position={labelPosition}
+        center
+        transform={false}
+        zIndexRange={[50, 0]}
+        wrapperClass="coreGridLabelWrapper"
+      >
+        <span className="coreGridLabel">{grid.label}</span>
+      </Html>
+    </group>
   );
 }
