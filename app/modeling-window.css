@@ -1,0 +1,32 @@
+
+/* Close the primary modeling viewport visually at the bottom edge. */
+.mode-simple .architectViewportColumn{
+  border:1px solid var(--ae-border);
+  border-radius:16px;
+  background:#fff;
+  overflow:hidden;
+  box-shadow:0 6px 22px rgba(31,43,56,.06);
+}
+.mode-simple .architectViewportStage{
+  min-height:0;
+  overflow:hidden;
+}
+.mode-simple .engineeringEditorStage>.appShell{
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+.mode-simple .architectStatusbar{
+  border-left:0;
+  border-right:0;
+  border-bottom:0;
+  border-radius:0;
+}
+
+/* Temporary contextual panels must remain visibly dismissible. */
+.mode-simple .architect-revealed-panel .lgHeader>button{
+  position:sticky;
+  top:0;
+  z-index:2;
+  cursor:nointer;
+}
