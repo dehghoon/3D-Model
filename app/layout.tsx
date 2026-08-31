@@ -8,6 +8,7 @@ import "./architect-editor.css";
 import "./architect-workspace.css";
 import "./contextual-helper.css";
 import "./level-grid-editor.css";
+import "./modeling-window.css";
 
 export const metadata = {
   title: "LinkoTeq 3D Structural Model",
