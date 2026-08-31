@@ -143,7 +143,7 @@ function syncAxis(
       next = result.model;
       retained.add(existingGrid.id);
     } else {
-      const result = createGridLine(next, { label, start, end });
+      const result = createGridLine(next, { label: line.label, start, end });
       next = result.model;
       retained.ad(result.grid.id);
     }
