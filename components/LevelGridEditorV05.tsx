@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Level, StructuralModel } from "@linkoteq/structural-core";
 
-import { createOrthogonalGridSystem } from "../lib/modeling/grid-system-service";
+import {
+  createOrthogonalGridSystem,
+  inspectOrthogonalGridSystem,
+  updateOrthogonalGridSystem,
+} from "../lib/modeling/grid-system-service";
 import {
   createLevel,
   deleteLevel,
@@ -21,6 +25,15 @@ function finite(value: string, code: string): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) throw new Error(code);
   return parsed;
+}
+
+function reportError(
+  model: StructuralModel,
+  onModelChange: Props["onModelChange"],
+  error: unknown,
+  fallback: string,
+) {
+  onModelChange(model, error instanceof Error ? error.message : fallback);
 }
 
 function closePanel() {
@@ -45,14 +58,14 @@ function LevelRow({
     try {
       const result = updateLevel(model, level.id, {
         name,
-        elevation: finite(elevation, "LEVEL_ELEVATION_MUST_BE_FINITE"),
+        elevation: finite(
+          elevation,
+          "LEVEL_ELEVATION_MUST_BE_FINITE",
+        ),
       });
       onModelChange(result.model, `Level ${result.level.id} updated.`);
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Level update failed.",
-      );
+      reportError(model, onModelChange, error, "Level update failed.");
     }
   }
 
@@ -63,10 +76,7 @@ function LevelRow({
         `Level ${level.id} removed.`,
       );
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Level removal failed.",
-      );
+      reportError(model, onModelChange, error, "Level removal failed.");
     }
   }
 
@@ -83,7 +93,10 @@ function LevelRow({
       <div className="lgTwo">
         <label>
           <span>Name</span>
-          <input value={name} onChange={(event) => setName(event.target.value)} />
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         </label>
         <label>
           <span>Elevation</span>
@@ -96,41 +109,85 @@ function LevelRow({
       </div>
 
       <div className="lgActions">
-        <button type="button" onClick={save}>Update</button>
-        <button type="button" className="danger" onClick={remove}>Delete</button>
+        <button type="button" onClick={save}>
+          Update
+        </button>
+        <button type="button" className="danger" onClick={remove}>
+          Delete
+        </button>
       </div>
     </article>
   );
 }
 
-export default function LevelGridEditorV05({ model, onModelChange }: Props) {
+export default function LevelGridEditorV05({
+  model,
+  onModelChange,
+}: Props) {
   const [tab, setTab] = useState<Tab>("grid");
 
   const [xCount, setXCount] = useState("10");
   const [xSpacing, setXSpacing] = useState("6");
   const [yCount, setYCount] = useState("6");
   const [ySpacing, setYSpacing] = useState("6");
+  const [originX, setOriginX] = useState("0");
+  const [originY, setOriginY] = useState("0");
 
   const [levelName, setLevelName] = useState("");
   const [elevation, setElevation] = useState("0");
 
-  function createGridSystem() {
+  const gridSnapshot = inspectOrthogonalGridSystem(model);
+
+  useEffect(() => {
+    if (!gridSnapshot) return;
+    setXCount(String(gridSnapshot.xCount));
+    setXSpacing(String(gridSnapshot.xSpacing));
+    setYCount(String(gridSnapshot.yCount));
+    setYSpacing(String(gridSnapshot.ySpacing));
+    setOriginX(String(gridSnapshot.originX));
+    setOriginY(String(gridSnapshot.originY));
+  }, [
+    gridSnapshot?.xCount,
+    gridSnapshot?.xSpacing,
+    gridSnapshot?.yCount,
+    gridSnapshot?.ySpacing,
+    gridSnapshot?.originX,
+    gridSnapshot?.originY,
+  ]);
+
+  function saveGridSystem() {
     try {
-      const next = createOrthogonalGridSystem(model, {
+      const input = {
         xCount: finite(xCount, "GRID_X_COUNT_MUST_BE_FINITE"),
-        xSpacing: finite(xSpacing, "GRID_X_SPACING_MUST_BE_FINITE"),
+        xSpacing: finite(
+          xSpacing,
+          "GRID_X_SPACING_MUST_BE_FINITE",
+        ),
         yCount: finite(yCount, "GRID_Y_COUNT_MUST_BE_FINITE"),
-        ySpacing: finite(ySpacing, "GRID_Y_SPACING_MUST_BE_FINITE"),
-      });
+        ySpacing: finite(
+          ySpacing,
+          "GRID_Y_SPACING_MUST_BE_FINITE",
+        ),
+        originX: finite(originX, "GRID_ORIGIN_MUST_BE_FINITE"),
+        originY: finite(originY, "GRID_ORIGIN_MUST_BE_FINITE"),
+      };
+
+      const next = gridSnapshot
+        ? updateOrthogonalGridSystem(model, input)
+        : createOrthogonalGridSystem(model, input);
 
       onModelChange(
         next,
-        `Created orthogonal Grid system: ${xCount} numbered lines and ${yCount} lettered lines at Z=0.`,
+        gridSnapshot
+          ? "Grid system updated."
+          : "Grid system created.",
       );
     } catch (error) {
-      onModelChange(
+      reportError(
         model,
-        error instanceof Error ? error.message : "Grid system creation failed.",
+        onModelChange,
+        error,
+        "Grid system update failed.",
       );
     }
   }
@@ -139,15 +196,15 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
     try {
       const result = createLevel(model, {
         name: levelName,
-        elevation: finite(elevation, "LEVEL_ELEVATION_MUST_BE_FINITE"),
+        elevation: finite(
+          elevation,
+          "LEVEL_ELEVATION_MUST_BE_FINITE",
+        ),
       });
       onModelChange(result.model, `Level ${result.level.id} created.`);
       setLevelName("");
     } catch (error) {
-      onModelChange(
-        model,
-        error instanceof Error ? error.message : "Level creation failed.",
-      );
+      reportError(model, onModelChange, error, "Level creation failed.");
     }
   }
 
@@ -157,21 +214,32 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
         <div>
           <span>MODEL SETUP</span>
           <h3>Grid & Levels</h3>
-          <p>Orthogonal Grid at Z=0 and canonical model levels.</p>
+          <p>
+            Orthogonal Grid at Z=0 and canonical model levels.
+          </p>
         </div>
         <button
           type="button"
-          aria-label="Close Grid and Levels"
           onClick={closePanel}
+          aria-label="Close Grid and Levels"
         >
           ×
         </button>
       </header>
 
       <div className="lgSummary">
-        <div><strong>{model.grids.length}</strong><span>Grid lines</span></div>
-        <div><strong>{model.levels.length}</strong><span>Levels</span></div>
-        <div><span>Core</span><strong>0.5</strong></div>
+        <div>
+          <strong>{model.grids.length}</strong>
+          <span>Grid lines</span>
+        </div>
+        <div>
+          <strong>{model.levels.length}</strong>
+          <span>Levels</span>
+        </div>
+        <div>
+          <span>Core</span>
+          <strong>0.5</strong>
+        </div>
       </div>
 
       <div className="lgTabs">
@@ -194,6 +262,15 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
       {tab === "grid" ? (
         <div className="lgBody">
           <section className="lgCard">
+            <div className="lgTitle">
+              <span>{gridSnapshot ? "EDIT GRID SYSTEM" : "NEW GRID SYSTEM"}</span>
+              <strong>
+                {gridSnapshot
+                  ? "Edit count, spacing, and origin"
+                  : "Create orthogonal numbered / lettered axes"}
+              </strong>
+            </div>
+
             <div className="lgTitle">
               <span>NUMBERED AXES</span>
               <strong>1, 2, 3, ...</strong>
@@ -220,9 +297,7 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
                 />
               </label>
             </div>
-          </section>
 
-          <section className="lgCard">
             <div className="lgTitle">
               <span>LETTERED AXES</span>
               <strong>A, B, C, ...</strong>
@@ -249,19 +324,45 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
                 />
               </label>
             </div>
+
+            <div className="lgTitle">
+              <span>ORIGIN</span>
+              <strong>Global plan origin</strong>
+            </div>
+            <div className="lgTwo">
+              <label>
+                <span>X</span>
+                <input
+                  type="number"
+                  step="any"
+                  value={originX}
+                  onChange={(event) => setOriginX(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Y</span>
+                <input
+                  type="number"
+                  step="any"
+                  value={originY}
+                  onChange={(event) => setOriginY(event.target.value)}
+                />
+              </label>
+            </div>
+
+            <button
+              type="button"
+              className="lgPrimary"
+              onClick={saveGridSystem}
+            >
+              {gridSnapshot ? "Update Grid System" : "Create Grid System"}
+            </button>
+
+            <p className="selectionText">
+              Grid axes stay parallel within each direction, intersect at
+              90°, and remain at global Z=0.
+            </p>
           </section>
-
-          <button
-            type="button"
-            className="lgPrimary"
-            onClick={createGridSystem}
-          >
-            {model.grids.length ? "Replace Grid System" : "Create Grid System"}
-          </button>
-
-          <p className="selectionText">
-            Grid axes are parallel within each direction, intersect at 90°, and are stored at global Z=0.
-          </p>
         </div>
       ) : (
         <div className="lgBody">
@@ -290,7 +391,11 @@ export default function LevelGridEditorV05({ model, onModelChange }: Props) {
               </label>
             </div>
 
-            <button type="button" className="lgPrimary" onClick={addLevel}>
+            <button
+              type="button"
+              className="lgPrimary"
+              onClick={addLevel}
+            >
               Create Level
             </button>
           </section>
