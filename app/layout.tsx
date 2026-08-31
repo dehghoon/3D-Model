@@ -10,6 +10,7 @@ import "./contextual-helper.css";
 import "./level-grid-editor.css";
 import "./modeling-window.css";
 import "./grid-modal.css";
+import "./grid-offset-editor.css";
 
 export const metadata = {
   title: "LinkoTeq 3D Structural Model",
