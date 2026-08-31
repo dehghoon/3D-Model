@@ -7,6 +7,7 @@ import { ChangeEvent, useMemo, useRef, useState } from "react";
 import type { Member, Node, StructuralModel, Surface } from "@linkoteq/structural-core";
 
 import ElementProperties from "./ElementProperties";
+import GridLinesV05 from "./GridLinesV05";
 import LoadManager from "./LoadManager";
 import ModelToolsV05 from "./ModelToolsV05";
 import NodeCreatorV05 from "./NodeCreatorV05";
@@ -30,7 +31,7 @@ function emptyModel(): StructuralModel {
     nodes: [],
     members: [],
     surfaces: [],
-    diaphragms: [],
+    diaphhragms: [],
     materials: [],
     sections: [],
     supports: [],
@@ -69,6 +70,7 @@ function MemberMesh({
 }) {
   const start = nodes.find((node) => node.id === member.startNodeId);
   const end = nodes.find((node) => node.id === member.endNodeId);
+
   const geometry = useMemo(() => {
     if (!start || !end) return null;
     const a = new THREE.Vector3(...position(start));
@@ -76,7 +78,12 @@ function MemberMesh({
     const direction = b.clone().sub(a);
     const length = direction.length();
     if (!length) return null;
-    const box = new THREE.BoxGeometry(selected ? 0.28 : 0.22, length, selected ? 0.28 : 0.22);
+
+    const box = new THREE.BoxGeometry(
+      selected ? 0.28 : 0.22,
+      length,
+      selected ? 0.28 : 0.22,
+    );
     box.translate(0, length / 2, 0);
     box.applyQuaternion(
       new THREE.Quaternion().setFromUnitVectors(
@@ -89,6 +96,7 @@ function MemberMesh({
   }, [start, end, selected]);
 
   if (!geometry) return null;
+
   return (
     <mesh
       geometry={geometry}
@@ -106,6 +114,7 @@ function MemberMesh({
 
 function buildSurfaceGeometry(points: Node[]): THREE.BufferGeometry | null {
   if (points.length < 3) return null;
+
   const vertices = points.map((node) => new THREE.Vector3(...position(node)));
   const origin = vertices[0];
   const normal = new THREE.Vector3();
@@ -121,6 +130,7 @@ function buildSurfaceGeometry(points: Node[]): THREE.BufferGeometry | null {
 
   if (normal.lengthSq() < 1e-12) return null;
   normal.normalize();
+
   const firstOffset = vertices.find(
     (vertex, index) => index > 0 && vertex.distanceToSquared(origin) > 1e-12,
   );
@@ -132,6 +142,7 @@ function buildSurfaceGeometry(points: Node[]): THREE.BufferGeometry | null {
     const relative = vertex.clone().sub(origin);
     return new THREE.Vector2(relative.dot(uAxis), relative.dot(vAxis));
   });
+
   const faces = THREE.ShapeUtils.triangulateShape(contour, []);
   if (!faces.length) return null;
 
@@ -166,6 +177,7 @@ function SurfaceMesh({
         .filter((node): node is Node => Boolean(node)),
     [surface.boundaryNodeIds, nodes],
   );
+
   const geometry = useMemo(() => buildSurfaceGeometry(points), [points]);
   if (!geometry) return null;
 
@@ -207,6 +219,8 @@ function Scene({
     <>
       <primitive object={ambient} />
       <primitive object={keyLight} />
+
+      <GridLinesV05 grids={model.grids} />
 
       {model.surfaces.map((surface) => (
         <SurfaceMesh
