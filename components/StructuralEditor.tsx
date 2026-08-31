@@ -29,21 +29,6 @@ function clickExistingButton(containerSelector: string, label: string): boolean 
   return true;
 }
 
-function revealToolPanel(title: string): boolean {
-  const headings = Array.from(
-    document.querySelectorAll<HTMLElement>(".engineeringEditorStage .toolbar h3"),
-  );
-  const heading = headings.find((item) => item.textContent?.trim() === title);
-  const panel = heading?.closest<HTMLElement>(".panelBlock, section");
-  if (!panel) return false;
-
-  panel.classList.add("architect-revealed-panel");
-  panel.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
-  const input = panel.querySelector<HTMLInputElement | HTMLSelectElement>("input, select");
-  window.setTimeout(() => input?.focus(), 120);
-  return true;
-}
-
 function activateModelTool(
   label: "Select" | "Beam" | "Column" | "Brace" | "Wall" | "Slab",
 ): boolean {
@@ -52,7 +37,7 @@ function activateModelTool(
 
 export default function StructuralEditor() {
   const [mode, setMode] = useState<WorkspaceMode>("simple");
-  const [activeModelTool, setActiveModelTool] = useState<ModelingTool>("grid");
+  const [activeModelTool, setActiveModelTool] = useState<ModelingTool | null>(null);
   const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("select");
   const [selectionLabel, setSelectionLabel] = useState("No object selected");
 
@@ -75,7 +60,7 @@ export default function StructuralEditor() {
 
   const modelingTools = useMemo<ToolCommand<ModelingTool>[]>(
     () => [
-      { id: "grid", label: "Grid", short: "G", action: () => revealToolPanel("Levels / Grids") },
+      { id: "grid", label: "Grid", short: "G", action: () => true },
       { id: "column", label: "Column", short: "C", action: () => activateModelTool("Column") },
       { id: "beam", label: "Beam", short: "B", action: () => activateModelTool("Beam") },
       { id: "brace", label: "Brace", short: "BR", action: () => activateModelTool("Brace") },
@@ -113,14 +98,20 @@ export default function StructuralEditor() {
 
   function runUtilityCommand(command: ToolCommand<UtilityTool>) {
     if (command.disabled) return;
-    if (command.action()) setActiveUtilityTool(command.id);
+    if (command.action()) {
+      setActiveUtilityTool(command.id);
+      if (command.id === "select" || command.id === "view") setActiveModelTool(null);
+    }
   }
 
   const utilityLabel =
     [...utilityTools, ...floatingTools].find((item) => item.id === activeUtilityTool)?.label ??
     "Select";
+
   const modelLabel =
-    modelingTools.find((item) => item.id === activeModelTool)?.label ?? "Grid";
+    activeModelTool
+      ? modelingTools.find((item) => item.id === activeModelTool)?.label ?? "None"
+      : "None";
 
   return (
     <div className={`architectEditorShell mode-${mode}`}>
@@ -184,7 +175,7 @@ export default function StructuralEditor() {
             <div className="architectQuickActions">
               {utilityTools.map((command) => (
                 <button
-                  key={command.id}
+                  key={command.id }
                   type="button"
                   className={activeUtilityTool === command.id ? "active" : ""}
                   onClick={() => runUtilityCommand(command)}
@@ -192,43 +183,7 @@ export default function StructuralEditor() {
                   title={command.title}
                 >
                   <span className="architectQuickIcon">{command.short}</span>
-                  <span>
-                    <strong>{command.label}</strong>
-                    <small>
-                      {command.id === "select"
-                        ? "Pick an object"
-                        : command.id === "view"
-                          ? "Navigate the model"
-                          : command.id === "delete"
-                            ? "Remove selection"
-                            : "Coming next"}
-                    </small>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </aside>
-        ) : null}
-
-        <div className="architectViewportColumn">
-          <div className="architectViewportStage">
-            <div className="engineeringEditorStage">
-              <StructuralEditorV05 />
-            </div>
-
-            {mode === "simple" ? (
-              <div className="architectFloatingTools" aria-label="Viewport tools">
-                {floatingTools.map((command) => (
-                  <button
-                    key={command.id}
-                    type="button"
-                    className={activeUtilityTool === command.id ? "active" : ""}
-                    onClick={() => runUtilityCommand(command)}
-                    disabled={command.disabled}
-                    title={command.title}
-                  >
-                    <span className="architectFloatingIcon" aria-hidden="true">{command.short}</span>
-                    <span>{command.label}</span>
+                  <span#à¢Ç7G&öæsç¶6öÖÖæBæÆ&VÇÓÂ÷7G&öæsà¢Ç6ÖÆÃà¢¶6öÖÖæBæ–BÓÓÒ'6VÆV7B ¢ò%–6²âö&¦V7B ¢¢6öÖÖæBæ–BÓÓÒ'f–Wr ¢ò$æf–vFRF†RÖöFVÂ ¢¢6öÖÖæBæ–BÓÓÒ&FVÆWFR ¢ò%&VÖ÷fR6VÆV7F–öâ ¢¢$6öÖ–æræW‡B'Ð¢Â÷6ÖÆÃà¢Â÷7ãà¢Âö'WGFöãà¢’—Ð¢ÂöF—cà¢Âö6–FSà¢’¢çVÆÇÐ ¢ÆF—b6Æ74æÖSÒ&&6†—FV7Ef–Ww÷'D6öÇVÖâ#à¢ÆF—b6Æ74æÖSÒ&&6†—FV7Ef–Ww÷'E7FvR#à¢ÆF—b6Æ74æÖSÒ&Væv–æVW&–ætVF—F÷%7FvR#à¢Å7G'V7GW&ÄVF—F÷%cP¢v÷&·76TÖöFS×¶ÖöFWÐ¢7F—fTÖöFVÅFööÃ×¶7F—fTÖöFVÅFööÇÐ¢öä6Æ÷6T6öçFW‡EæVÃ×²‚’Óâ6WD7F—fTÖöFVÅFööÂ†çVÆÆ—Ð¢óà¢ÂöF—cà ¢¶ÖöFRÓÓÒ'6–×ÆR"bb7F—fTÖöFVÅFööÂÓÒ&w&–B"ò€¢ÆF—b6Æ74æÖSÒ&&6†—FV7DfÆöF–æuFööÇ2"&–ÖÆ&VÃÒ%f–Ww÷'BFööÇ2#à¢¶fÆöF–æuFööÇ2æÖ‚†6öÖÖæB’Óâ€¢Æ'WGFöà¢¶W“×¶6öÖÖæBæ–GÐ¢G—SÒ&'WGFöâ ¢6Æ74æÖS×¶7F—fUWF–Æ—G•FööÂÓÓÒ6öÖÖæBæ–Bò&7F—fR"¢"'Ð¢öä6Æ–6³×²‚’Óâ'VåWF–Æ—G”6öÖÖæB†6öÖÖæB—Ð¢F—6&ÆVC×¶6öÖÖæBæF—6&ÆVGÐ¢F—FÆS×¶6öÖÖæBçF—FÆWÐ¢à¢Ç7â6Æ74æÖSÒ&&6†—FV7DfÆöF–æt–6öâ"&–Ö†–FFVãÒ'G'VR#ç¶6öÖÖæBç6†÷'GÓÂ÷7ãà¢Ç7â>{command.label}</span>
                   </button>
                 ))}
               </div>
@@ -245,5 +200,6 @@ export default function StructuralEditor() {
         </div>
       </div>
     </div>
+  </div>
   );
 }
