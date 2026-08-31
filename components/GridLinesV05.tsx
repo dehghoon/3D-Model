@@ -24,13 +24,7 @@ function labelPoint(point: Vec3, other: Vec3): [number, number, number] {
   ];
 }
 
-function Bubble({
-  label,
-  position,
-}: {
-  label: string;
-  position: [number, number, number];
-}) {
+function Bubble({ label, position }: { label: string; position: [number, number, number] }) {
   return (
     <Billboard position={position} follow>
       <mesh renderOrder={41}>
@@ -47,7 +41,6 @@ function Bubble({
         anchorX="center"
         anchorY="middle"
         color="#1e293b"
-        depthTest={false}
         renderOrder={43}
       >
         {label}
