@@ -1,0 +1,22 @@
+.gridOffsetEditor{display:grid;gap:16px}
+.gridOffsetIntro{display:grid;gap:4px;padding:12px 14px;border:1px solid #dbe3ee;border-radius:12px;background:#f8fafc}
+.gridOffsetIntro strong{font-size:14px;color:#1e293b}
+.gridOffsetIntro span{font-size:12px;color:#64748b}
+.gridOffsetSection{display:grid;gap:10px;padding:14px;border:1px solid #dbe3ee;border-radius:14px;background:#fff}
+.gridOffsetSectionHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.gridOffsetSectionHead div{display:grid;gap:2px}
+.gridOffsetSectionHead span{font-size:11px;font-weight:700;letter-spacing:.08em;color:#64748b;text-transform:uppercase}
+.gridOffsetSectionHead strong{font-size:14px;color:#1e293b}
+.gridOffsetSectionHead button{border:1px solid #cbd5e1;border-radius:9px;background:#fff;padding:8px 10px;font-weight:600;color:#334155}
+.gridOffsetTable{display:grid;gap:8px}
+.gridOffsetTableHead,.gridOffsetRow{display:grid;grid-template-columns:minmax(80px,.7fr) minmax(130px,1.3fr) 40px;gap:8px;align-items:center}
+.gridOffsetTableHead{padding:0 2px;font-size:11px;font-weight:700;color:#64748b}
+.gridOffsetRow input{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:9px;padding:9px 10px;background:#fff;color:#0f172a}
+.gridOffsetDelete{height:38px;border:1px solid #fecaca;border-radius:9px;background:#fff;color:#b91c1c;font-size:18px}
+.gridOffsetDelete:disabled{opacity:.35}
+.gridOffsetSave{width:100%}
+.gridBubble{display:grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border:1.5px solid #64748b;border-radius:999px;background:rgba(255,255,255,.96);color:#1e293b;font:700 12px/1 system-ui,sans-serif;box-shadow:0 1px 3px rgba(15,23,42,.12);white-space:nowrap}
+@media(max-width:760px){
+  .gridOffsetTableHead,.gridOffsetRow{grid-template-columns:72px minmax(120px,1fr) 38px}
+  .gridOffsetSection{padding:12px}
+}
