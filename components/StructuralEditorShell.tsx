@@ -3,6 +3,7 @@
 import { useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
 
+type WorkspaceMode = "simple" | "advanced";
 type ModelingTool = "column" | "beam" | "brace" | "slab" | "wall";
 type UtilityTool = "select" | "view" | "move" | "copy" | "delete";
 
@@ -27,7 +28,7 @@ const utilityTools: Array<{
   { id: "delete", label: "Delete", short: "D" },
 ];
 
-function clickLegacyButton(label: string): boolean {
+function clickEditorButton(label: string): boolean {
   const button = Array.from(
     document.querySelectorAll<HTMLButtonElement>(
       ".engineeringEditorStage .toolbar button",
@@ -39,36 +40,34 @@ function clickLegacyButton(label: string): boolean {
   return true;
 }
 
-function activateModelingTool(tool: ModelingTool): boolean {
-  const labels: Record<ModelingTool, string> = {
-    column: "Column",
-    beam: "Beam",
-    brace: "Brace",
-    slab: "Slab",
-    wall: "Wall",
-  };
-  return clickLegacyButton(labels[tool]);
-}
-
 function openGridLevels() {
   window.dispatchEvent(new Event("linkoteq:grid-panel-open"));
 }
 
 export default function StructuralEditorShell() {
-  const [mode, setMode] = useState<"simple" | "advanced">("simple");
+  const [mode, setMode] = useState<WorkspaceMode>("simple");
   const [activeModelTool, setActiveModelTool] = useState<ModelingTool | null>(null);
-  const [activeUtilityTool, setActiveUtilityTool] =
-    useState<UtilityTool>("select");
+  const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("select");
 
-  function runModelingTool(tool: ModelingTool) {
-    if (activateModelingTool(tool)) setActiveModelTool(tool);
+  function runModelTool(tool: ModelingTool) {
+    const labelByTool: Record<ModelingTool, string> = {
+      column: "Column",
+      beam: "Beam",
+      brace: "Brace",
+      slab: "Slab",
+      wall: "Wall",
+    };
+
+    if (clickEditorButton(labelByTool[tool])) {
+      setActiveModelTool(tool);
+    }
   }
 
   function runUtilityTool(tool: UtilityTool) {
     if (tool === "move" || tool === "copy") return;
 
     if (tool === "select") {
-      clickLegacyButton("Select");
+      clickEditorButton("Select");
       setActiveUtilityTool("select");
       setActiveModelTool(null);
       return;
@@ -81,7 +80,7 @@ export default function StructuralEditorShell() {
     }
 
     if (tool === "delete") {
-      clickLegacyButton("Delete selected");
+      clickEditorButton("Delete selected");
       setActiveUtilityTool("delete");
     }
   }
@@ -90,9 +89,7 @@ export default function StructuralEditorShell() {
     <div className={`architectEditorShell mode-${mode}`}>
       <header className="architectTopbar">
         <div className="architectBrand">
-          <span className="architectBrandMark" aria-hidden="true">
-            L
-          </span>
+          <span className="architectBrandMark" aria-hidden="true">L</span>
           <div>
             <strong>Structural Concept Modeler</strong>
             <span>Core 0.5</span>
@@ -123,12 +120,10 @@ export default function StructuralEditorShell() {
             key={tool.id}
             type="button"
             className={activeModelTool === tool.id ? "active" : ""}
-            onClick={() => runModelingTool(tool.id)}
+            onClick={() => runModelTool(tool.id)}
           >
-            <span className="architectToolIcon" aria-hidden="true">
-              {tool.short}
-            </span>
-            <span#ç´ool.label}</span>
+            <span className="architectToolIcon" aria-hidden="true">{tool.short}</span>
+            <span>{tool.label}</span>
           </button>
         ))}
       </nav>
@@ -146,7 +141,7 @@ export default function StructuralEditorShell() {
 
       <div className="architectWorkspaceFrame">
         {mode === "simple" ? (
-          <aside className="architectQuickPanel" aria-label="Quick tools">
+          <aside className="architectQuickPanel" aria-label="Setup and quick tools">
             <div className="architectPanelHeading">
               <div>
                 <span className="architectEyebrow">MODEL</span>
@@ -160,9 +155,7 @@ export default function StructuralEditorShell() {
               className="architectSetupButton"
               onClick={openGridLevels}
             >
-              <span className="architectQuickIcon" aria-hidden="true">
-                G
-              </span>
+              <span className="architectQuickIcon" aria-hidden="true">G</span>
               <span>
                 <strong>Grid & Levels</strong>
                 <small>Model setup</small>
@@ -178,9 +171,7 @@ export default function StructuralEditorShell() {
                   onClick={() => runUtilityTool(tool.id)}
                   disabled={tool.disabled}
                 >
-                  <span className="architectQuickIcon" aria-hidden="true">
-                    {tool.short}
-                  </span>
+                  <span className="architectQuickIcon" aria-hidden="true">{tool.short}</span>
                   <span>
                     <strong>{tool.label}</strong>
                     <small>
@@ -211,15 +202,9 @@ export default function StructuralEditorShell() {
             role="status"
             aria-live="polite"
           >
-            <span>
-              <strong>Utility:</strong> {activeUtilityTool}
-            </span>
-            <span className="architectStatusDivider" aria-hidden="true">
-              |
-            </span>
-            <span(
-              <strong>Add:</strong> {activeModelTool ?? "None"}
-            </span>
+            <span><strong>Utility:</strong> {activeUtilityTool}</span>
+            <span className="architectStatusDivider" aria-hidden="true">|</span>
+            <span><strong>Add:</strong> {activeModelTool ?? "None"}</span>
           </div>
         </div>
       </div>
