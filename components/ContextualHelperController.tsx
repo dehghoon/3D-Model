@@ -42,7 +42,7 @@ export default function ContextualHelperController() {
       if (!(target instanceof Element)) return;
 
       const button = target.closest<HTMLButtonElement>(
-        ".architectToolsStrip button",
+        ".architectToolstrip button",
       );
       if (!button) return;
 
