@@ -3,10 +3,10 @@
 import { useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
 
-type ModelingTool = "grid" | "column" | "beam" | "brace" | "slab" | "wall";
+type ModelingTool = "column" | "beam" | "brace" | "slab" | "wall";
+type UtilityTool = "select" | "view" | "move" | "copy" | "delete";
 
-const tools: Array<{ id: ModelingTool; label: string; short: string }> = [
-  { id: "grid", label: "Grid", short: "G" },
+const modelingTools: Array<{ id: ModelingTool; label: string; short: string }> = [
   { id: "column", label: "Column", short: "C" },
   { id: "beam", label: "Beam", short: "B" },
   { id: "brace", label: "Brace", short: "BR" },
@@ -14,7 +14,20 @@ const tools: Array<{ id: ModelingTool; label: string; short: string }> = [
   { id: "wall", label: "Wall", short: "W" },
 ];
 
-function clickLegacyTool(label: string): boolean {
+const utilityTools: Array<{
+  id: UtilityTool;
+  label: string;
+  short: string;
+  disabled?: boolean;
+}> = [
+  { id: "select", label: "Select", short: "S" },
+  { id: "view", label: "View", short: "V" },
+  { id: "move", label: "Move", short: "M", disabled: true },
+  { id: "copy", label: "Copy", short: "CP", disabled: true },
+  { id: "delete", label: "Delete", short: "D" },
+];
+
+function clickLegacyButton(label: string): boolean {
   const button = Array.from(
     document.querySelectorAll<HTMLButtonElement>(
       ".engineeringEditorStage .toolbar button",
@@ -26,33 +39,60 @@ function clickLegacyTool(label: string): boolean {
   return true;
 }
 
+function activateModelingTool(tool: ModelingTool): boolean {
+  const labels: Record<ModelingTool, string> = {
+    column: "Column",
+    beam: "Beam",
+    brace: "Brace",
+    slab: "Slab",
+    wall: "Wall",
+  };
+  return clickLegacyButton(labels[tool]);
+}
+
+function openGridLevels() {
+  window.dispatchEvent(new Event("linkoteq:grid-panel-open"));
+}
+
 export default function StructuralEditorShell() {
   const [mode, setMode] = useState<"simple" | "advanced">("simple");
-  const [activeTool, setActiveTool] = useState<ModelingTool | null>(null);
+  const [activeModelTool, setActiveModelTool] = useState<ModelingTool | null>(null);
+  const [activeUtilityTool, setActiveUtilityTool] =
+    useState<UtilityTool>("select");
 
-  function activateTool(tool: ModelingTool) {
-    if (tool === "grid") {
-      window.dispatchEvent(new Event("linkoteq:grid-panel-open"));
-      setActiveTool("grid");
+  function runModelingTool(tool: ModelingTool) {
+    if (activateModelingTool(tool)) setActiveModelTool(tool);
+  }
+
+  function runUtilityTool(tool: UtilityTool) {
+    if (tool === "move" || tool === "copy") return;
+
+    if (tool === "select") {
+      clickLegacyButton("Select");
+      setActiveUtilityTool("select");
+      setActiveModelTool(null);
       return;
     }
 
-    const labels: Record<Exclude<ModelingTool, "grid">, string> = {
-      column: "Column",
-      beam: "Beam",
-      brace: "Brace",
-      slab: "Slab",
-      wall: "Wall",
-    };
+    if (tool === "view") {
+      setActiveUtilityTool("view");
+      setActiveModelTool(null);
+      return;
+    }
 
-    if (clickLegacyTool(labels[tool])) setActiveTool(tool);
+    if (tool === "delete") {
+      clickLegacyButton("Delete selected");
+      setActiveUtilityTool("delete");
+    }
   }
 
   return (
     <div className={`architectEditorShell mode-${mode}`}>
       <header className="architectTopbar">
         <div className="architectBrand">
-          <span className="architectBrandMark" aria-hidden="true">L</span>
+          <span className="architectBrandMark" aria-hidden="true">
+            L
+          </span>
           <div>
             <strong>Structural Concept Modeler</strong>
             <span>Core 0.5</span>
@@ -77,16 +117,18 @@ export default function StructuralEditorShell() {
         </div>
       </header>
 
-      <nav className="architectToolstrip" aria-label="Add model elements">
-        {tools.map((tool) => (
+      <nav className="architectToolstrip" aria-label="Add structural elements">
+        {modelingTools.map((tool) => (
           <button
             key={tool.id}
             type="button"
-            className={activeTool === tool.id ? "active" : ""}
-            onClick={() => activateTool(tool.id)}
+            className={activeModelTool === tool.id ? "active" : ""}
+            onClick={() => runModelingTool(tool.id)}
           >
-            <span className="architectToolIcon" aria-hidden="true">{tool.short}</span>
-            <span>{tool.label}</span>
+            <span className="architectToolIcon" aria-hidden="true">
+              {tool.short}
+            </span>
+            <span#ç´ool.label}</span>
           </button>
         ))}
       </nav>
@@ -94,7 +136,7 @@ export default function StructuralEditorShell() {
       <div className="architectContextbar">
         <span className="architectContextTitle">3D Workspace</span>
         <span className="architectContextHint">
-          Add: {activeTool ?? "None"}
+          {activeModelTool ? `Add: ${activeModelTool}` : "Model setup and drawing tools"}
         </span>
         <div className="architectViewPills" aria-label="View status">
           <span>Perspective</span>
@@ -103,14 +145,81 @@ export default function StructuralEditorShell() {
       </div>
 
       <div className="architectWorkspaceFrame">
+        {mode === "simple" ? (
+          <aside className="architectQuickPanel" aria-label="Quick tools">
+            <div className="architectPanelHeading">
+              <div>
+                <span className="architectEyebrow">MODEL</span>
+                <h2>Setup & Tools</h2>
+              </div>
+              <span className="architectPanelBadge">Simple</span>
+            </div>
+
+            <button
+              type="button"
+              className="architectSetupButton"
+              onClick={openGridLevels}
+            >
+              <span className="architectQuickIcon" aria-hidden="true">
+                G
+              </span>
+              <span>
+                <strong>Grid & Levels</strong>
+                <small>Model setup</small>
+              </span>
+            </button>
+
+            <div className="architectQuickActions">
+              {utilityTools.map((tool) => (
+                <button
+                  key={tool.id}
+                  type="button"
+                  className={activeUtilityTool === tool.id ? "active" : ""}
+                  onClick={() => runUtilityTool(tool.id)}
+                  disabled={tool.disabled}
+                >
+                  <span className="architectQuickIcon" aria-hidden="true">
+                    {tool.short}
+                  </span>
+                  <span>
+                    <strong>{tool.label}</strong>
+                    <small>
+                      {tool.id === "select"
+                        ? "Pick objects"
+                        : tool.id === "view"
+                          ? "Navigate"
+                          : tool.id === "delete"
+                            ? "Remove selection"
+                            : "Coming next"}
+                    </small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </aside>
+        ) : null}
+
         <div className="architectViewportColumn">
           <div className="architectViewportStage">
             <div className="engineeringEditorStage">
               <StructuralEditorV05 />
             </div>
           </div>
-          <div className="architectStatusbar" role="status" aria-live="polite">
-            <span><strong>Add:</strong> {activeTool ?? "None"}</span>
+
+          <div
+            className="architectStatusbar"
+            role="status"
+            aria-live="polite"
+          >
+            <span>
+              <strong>Utility:</strong> {activeUtilityTool}
+            </span>
+            <span className="architectStatusDivider" aria-hidden="true">
+              |
+            </span>
+            <span(
+              <strong>Add:</strong> {activeModelTool ?? "None"}
+            </span>
           </div>
         </div>
       </div>
