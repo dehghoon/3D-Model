@@ -14,7 +14,7 @@ interface Props {
   onModelChange: (model: StructuralModel, status: string) => void;
 }
 
-const STORAGE_PREFIX = "linkoteq:grid-offsets:v06:";
+const STORAGE_PREFIX = "linkoteq:grid-offsets:v07:";
 
 function alpha(index: number): string {
   let n = index + 1;
@@ -41,6 +41,16 @@ function defaults(): GridOffsetSystem {
   };
 }
 
+
+function isLegacySwapped(system: GridOffsetSystem): boolean {
+  return (
+    system.xLines.length >= 2 &&
+    system.yLines.length >= 2 &&
+    system.xLines.every((line) => /^[A-Z]+$/i.test(line.label.trim())) &&
+    system.yLines.every((line) => /^\d+$/.test(line.label.trim()))
+  );
+}
+
 function loadStored(projectId: string): GridOffsetSystem | null {
   if (typeof window === "undefined") return null;
   try {
@@ -49,7 +59,7 @@ function loadStored(projectId: string): GridOffsetSystem | null {
     const parsed = JSON.parse(raw) as GridOffsetSystem;
     if (!Array.isArray(parsed.xLines) || !Array.isArray(parsed.yLines)) return null;
     if (parsed.xLines.length < 2 || parsed.yLines.length < 2) return null;
-    return parsed;
+    return isLegacySwapped(parsed) ? null : parsed;
   } catch {
     return null;
   }
@@ -74,7 +84,7 @@ function initialSystem(model: StructuralModel): GridOffsetSystem {
     current.yLines.length >= 2 &&
     current.xLines.length + current.yLines.length === model.grids.length;
 
-  if (hasCompleteOrthognalModel) return current;
+  if (hasCompleteOrthogonalModel && !isLegacySwapped(current)) return current;
   return loadStored(model.project.id) ?? defaults();
 }
 
@@ -178,7 +188,8 @@ export default function GridOffsetEditorV06({ model, onModelChange }: Props) {
     const isClean =
       current.xLines.length >= 2 &&
       current.yLines.length >= 2 &&
-      current.xLines.length + current.yLines.length === model.grids.length;
+      current.xLines.length + current.yLines.length === model.grids.length &&
+      !isLegacySwapped(current);
 
     if (isClean) return;
 
