@@ -3,11 +3,14 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { StructuralModel } from "@linkoteq/structural-core";
 import { createLevel, deleteLevel } from "../lib/modeling/level-service";
+import { publishLevels } from "../lib/level-visual-store";
 
 export default function LevelEditorV05({model,onModelChange}:{model:StructuralModel;onModelChange:(model:StructuralModel,status:string)=>void}) {
   const [open,setOpen]=useState(false);
   const [name,setName]=useState("Level 1");
   const [elevation,setElevation]=useState("0");
+
+  useEffect(()=>{ publishLevels(model.levels); },[model.levels]);
 
   useEffect(()=>{
     const show=()=>setOpen(true), hide=()=>setOpen(false);
