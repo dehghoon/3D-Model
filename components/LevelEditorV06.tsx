@@ -41,7 +41,7 @@ function LevelRow({ level, model, onModelChange }: { level: Level; model: Struct
     <div className="lgItem lgLevelRow">
       <div className="lgTwo">
         <label><span>Name</span><input value={name} onChange={(event) => setName(event.target.value)} /></label>
-        <label><span>Elevation</span<input type="number" step="any" value={elevation} onChange={(event) => setElevation(event.target.value)} /></label>
+        <label><span>Elevation</span><input type="number" step="any" value={elevation} onChange={(event) => setElevation(event.target.value)} /></label>
       </div>
       <div className="lgActions">
         <button type="button" onClick={save}>Update</button>
@@ -93,7 +93,7 @@ export default function LevelEditorV06({ model, onModelChange }: Props) {
             <div className="lgTitle"><span>NEW LEVEL</span><strong>Add elevation</strong></div>
             <div className="lgTwo">
               <label><span>Name</span><input value={name} onChange={(event) => setName(event.target.value)} /></label>
-              <label><span>Elevation</span<input type="number" step="any" value={elevation} onChange={(event) => setElevation(event.target.value)} /></label>
+              <label><span>Elevation</span><input type="number" step="any" value={elevation} onChange={(event) => setElevation(event.target.value)} /></label>
             </div>
             <button type="button" className="lgPrimary" onClick={add}>Add Level</button>
           </section>
