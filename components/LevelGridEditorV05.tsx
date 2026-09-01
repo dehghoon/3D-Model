@@ -1,7 +1,7 @@
 "use client";
 import type { StructuralModel } from "@linkoteq/structural-core";
 import GridEditor from "./LevelGridEditorV05New";
-import LevelEditor from "./LevelEditorV05";
+import LevelEditor from "./LevelEditorV06";
 
 export default function LevelGridEditorV05({model,onModelChange}:{model:StructuralModel;onModelChange:(model:StructuralModel,status:string)=>void}) {
   return (
