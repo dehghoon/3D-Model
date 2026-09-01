@@ -105,7 +105,7 @@ export default function StructuralEditorShell() {
         <span className="architectContextTitle">3D Workspace</span>
         <span className="architectContextHint">{activeModelTool ? `Add: ${activeModelTool}` : "Model setup and drawing tools"}</span>
         <div className="architectViewPills" aria-label="View status">
-          <spanPerspective</span>
+          <span>Perspective</span>
           <span>Snap: ON</span>
         </div>
       </div>
@@ -128,7 +128,32 @@ export default function StructuralEditorShell() {
               </button>
               <button type="button" onClick={openLevels}>
                 <span className="architectQuickIcon" aria-hidden="true">L</span>
-                <span#ãÇ7G&öæsäÆWfVÇ3Â÷7G&öæsãÇ6ÖÆÃäVÆWfF–öç3Â÷6ÖÆÃãÂ÷7ãà¢Âö'WGFöãà ¢·WF–Æ—G•FööÇ2æÖ‚‡FööÂ’Óâ€¢Æ'WGFöâ¶W“×·FööÂæ–GÒG—SÒ&'WGFöâ"6Æ74æÖS×¶7F—fUWF–Æ—G•FööÂÓÓÒFööÂæ–Bò&7F—fR"¢"'Òöä6Æ–6³×²‚’Óâ'VåWF–Æ—G•FööÂ‡FööÂæ–B—ÒF—6&ÆVC×·FööÂæF—6&ÆVGÓà¢Ç7â6Æ74æÖSÒ&&6†—FV7EV–6´–6öâ"&–Ö†–FFVãÒ'G'VR#ç·FööÂç6†÷'GÓÂ÷7ãà¢Ç7ãà¢Ç7G&öæsç·FööÂæÆ&VÇÓÂ÷7G&öæsà¢Ç6ÖÆÃç·FööÂæ–BÓÓÒ'6VÆV7B"ò%–6²ö&¦V7G2"¢FööÂæ–BÓÓÒ'f–Wr"ò$æf–vFR"¢FööÂæ–BÓÓÒ&FVÆWFR"ò%&VÖ÷fR6VÆV7F–öâ"¢$6öÖ–æræW‡B'ÓÂ÷6ÖÆÃà¢Â÷7ãà¢Âö'WGFöãà¢’—Ð¢ÂöF—cà¢Âö6–FSà¢’¢çVÆÇÐ ¢ÆF—b6Æ74æÖSÒ&&6†—FV7Ef–Ww÷'D6öÇVÖâ#à¢ÆF—b6Æ74æÖSÒ&&6†—FV7Ef–Ww÷'E7FvR#à¢ÆF—b6Æ74æÖSÒ&Væv–æVW&–ætVF—F÷%7FvR#ãÅ7G'V7GW&ÄVF—F÷%cRóãÂöF—cà¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&&6†—FV7E7FGW6&""&öÆSÒ'7FGW2"&–ÖÆ—fSÒ'öÆ—FR#à¢Ç7ããÇ7G&öæsåWF–Æ—G“£Â÷7G&öæsâ¶7F—fUWF–Æ—G•FööÇÓÂ÷7ãà¢Ç7â6Æ74æÖSÒ&&6†—FV7E7FGW4F—f–FW""&–Ö†–FFVãÒ'G'VR#çÃÂ÷7ãà¢Ç7â><strong>Add:</strong> {activeModelTool ?? "None"}</span>
+                <span><strong>Levels</strong><small>Elevations</small></span>
+              </button>
+
+              {utilityTools.map((tool) => (
+                <button key={tool.id} type="button" className={activeUtilityTool === tool.id ? "active" : ""} onClick={() => runUtilityTool(tool.id)} disabled={tool.disabled}>
+                  <span className="architectQuickIcon" aria-hidden="true">{tool.short}</span>
+                  <span>
+                    <strong>{tool.label}</strong>
+                    <small>{tool.id === "select" ? "Pick objects" : tool.id === "view" ? "Navigate" : tool.id === "delete" ? "Remove selection" : "Coming next"}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </aside>
+        ) : null}
+
+        <div className="architectViewportColumn">
+          <div className="architectViewportStage">
+            <div className="engineeringEditorStage">
+              <StructuralEditorV05 />
+            </div>
+          </div>
+          <div className="architectStatusbar" role="status" aria-live="polite">
+            <span><strong>Utility:</strong> {activeUtilityTool}</span>
+            <span className="architectStatusDivider" aria-hidden="true">|</span>
+            <span><strong>Add:</strong> {activeModelTool ?? "None"}</span>
           </div>
         </div>
       </div>
