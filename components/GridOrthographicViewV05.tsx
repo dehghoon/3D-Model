@@ -58,8 +58,9 @@ export default function GridOrthographicViewV05({ grids }: { grids: GridLine[] }
       near={0.1}
       far={10000}
       position={position}
-      onDescribe={(camera) => {
-        camera.lookAt(new THREE.Vector3(centerX,"0" as any, centerZ));
+      ref={(camera) => {
+        if (!camera) return;
+        camera.lookAt(new THREE.Vector3(centerX, 0, centerZ));
         camera.updateProjectionMatrix();
       }}
     />
