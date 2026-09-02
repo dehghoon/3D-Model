@@ -5,9 +5,9 @@ import ReferenceStatusOverlay from "./ReferenceStatusOverlay";
 
 export default function StructuralEditorV05() {
   return (
-    <div className="structuralEditorViewportHost">
+    <>
       <StructuralEditorV06 />
       <ReferenceStatusOverlay />
-    </div>
+    </>
   );
 }
