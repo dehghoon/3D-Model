@@ -179,7 +179,7 @@ export default function LevelEditorV06({
     if (embedded) return;
 
     const show = (event: Event) => {
-      const openEvent = event as LevelsVanelOpenEvent;
+      const openEvent = event as LevelsPanelOpenEvent;
       if (openEvent.__linkoteqLevelsPanelHandled) return;
 
       openEvent.__linkoteqLevelsPanelHandled = true;
