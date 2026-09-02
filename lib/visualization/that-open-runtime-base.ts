@@ -2,18 +2,17 @@ import * as OBC from "@thatopen/components";
 import * as THREE from "three";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../editor/selection";
-import { getInteractionState } from ".../editor/interaction-store";
+import { getInteractionState } from "../editor/interaction-store";
 import { buildCoreScene, disposeCoreScene, getObjectSelection, type CoreSceneBuild } from "./core-scene-v2";
 import { buildCopyPreview, disposeCopyPreview } from "./copy-preview";
 import { pickSamples } from "./mobile-picking";
 import { resolveSnapPoint } from "./snap-resolver";
-
 export type ViewMode = "3d" | "front" | "left" | "right" | "bottom";
 
 export interface ThatOpenRuntime {
   components: OBC.Components;
   scene: THREE.Scene;
-  camera: OBC.OrthoPerspectiveCamer;
+  camera: OBC.OrthoPerspectiveCamera;
   caster: OBC.SimpleRaycaster;
   renderer: OBC.SimpleRenderer;
   build: CoreSceneBuild | null;
@@ -23,7 +22,6 @@ export interface ThatOpenRuntime {
   axisIndex: number;
   levelIndex: number;
 }
-
 function box(runtime: ThatOpenRuntime): THREE.Box3 | null {
   if (!runtime.build) return null;
   const value = new THREE.Box3().setFromObject(runtime.build.root);
@@ -37,7 +35,6 @@ function frame(runtime: ThatOpenRuntime) {
   const size = bounds.getSize(new THREE.Vector3());
   return { center, distance: Math.max(Math.max(size.x, size.y, size.z, 8) * 1.8, 14) };
 }
-
 export function createThatOpenRuntime(container: HTMLDivElement): ThatOpenRuntime {
   const components = new OBC.Components();
   const worlds = components.get(OBC.Worlds);
@@ -65,7 +62,6 @@ export function createThatOpenRuntime(container: HTMLDivElement): ThatOpenRuntim
     levelIndex: 0,
   };
 }
-
 export function rebuildThatOpenScene(
   runtime: ThatOpenRuntime,
   model: StructuralModel,
@@ -83,7 +79,6 @@ export function rebuildThatOpenScene(
     runtime.fitted = true;
   }
 }
-
 export function setThatOpenView(runtime: ThatOpenRuntime, mode: ViewMode): void {
   const data = frame(runtime);
   if (!data) return;
@@ -103,7 +98,6 @@ export function setThatOpenView(runtime: ThatOpenRuntime, mode: ViewMode): void 
     center.x, center.y, center.z, true,
   );
 }
-
 function gridOffsets(model: StructuralModel, axis: "x" | "y"): number[] {
   const eps = 1e-9;
   const values = model.grids.flatMap((grid) => {
@@ -115,7 +109,6 @@ function gridOffsets(model: StructuralModel, axis: "x" | "y"): number[] {
   });
   return [...new Set(values.map((value) => Number(value.toFixed(9))))].sort((a, b) => a - b);
 }
-
 export function stepThatOpenAxis(runtime: ThatOpenRuntime, model: StructuralModel, step: -1 | 1): void {
   if (runtime.viewMode === "3d") return;
   const axis = runtime.viewMode === "left" || runtime.viewMode === "right" ? "y" : "x";
@@ -130,7 +123,6 @@ export function stepThatOpenAxis(runtime: ThatOpenRuntime, model: StructuralMode
   else { target.z = next; position.z += delta; }
   void runtime.camera.controls.setLookAt(position.x, position.y, position.z, target.x, target.y, target.z, true);
 }
-
 export function stepThatOpenLevel(runtime: ThatOpenRuntime, model: StructuralModel, step: -1 | 1): void {
   if (runtime.viewMode === "3d" || !model.levels.length) return;
   const levels = [...model.levels].sort((a, b) => a.elevation - b.elevation);
@@ -142,7 +134,6 @@ export function stepThatOpenLevel(runtime: ThatOpenRuntime, model: StructuralMod
   target.y = elevation;
   void runtime.camera.controls.setLookAt(position.x, position.y, position.z, target.x, target.y, target.z, true);
 }
-
 export async function pickThatOpen(
   runtime: ThatOpenRuntime,
   event: PointerEvent,
@@ -157,7 +148,6 @@ export async function pickThatOpen(
   }
   return null;
 }
-
 export function snapThatOpen(
   runtime: ThatOpenRuntime,
   event: PointerEvent,
@@ -174,7 +164,6 @@ export function snapThatOpen(
     event.pointerType === "touch" ? 30 : 13,
   );
 }
-
 export function deltaBetween(base: Vec3, target: Vec3): Vec3 {
   return { x: target.x - base.x, y: target.y - base.y, z: target.z - base.z };
 }
@@ -185,7 +174,6 @@ export function clearTransformPreview(runtime: ThatOpenRuntime): void {
   disposeCopyPreview(runtime.transient);
   runtime.transient = null;
 }
-
 export function renderTransformPreview(runtime: ThatOpenRuntime): void {
   clearTransformPreview(runtime);
   const state = getInteractionState();
@@ -213,7 +201,6 @@ export function renderTransformPreview(runtime: ThatOpenRuntime): void {
   runtime.scene.add(group);
   runtime.transient = group;
 }
-
 export function disposeThatOpenRuntime(runtime: ThatOpenRuntime): void {
   clearTransformPreview(runtime);
   if (runtime.build) {
