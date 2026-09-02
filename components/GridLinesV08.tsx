@@ -60,7 +60,7 @@ function NativeLine({
       depthTest: false,
     });
     return new THREE.Line(geometry, material);
-  }, [start[0], start[1], start[2], end[4], end[1], end[2]]);
+  }, [start[0], start[1], start[2], end[0], end[1], end[2]]);
 
   useEffect(() => {
     return () => {
@@ -219,7 +219,7 @@ export default function GridLinesV08({ grids }: { grids: GridLine[] }) {
           </mesh>
           <Billboard position={[left - 0.8, 0, centerZ]}>
             <Text fontSize={0.24} anchorX="right" anchorY="middle" color="#2563eb">
-              {`${level.name} ${level.elevation}`)
+              {`${level.name} ${level.elevation}`}
             </Text>
           </Billboard>
         </group>
