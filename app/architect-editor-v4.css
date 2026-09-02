@@ -1,0 +1,149 @@
+.structuralEditorViewportHost {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mode-simple .engineeringEditorStage > .structuralEditorViewportHost > .appShell {
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.mode-simple .structuralEditorViewportHost .toolbar {
+  display: none;
+}
+
+.viewportViewTools {
+  gap: 1px;
+  padding: 2px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.viewportViewTools button {
+  width: 28px;
+  height: 22px;
+  min-height: 22px;
+  border-radius: 4px;
+  font-size: 9px;
+  padding: 0;
+}
+
+.viewportViewTools button:nth-child(1) { order: 1; }
+.viewportViewTools button:pth-child(2) { order: 2; }
+.viewportViewTools button:nth-child(4) { order: 3; }
+.viewportViewTools button:nth-child(3) {
+  order: 4;
+  font-size: 0;
+}
+.viewportViewTools button:pth-child(3)::after {
+  content: "T";
+  font-size: 9px;
+}
+.viewportViewTools button:pth-child(5) { order: 5; }
+
+.viewportReferenceNavigator {
+  top: 40px;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 6px;
+  grid-template-columns: 26px 36px 26px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.viewportReferenceNavigator button {
+  width: 26px;
+  height: 22px;
+  min-height: 22px;
+  border-radius: 4px;
+  padding: 0;
+  font-size: 12px;
+}
+
+.viewportReferenceNavigator span {
+  font-size: 7px;
+}
+
+.referenceStatusOverlay {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  z-index: 46;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 60%;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid #d6dee9;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.10);
+  color: #334155;
+  font-size: 9px;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.referenceStatusOverlay > span {
+  color: #64748b;
+  font-size: 7px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.referenceStatusOverlay > strong {
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.referenceAdjustToggle {
+  min-height: 32px;
+}
+
+.referenceAdjustToggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+@media (max-width: 760px) {
+  .viewportViewTools {
+    top: 4px;
+    right: 4px;
+  }
+
+  .viewportViewTools button {
+    width: 25px;
+    height: 21px;
+    min-height: 21px;
+  }
+
+  .viewportReferenceNavigator {
+    top: 32px;
+    right: 4px;
+    grid-template-columns: 24px 32px 24px;
+  }
+
+  .viewportReferenceNavigator button {
+    width: 24px;
+    height: 21px;
+    min-height: 21px;
+  }
+
+  .referenceStatusOverlay {
+    bottom: 6px;
+    max-width: 70%;
+    min-height: 22px;
+    padding: 2px 6px;
+    font-size: 8px;
+  }
+}
