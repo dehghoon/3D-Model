@@ -1,20 +1,14 @@
 import * as OBC from "@thatopen/components";
 import * as THREE from "three";
-import type { GridLine, StructuralModel, Vec3 } from "@linkoteq/structural-core";
+import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../editor/selection";
-import { getInteractionState } from "../editor/interaction-store";
+import { getInteractionState } from ".../editor/interaction-store";
 import { buildCoreScene, disposeCoreScene, getObjectSelection, type CoreSceneBuild } from "./core-scene-v2";
 import { buildCopyPreview, disposeCopyPreview } from "./copy-preview";
 import { pickSamples } from "./mobile-picking";
 import { resolveSnapPoint } from "./snap-resolver";
 
-export type ViewMode = "3d" | "front" | "left" | "bottom" | "top";
-
-export interface ReferenceStatus {
-  viewMode: ViewMode;
-  kind: "3d" | "grid" | "level";
-  label: string;
-}
+export type ViewMode = "3d" | "front" | "left" | "right" | "bottom";
 
 export interface ThatOpenRuntime {
   components: OBC.Components;
@@ -28,15 +22,6 @@ export interface ThatOpenRuntime {
   viewMode: ViewMode;
   axisIndex: number;
   levelIndex: number;
-}
-
-function emitReferenceStatus(status: ReferenceStatus): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent<ReferenceStatus>("linkoteq:reference-status", {
-      detail: status,
-    }),
-  );
 }
 
 function box(runtime: ThatOpenRuntime): THREE.Box3 | null {
@@ -94,102 +79,100 @@ export function rebuildThatOpenScene(
   runtime.build = buildCoreScene(model, selection);
   runtime.scene.add(runtime.build.root);
   if (!runtime.fitted && (model.nodes.length || model.members.length || model.surfaces.length || model.grids.length || model.levels.length)) {
-    void setThatOpenView(runtime, "3d");
+    setThatOpenView(runtime, "3d");
     runtime.fitted = true;
   }
 }
 
-export async function setThatOpenView(
-  runtime: ThatOpenRuntime,
-  mode: ViewMode,
-): Promise<void> {
+export function setThatOpenView(runtime: ThatOpenRuntime, mode: ViewMode): void {
   const data = frame(runtime);
   if (!data) return;
   const { center, distance } = data;
   runtime.viewMode = mode;
   runtime.axisIndex = 0;
   runtime.levelIndex = 0;
-  if (mode === "3d") {
-    await runtime.camera.projection.set("Perspective");
-  } else {
-    await runtime.camera.projection.set("Orthographic");
-  }
-  runtime.camera.three.up.set(0, mode === "bottom" || mode === "top" ? 0 : 1, mode === "bottom" ? 1 : mode === "top" ? -1 : 0);
+  runtime.camera.three.up.set(0, mode === "bottom" ? 0 : 1, mode === "bottom" ? 1 : 0);
   const offset =
     mode === "3d" ? new THREE.Vector3(distance, distance * 0.72, distance) :
     mode === "front" ? new THREE.Vector3(0, 0, distance) :
     mode === "left" ? new THREE.Vector3(-distance, 0, 0) :
-    mode === "top" ? new THREE.Vector3(0.001, distance, 0.001) :
+    mode === "right" ? new THREE.Vector3(distance, 0, 0) :
     new THREE.Vector3(0.001, -distance, 0.001);
-  await runtime.camera.controls.setLookAt(center.x + offset.x, center.y + offset.y, center.z + offset.z, center.x, center.y, center.z, true);
-  emitReferenceStatus { viewMode: mode, kind: "3d", label: mode === "3d" ? "3D" : mode.toUpperCase() });
+  void runtime.camera.controls.setLookAt(
+    center.x + offset.x, center.y + offset.y, center.z + offset.z,
+    center.x, center.y, center.z, true,
+  );
 }
 
-function gridAxisForView(mode: ViewMode): "x" | "y" {
-  return mode === "left" ? "y" : "x";
-}
-
-function gridCoordinate(grid: GridLine, axis: "x" | "y"): number | null {
+function gridOffsets(model: StructuralModel, axis: "x" | "y"): number[] {
   const eps = 1e-9;
-  const dx = Math.abs(grid.end.x - grid.start.x);
-  const dy = Math.abs(grid.end.y - grid.start.y);
-  if (axis === "x" && dx < eps && dy > eps) return grid.start.x;
-  if (axis === "y" && dy < eps && dx > eps) return grid.start.y;
-  return null;
+  const values = model.grids.flatMap((grid) => {
+    const dx = Math.abs(grid.end.x - grid.start.x);
+    const dy = Math.abs(grid.end.y - grid.start.y);
+    if (axis === "x" && dx < eps && dy > eps) return [grid.start.x];
+    if (axis === "y" && dy < eps && dx > eps) return [grid.start.y];
+    return [];
+  });
+  return [...new Set(values.map((value) => Number(value.toFixed(9))))].sort((a, b) => a - b);
 }
 
-function gridsForView(model: StructuralModel, mode: ViewMode): GridLine[] {
-  const axis = gridAxisForView(mode);
-  return model.grids.map((grid) => ({ grid, coordinate: gridCoordinate(grid, axis) })).filter((entry): entry is { grid: GridLine; coordinate: number } => entry.coordinate !== null).sort((a, b) => a.coordinate - b.coordinate).map((entry) => entry.grid);
-}
-
-export function stepThatOpenAxis(runtime: ThatOpenRuntime, model: StructuralModel, step: -1 | 1): string | null {
-  if (runtime.viewMode === "3d") return null;
-  const grids = gridsForView(model, runtime.viewMode);
-  if (!grids.length) return null;
-  runtime.axisIndex = (runtime.axisIndex + step + grids.length) % grids.length;
-  const grid = grids[runtime.axisIndex];
-  const axis = gridAxisForView(runtime.viewMode);
-  const next = gridCoordinate(grid, axis);
-  if (next === null) return null;
+export function stepThatOpenAxis(runtime: ThatOpenRuntime, model: StructuralModel, step: -1 | 1): void {
+  if (runtime.viewMode === "3d") return;
+  const axis = runtime.viewMode === "left" || runtime.viewMode === "right" ? "y" : "x";
+  const offsets = gridOffsets(model, axis);
+  if (!offsets.length) return;
+  runtime.axisIndex = (runtime.axisIndex + step + offsets.length) % offsets.length;
   const target = runtime.camera.controls.getTarget(new THREE.Vector3());
   const position = runtime.camera.three.position.clone();
+  const next = offsets[runtime.axisIndex];
   const delta = axis === "x" ? next - target.x : next - target.z;
-  if (axis === "x") { target.x = next; position.x += delta; } else { target.z = next; position.z += delta; }
+  if (axis === "x") { target.x = next; position.x += delta; }
+  else { target.z = next; position.z += delta; }
   void runtime.camera.controls.setLookAt(position.x, position.y, position.z, target.x, target.y, target.z, true);
-  emitReferenceStatus({ viewMode: runtime.viewMode, kind: "grid", label: `Grid ${grid.label}` });
-  return grid.label;
 }
 
-export function stepThatOpenLevel(runtime: ThatOpenRuntime, model: StructuralModel, step: -1 | 1): string | null {
-  if (runtime.viewMode === "3d" || !model.levels.length) return null;
+export function stepThatOpenLevel(runtime: ThatOpenRuntime, model: StructuralModel, step: -1 | 1): void {
+  if (runtime.viewMode === "3d" || !model.levels.length) return;
   const levels = [...model.levels].sort((a, b) => a.elevation - b.elevation);
   runtime.levelIndex = (runtime.levelIndex + step + levels.length) % levels.length;
-  const level = levels[runtime.levelIndex];
   const target = runtime.camera.controls.getTarget(new THREE.Vector3());
   const position = runtime.camera.three.position.clone();
-  position.y += level.elevation - target.y;
-  target.y = level.elevation;
+  const elevation = levels[runtime.levelIndex].elevation;
+  position.y += elevation - target.y;
+  target.y = elevation;
   void runtime.camera.controls.setLookAt(position.x, position.y, position.z, target.x, target.y, target.z, true);
-  emitReferenceStatus { viewMode: runtime.viewMode, kind: "level", label: `${level.name} · ${level.elevation}` });
-  return level.name;
 }
 
-export async function pickThatOpen(runtime: ThatOpenRuntime, event: PointerEvent): Promise<EditorSelection> {
+export async function pickThatOpen(
+  runtime: ThatOpenRuntime,
+  event: PointerEvent,
+): Promise<EditorSelection> {
   if (!runtime.build) return null;
   const rect = runtime.renderer.three.domElement.getBoundingClientRect();
   for (const sample of pickSamples(event.clientX, event.clientY, rect, event.pointerType)) {
     const hit = await runtime.caster.castRay({ items: runtime.build.pickables, position: sample.position });
-    if ( hit) continue;
+    if (!hit) continue;
     const selected = getObjectSelection(hit.object);
     if (selected) return selected;
   }
   return null;
 }
 
-export function snapThatOpen(runtime: ThatOpenRuntime, event: PointerEvent, model: StructuralModel, selection: EditorSelection) {
+export function snapThatOpen(
+  runtime: ThatOpenRuntime,
+  event: PointerEvent,
+  model: StructuralModel,
+  selection: EditorSelection,
+) {
   const state = getInteractionState();
-  return resolveSnapPoint({ clientX: event.clientX, clientY: event.clientY }, model, state.selection ?? selection, runtime.camera.three, runtime.renderer.three.domElement, event.pointerType === "touch" ? 30 : 13);
+  return resolveSnapPoint(
+    { clientX: event.clientX, clientY: event.clientY },
+    model,
+    state.selection ?? selection,
+    runtime.camera.three,
+    runtime.renderer.three.domElement,
+    event.pointerType === "touch" ? 30 : 13,
+  );
 }
 
 export function deltaBetween(base: Vec3, target: Vec3): Vec3 {
@@ -213,9 +196,18 @@ export function renderTransformPreview(runtime: ThatOpenRuntime): void {
     const ghost = buildCopyPreview(runtime.build.root, state.selection, delta);
     if (ghost) group.add(ghost);
   }
-  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(state.base.point.x, state.base.point.z, state.base.point.y), new THREE.Vector3(state.preview.point.x, state.preview.point.z, state.preview.point.y)]), new THREE.LineBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.85, depthTest: false }));
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(state.base.point.x, state.base.point.z, state.base.point.y),
+      new THREE.Vector3(state.preview.point.x, state.preview.point.z, state.preview.point.y),
+    ]),
+    new THREE.LineBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.85, depthTest: false }),
+  );
   group.add(line);
-  const marker = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 14), new THREE.MeshBasicMaterial({ color: 0x0ea5e9, depthTest: false, depthWrite: false }));
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(0.13, 14, 14),
+    new THREE.MeshBasicMaterial({ color: 0x0ea5e9, depthTest: false, depthWrite: false }),
+  );
   marker.position.set(state.preview.point.x, state.preview.point.z, state.preview.point.y);
   group.add(marker);
   runtime.scene.add(group);
