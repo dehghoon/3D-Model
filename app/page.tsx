@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import ContextualHelperController from "../components/ContextualHelperController";
 
 const StructuralEditor = dynamic(
-  () => import("../components/StructuralEditorShell"),
+  () => import("../components/StructuralEditorShellV2"),
   { ssr: false },
 );
 
