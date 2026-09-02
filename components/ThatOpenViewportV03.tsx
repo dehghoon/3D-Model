@@ -1,6 +1,6 @@
 "use client";
 
-import ThatOpenViewportV04 from "./ThatOpenViewportV04";
+import ThatOpenViewportV05 from "./ThatOpenViewportV05";
 import { publishSelection } from "../lib/editor/selection-store";
 import type { StructuralModel } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../lib/editor/selection";
@@ -13,7 +13,7 @@ interface Props {
 
 export default function ThatOpenViewportV03(props: Props) {
   return (
-    <ThatOpenViewportV04
+    <ThatOpenViewportV05
       {...props}
       onSelect={(selection) => {
         publishSelection(selection);
