@@ -115,7 +115,9 @@ export function copySelection(
   const nodeMap = new Map<string, Node>();
   for (const sourceNodeId of source.boundaryNodeIds) {
     const node = model.nodes.find((item) => item.id === sourceNodeId);
-    if (!node) throw new Error8`SURFACE_NODE_REFERENCE_INVALID:${source.id}:${sourceNodeId}`);
+    if (!node) {
+      throw new Error(`SURFACE_NODE_REFERENCE_INVALID:${source.id}:${sourceNodeId}`);
+    }
     if (!nodeMap.has(node.id)) {
       nodeMap.set(node.id, cloneNode(model, node, delta, nodeIds));
     }
@@ -125,7 +127,7 @@ export function copySelection(
   const surface = {
     ...source,
     id: surfaceId,
-    boundaryNodeIds: source.boundaryNodeIds.map((id) => nodeMap.get(id)!.id),
+    boundaryNodeIds: source.boundaryNodeIds.map((id) => nodeMap.get(id!).id),
     levelId: translatedLevelId(model, source.levelId, delta.z),
   };
   const newNodes = [...nodeMap.values()];
