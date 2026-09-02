@@ -18,6 +18,7 @@ import {
   reconcileSelection,
   type EditorSelection,
 } from "../lib/editor/selection";
+import { publishSelection } from "../lib/editor/selection-store";
 
 function emptyModel(): StructuralModel {
   return {
@@ -53,15 +54,30 @@ function downloadModel(model: StructuralModel): void {
 export default function StructuralEditorV06() {
   const [model, setModel] = useState<StructuralModel>(() => emptyModel());
   const [selection, setSelection] = useState<EditorSelection>(null);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [message, setMessage] = useState("Core v0.5 model ready. That Open interaction active.");
   const inputRef = useRef<HTMLInputElement>(null);
 
   function setCanonicalSelection(next: EditorSelection): void {
     if (!next) {
-      setSelection(clearSelection());
+      const cleared = clearSelection();
+      setSelection(cleared);
+      publishSelection(cleared);
+      setPropertiesOpen(false);
       return;
     }
-    setSelection(createSelection(next.type, next.id));
+
+    const canonical = createSelection(next.type, next.id);
+    setSelection(canonical);
+    publishSelection(canonical);
+    setPropertiesOpen(true);
+  }
+
+  function clearCanonicalSelection(): void {
+    const cleared = clearSelection();
+    setSelection(cleared);
+    publishSelection(cleared);
+    setPropertiesOpen(false);
   }
 
   async function importProject(file: File): Promise<void> {
@@ -69,7 +85,7 @@ export default function StructuralEditorV06() {
     const migrated = migrateProjectToV05(parsed);
     assertCanonicalV05(migrated.model);
     setModel(migrated.model as StructuralModel);
-    setSelection(clearSelection());
+    clearCanonicalSelection();
     setMessage(
       migrated.warnings.length
         ? migrated.warnings.join(" ")
@@ -81,7 +97,12 @@ export default function StructuralEditorV06() {
     try {
       assertCanonicalV05(next);
       setModel(next);
-      setSelection((current) => reconcileSelection(next, current));
+      setSelection((current) => {
+        const reconciled = reconcileSelection(next, current);
+        publishSelection(reconciled);
+        if (!reconciled) setPropertiesOpen(false);
+        return reconciled;
+      });
       setMessage(status);
     } catch (error) {
       setMessage(
@@ -98,7 +119,7 @@ export default function StructuralEditorV06() {
       const result = deleteSelection(model, selection);
       assertCanonicalV05(result.model);
       setModel(result.model);
-      setSelection(clearSelection());
+      clearCanonicalSelection();
       setMessage(`${result.deleted.type} ${result.deleted.id} deleted.`);
     } catch (error) {
       setMessage(
@@ -132,7 +153,7 @@ export default function StructuralEditorV06() {
           <button
             onClick={() => {
               setModel(emptyModel());
-              setSelection(clearSelection());
+              clearCanonicalSelection();
               setMessage("New Core v0.5 project created.");
             }}
           >
@@ -187,7 +208,7 @@ export default function StructuralEditorV06() {
           <section className="panelBlock">
             <h3>Selection</h3>
             <div className="selectionText">{selectedLabel}</div>
-            <button onClick={() => setCanonicalSelection(null)} disabled={!selection}>
+            <button onClick={clearCanonicalSelection} disabled={!selection}>
               Clear selection
             </button>
             <button onClick={handleDeleteSelection} disabled={!selection}>
@@ -223,8 +244,8 @@ export default function StructuralEditorV06() {
         node={selectedNode}
         member={selectedMember}
         surface={selectedSurface}
-        open={Boolean(selection)}
-        onClose={() => setCanonicalSelection(null)}
+        open={Boolean(selection) && propertiesOpen}
+        onClose={() => setPropertiesOpen(false)}
       />
 
       <LoadManager
@@ -235,7 +256,12 @@ export default function StructuralEditorV06() {
         onModelChange={(next, status) => {
           assertCanonicalV05(next);
           setModel(next);
-          setSelection((current) => reconcileSelection(next, current));
+          setSelection((current) => {
+            const reconciled = reconcileSelection(next, current);
+            publishSelection(reconciled);
+            if (!reconciled) setPropertiesOpen(false);
+            return reconciled;
+          });
           if (status) setMessage(status);
         }}
         onBeginTargetSelection={() =>
