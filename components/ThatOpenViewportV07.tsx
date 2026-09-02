@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import * as THREE from "three";
 import type { StructuralModel } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../lib/editor/selection";
 import {
@@ -52,6 +53,8 @@ interface PointerStart {
   pointerId: number;
 }
 
+type ConcreteSelection = Exclude<EditorSelection, null>;
+
 const viewButtons: Array<[ViewMode, string, string]> = [
   ["front", "F", "Front"],
   ["left", "L", "Left"],
@@ -59,6 +62,63 @@ const viewButtons: Array<[ViewMode, string, string]> = [
   ["bottom", "B", "Bottom"],
   ["3d", "3D", "3D"],
 ];
+
+function selectionKey(selection: ConcreteSelection): string {
+  return `${selection.type}:${selection.id}`;
+}
+
+function uniqueSelections(
+  selections: ConcreteSelection[],
+): ConcreteSelection[] {
+  return Array.from(
+    new Map(
+      selections.map((item) => [selectionKey(item), item]),
+    ).values(),
+  );
+}
+
+function syncSelectionHighlight(
+  runtime: ThatOpenRuntime,
+  model: StructuralModel,
+  selections: ConcreteSelection[],
+): void {
+  if (!runtime.build) return;
+
+  const selectedKeys = new Set(selections.map(selectionKey));
+  const membersById = new Map(model.members.map((member) => [member.id, member]));
+
+  runtime.build.root.traverse((object) => {
+    const tagged = object.userData.linkoteqSelection as
+      | { type?: "node" | "member" | "surface"; id?: string }
+      | undefined;
+    if (!tagged?.type || !tagged.id) return;
+
+    const mesh = object as THREE.Mesh;
+    const material = mesh.material;
+    if (!(material instanceof THREE.MeshStandardMaterial)) return;
+
+    const selected = selectedKeys.has(`${tagged.type}:${tagged.id}`);
+    if (selected) {
+      material.color.setHex(0xf97316);
+      if (tagged.type === "surface") material.opacity = 0.72;
+      return;
+    }
+
+    if (tagged.type === "member") {
+      const member = membersById.get(tagged.id);
+      material.color.setHex(member?.type === "column" ? 0x2563eb : 0x26734d);
+      return;
+    }
+
+    if (tagged.type === "surface") {
+      material.color.setHex(0x9ca3af);
+      material.opacity = 0.48;
+      return;
+    }
+
+    material.color.setHex(0x2563eb);
+  });
+}
 
 export default function ThatOpenViewportV07({
   model,
@@ -94,6 +154,20 @@ export default function ThatOpenViewportV07({
     runtime.camera.controls.enabled = false;
     const canvas = runtime.renderer.three.domElement;
     let start: PointerStart | null = null;
+
+    const commitSelections = (selections: ConcreteSelection[]) => {
+      const unique = uniqueSelections(selections);
+
+      if (onMultiSelectRef.current) {
+        onMultiSelectRef.current(unique);
+      } else {
+        publishSelections(unique);
+        onSelectRef.current(unique.at(-1) ?? null);
+      }
+
+      syncSelectionHighlight(runtime, modelRef.current, unique);
+      setSelectionCount(unique.length);
+    };
 
     const resolveSnap = (event: PointerEvent) =>
       snapThatOpen(runtime, event, modelRef.current, selectionRef.current);
@@ -158,7 +232,6 @@ export default function ThatOpenViewportV07({
       if (state.mode === "copy-target") {
         const point = resolveSnap(event);
         if (!point || !state.base) return;
-
         setCopyPreview(point);
         const delta = deltaBetween(state.base.point, point.point);
         if (
@@ -211,23 +284,7 @@ export default function ThatOpenViewportV07({
           ? [...getPublishedSelections(), ...selected]
           : selected;
 
-        const unique = Array.from(
-          new Map(
-            combined.map((item) => [
-              `${item.type}:${item.id}`,
-              item,
-            ]),
-          ).values(),
-        );
-
-        if (onMultiSelectRef.current) {
-          onMultiSelectRef.current(unique);
-        } else {
-          publishSelections(unique);
-          onSelectRef.current(unique.at(-1) ?? null);
-        }
-
-        setSelectionCount(unique.length);
+        commitSelections(combined);
         setMarquee(null);
         return;
       }
@@ -245,8 +302,33 @@ export default function ThatOpenViewportV07({
       }
 
       const picked = await pickThatOpen(runtime, event);
-      onSelectRef.current(picked);
-      setSelectionCount(picked ? 1 : 0);
+      const toggle = event.ctrlKey || event.metaKey;
+
+      if (toggle) {
+        if (!picked) {
+          setMarquee(null);
+          return;
+        }
+
+        const current = getPublishedSelections();
+        const key = selectionKey(picked);
+        const alreadySelected = current.some(
+          (item) => selectionKey(item) === key,
+        );
+        const next = alreadySelected
+          ? current.filter((item) => selectionKey(item) !== key)
+          : [...current, picked];
+
+        commitSelections(next);
+        setMarquee(null);
+        return;
+      }
+
+      if (picked) {
+        commitSelections([picked]);
+      } else {
+        commitSelections([]);
+      }
       setMarquee(null);
     };
 
@@ -257,9 +339,17 @@ export default function ThatOpenViewportV07({
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+
+      const state = getInteractionState();
+      const wasSelecting = state.mode === "select";
+
       cancelInteraction();
       clearTransformPreview(runtime);
       setMarquee(null);
+
+      if (wasSelecting) {
+        commitSelections([]);
+      }
     };
 
     const enableSelect = () => {
@@ -298,7 +388,10 @@ export default function ThatOpenViewportV07({
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime) return;
+
     rebuildThatOpenScene(runtime, model, selection);
+    syncSelectionHighlight(runtime, model, getPublishedSelections());
+    setSelectionCount(getPublishedSelections().length);
     renderTransformPreview(runtime);
   }, [model, selection]);
 
@@ -320,9 +413,9 @@ export default function ThatOpenViewportV07({
   }, [
     interaction.mode,
     interaction.base,
-   interaction.preview,
-   interaction.operation,
-   toolMode,
+    interaction.preview,
+    interaction.operation,
+    toolMode,
   ]);
 
   const chooseView = (mode: ViewMode) => {
@@ -454,7 +547,7 @@ export default function ThatOpenViewportV07({
       <div className="viewportInteractionStatus">
         {interaction.mode === "select"
           ? toolMode === "select"
-            ? `Select · Tap or drag window${
+            ? `Select · Click, Ctrl/Cmd+Click, or drag window${
                 selectionCount > 1
                   ? ` · ${selectionCount} selected`
                   : ""
