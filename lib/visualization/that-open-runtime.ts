@@ -5,9 +5,7 @@ import * as Base from "./that-open-runtime-base";
 
 export {
   clearTransformPreview,
-  createThatOpenRuntime,
   deltaBetween,
-  disposeThatOpenRuntime,
   pickThatOpen,
   rebuildThatOpenScene,
   renderTransformPreview,
@@ -21,6 +19,14 @@ export interface ReferenceStatus {
   kind: "view" | "grid" | "level";
   label: string;
 }
+
+interface RuntimeObservers {
+  resize?: ResizeObserver;
+  shell?: MutationObserver;
+  frameId?: number;
+}
+
+const runtimeObservers = new WeakMap<ThatOpenRuntime, RuntimeObservers>();
 
 function emitReferenceStatus(status: ReferenceStatus): void {
   if (typeof window === "undefined") return;
@@ -39,6 +45,77 @@ function frame(runtime: ThatOpenRuntime) {
   const size = bounds.getSize(new THREE.Vector3());
   const distance = Math.max(Math.max(size.x, size.y, size.z, 8) * 1.8, 14);
   return { center, distance };
+}
+
+function scheduleViewportRefresh(runtime: ThatOpenRuntime): void {
+  const observers = runtimeObservers.get(runtime) ?? {};
+  if (observers.frameId !== undefined) {
+    cancelAnimationFrame(observers.frameId);
+  }
+
+  observers.frameId = requestAnimationFrame(() => {
+    runtime.renderer.resize();
+    runtime.camera.updateAspect();
+
+    if (runtime.build) {
+      void setThatOpenView(runtime, runtime.viewMode);
+    }
+  });
+
+  runtimeObservers.set(runtime, observers);
+}
+
+export function createThatOpenRuntime(
+  container: HTMLDivElement,
+): ThatOpenRuntime {
+  const runtime = Base.createThatOpenRuntime(container);
+  const observers: RuntimeObservers = {};
+
+  if (typeof ResizeObserver !== "undefined") {
+    let previousWidth = Math.round(container.clientWidth);
+    let previousHeight = Math.round(container.clientHeight);
+
+    observers.resize = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      const width = Math.round(rect?.width ?? container.clientWidth);
+      const height = Math.round(rect?.height ?? container.clientHeight);
+
+      if (width <= 0 || height <= 0) return;
+      if (width === previousWidth && height === previousHeight) return;
+
+      previousWidth = width;
+      previousHeight = height;
+      scheduleViewportRefresh(runtime);
+    });
+    observers.resize.observe(container);
+  }
+
+  if (typeof MutationObserver !== "undefined") {
+    const shell = container.closest(".architectEditorShell");
+    if (shell) {
+      observers.shell = new MutationObserver(() => {
+        scheduleViewportRefresh(runtime);
+      });
+      observers.shell.observe(shell, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+    }
+  }
+
+  runtimeObservers.set(runtime, observers);
+  return runtime;
+}
+
+export function disposeThatOpenRuntime(runtime: ThatOpenRuntime): void {
+  const observers = runtimeObservers.get(runtime);
+  if (observers?.resize) observers.resize.disconnect();
+  if (observers?.shell) observers.shell.disconnect();
+  if (observers?.frameId !== undefined) {
+    cancelAnimationFrame(observers.frameId);
+  }
+  runtimeObservers.delete(runtime);
+  Base.disposeThatOpenRuntime(runtime);
 }
 
 export async function setThatOpenView(
@@ -169,8 +246,7 @@ export function stepThatOpenAxis(
 ): void {
   if (runtime.viewMode === "3d") return;
 
-  const axis =
-    runtime.viewMode === "left" ? "y" : "x";
+  const axis = runtime.viewMode === "left" ? "y" : "x";
   const grids = sortedGrids(model, axis);
   if (!grids.length) return;
 
