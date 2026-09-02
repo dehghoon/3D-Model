@@ -41,12 +41,23 @@ export default function LevelGridEditorV05New({
     };
   }, []);
 
+  const closePanel = () => {
+    if (!panel) return;
+
+    const closeEvent =
+      panel === "grid"
+        ? "linkoteq:grid-panel-close"
+        : "linkoteq:levels-panel-close";
+
+    window.dispatchEvent(new Event(closeEvent));
+  };
+
   if (!panel || typeof document === "undefined") return null;
 
   const isGrid = panel === "grid";
 
   return createPortal(
-    <div className="lgModalBackdrop" onMouseDown={() => setPanel(null)}>
+    <div className="lgModalBackdrop" onMouseDown={closePanel}>
       <section
         className="panelBlock lgPanel lgPortalPanel"
         onMouseDown={(event) => event.stopPropagation()}
@@ -62,11 +73,7 @@ export default function LevelGridEditorV05New({
                 : "Edit Level names and elevations independently."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setPanel(null)}
-            aria-label="Close"
-          >
+          <button type="button" onClick={closePanel} aria-label="Close">
             ×
           </button>
         </header>
