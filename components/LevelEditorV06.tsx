@@ -12,6 +12,10 @@ interface Props {
   embedded?: boolean;
 }
 
+type LevelsPanelOpenEvent = Event & {
+  __linkoteqLevelsPanelHandled?: boolean;
+};
+
 function LevelRow({
   level,
   model,
@@ -174,11 +178,16 @@ export default function LevelEditorV06({
   useEffect(() => {
     if (embedded) return;
 
-    const show = () => setOpen(true);
+    const show = (event: Event) => {
+      const openEvent = event as LevelsVanelOpenEvent;
+      if (openEvent.__linkoteqLevelsPanelHandled) return;
+
+      openEvent.__linkoteqLevelsPanelHandled = true;
+      setOpen(true);
+    };
     const hide = () => setOpen(false);
     window.addEventListener("linkoteq:levels-panel-open", show);
     window.addEventListener("linkoteq:levels-panel-close", hide);
-
     return () => {
       window.removeEventListener("linkoteq:levels-panel-open", show);
       window.removeEventListener("linkoteq:levels-panel-close", hide);
