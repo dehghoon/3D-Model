@@ -16,10 +16,11 @@ export function adjustModelToGridEdits(
   original: StructuralModel,
   edited: StructuralModel,
 ): StructuralModel {
-  const originalByLabel = new Map(original.grids.map((grid) => [grid.label, grid]));
+  const originalById = new Map(original.grids.map((grid) => [grid.id, grid]));
   const changes = edited.grids.flatMap((grid) => {
-    const before = originalByLabel.get(grid.label);
+    const before = originalById.get(grid.id);
     if (!before) return [];
+
     const beforeAxis = gridAxis(before);
     const afterAxis = gridAxis(grid);
     if (!beforeAxis || beforeAxis !== afterAxis) return [];
