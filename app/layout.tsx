@@ -7,6 +7,7 @@ import "./engineering-ribbon.css";
 import "./architect-editor.css";
 import "./architect-editor-v3.css";
 import "./architect-editor-v4.css";
+import "./architect-editor-v5.css";
 import "./architect-workspace.css";
 import "./contextual-helper.css";
 import "./level-grid-editor.css";
