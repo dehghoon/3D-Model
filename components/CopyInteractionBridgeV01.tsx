@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { copySelection } from "../lib/editor/copy-command";
+import { startCopyInteraction } from "../lib/editor/interaction-store";
 import {
   getPublishedSelection,
   publishSelection,
@@ -15,6 +16,14 @@ interface Props {
 
 interface CopyCommitDetail {
   delta?: Vec3;
+}
+
+function isShellCopyButton(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  const button = target.closest<HTMLButtonElement>(".architectQuickActions button");
+  if (!button || button.disabled) return false;
+  const label = button.querySelector("strong")?.textContent?.trim();
+  return label === "Copy";
 }
 
 export default function CopyInteractionBridgeV01({
@@ -47,9 +56,26 @@ export default function CopyInteractionBridgeV01({
       }
     };
 
+    const onDocumentClickCapture = (event: MouseEvent) => {
+      if (!isShellCopyButton(event.target)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const selection = getPublishedSelection();
+      startCopyInteraction(selection);
+
+      if (!selection) {
+        onModelChange(model, "Select an object before Copy.");
+      }
+    };
+
     window.addEventListener("linkoteq:copy-commit", onCopyCommit);
+    document.addEventListener("click", onDocumentClickCapture, true);
+
     return () => {
       window.removeEventListener("linkoteq:copy-commit", onCopyCommit);
+      document.removeEventListener("click", onDocumentClickCapture, true);
     };
   }, [model, onModelChange]);
 
