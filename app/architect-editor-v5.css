@@ -1,0 +1,11 @@
+.thatOpenViewportToolHost {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.thatOpenViewportToolHost:not(.view-tool-active)
+  .viewportReferenceNavigator {
+  display: none !important;
+}
