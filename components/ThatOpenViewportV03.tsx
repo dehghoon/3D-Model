@@ -23,8 +23,8 @@ export default function ThatOpenViewportV03(props: Props) {
         props.onSelect(selection);
       }}
       onMultiSelect={(selections) => {
-        publishSelections(selections);
         props.onSelect(selections.at(-1) ?? null);
+        publishSelections(selections);
       }}
     />
   );
