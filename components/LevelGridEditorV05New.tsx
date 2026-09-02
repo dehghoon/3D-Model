@@ -5,75 +5,74 @@ import { createPortal } from "react-dom";
 import type { StructuralModel } from "@linkoteq/structural-core";
 
 import GridOffsetEditorV05 from "./GridOffsetEditorV05";
+import LevelEditorV07 from "./LevelEditorV07";
 
 interface Props {
   model: StructuralModel;
   onModelChange: (model: StructuralModel, status: string) => void;
 }
 
-export default function LevelGridEditorV05New({ model, onModelChange }: Props) {
-  const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"grid" | "levels">("grid");
+type Panel = "grid" | "levels" | null;
+
+export default function LevelGridEditorV05New({
+  model,
+  onModelChange,
+}: Props) {
+  const [panel, setPanel] = useState<Panel>(null);
 
   useEffect(() => {
-    const show = () => {
-      setTab("grid");
-      setOpen(true);
-    };
-    const hide = () => setOpen(false);
+    const openGrid = () => setPanel("grid");
+    const openLevels = () => setPanel("levels");
+    const closeGrid = () => setPanel((current) => (current === "grid" ? null : current));
+    const closeLevels = () => setPanel((current) => (current === "levels" ? null : current));
 
-    window.addEventListener("linkoteq:grid-panel-open", show);
-    window.addEventListener("linkoteq:grid-panel-close", hide);
+    window.addEventListener("linkoteq:grid-panel-open", openGrid);
+    window.addEventListener("linkoteq:levels-panel-open", openLevels);
+    window.addEventListener("linkoteq:grid-panel-close", closeGrid);
+    window.addEventListener("linkoteq:levels-panel-close", closeLevels);
 
     return () => {
-      window.removeEventListener("linkoteq:grid-panel-open", show);
-      window.removeEventListener("linkoteq:grid-panel-close", hide);
+      window.removeEventListener("linkoteq:grid-panel-open", openGrid);
+      window.removeEventListener("linkoteq:levels-panel-open", openLevels);
+      window.removeEventListener("linkoteq:grid-panel-close", closeGrid);
+      window.removeEventListener("linkoteq:levels-panel-close", closeLevels);
     };
   }, []);
 
-  const gridEditor = (
-    <GridOffsetEditorV05 model={model} onModelChange={onModelChange} />
-  );
+  if (!panel || typeof document === "undefined") return null;
 
-  if (!open || typeof document === "undefined") {
-    return (
-      <div hidden aria-hidden="true">
-        {gridEditor}
-      </div>
-    );
-  }
+  const isGrid = panel === "grid";
 
   return createPortal(
-    <div className="lgModalBackdrop" onMouseDown={() => setOpen(false)}>
+    <div className="lgModalBackdrop" onMouseDown={() => setPanel(null)}>
       <section
         className="panelBlock lgPanel lgPortalPanel"
         onMouseDown={(event) => event.stopPropagation()}
+        aria-label={isGrid ? "Grid setup" : "Level setup"}
       >
         <header className="lgHeader">
           <div>
             <span>MODEL SETUP</span>
-            <h3>Grid &amp; Levels</h3>
+            <h3>{isGrid ? "Grid" : "Levels"}</h3>
             <p>
-              Each Grid line uses an independent offset from global origin at Z=0.
+              {isGrid
+                ? "Edit plan Grid labels and offsets from the global origin."
+                : "Edit Level names and elevations independently."}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={() => setPanel(null)}
             aria-label="Close"
           >
             ×
           </button>
         </header>
 
-        <div className="lgSummary">
+        <div className="lgSummary lgSummarySingle">
           <div>
-            <strong>{model.grids.length}</strong>
-            <span>Grid lines</span>
-          </div>
-          <div>
-            <strong>{model.levels.length}</strong>
-            <span>Levels</span>
+            <strong>{isGrid ? model.grids.length : model.levels.length}</strong>
+            <span>{isGrid ? "Grid lines" : "Levels"}</span>
           </div>
           <div>
             <span>Core</span>
@@ -81,43 +80,19 @@ export default function LevelGridEditorV05New({ model, onModelChange }: Props) {
           </div>
         </div>
 
-        <div className="lgTabs">
-          <button
-            type="button"
-            className={tab === "grid" ? "active" : ""}
-            onClick={() => setTab("grid")}
-          >
-            Grid
-          </button>
-          <button
-            type="button"
-            className={tab === "levels" ? "active" : ""}
-            onClick={() => setTab("levels")}
-          >
-            Levels
-          </button>
+        <div className="lgBody">
+          {isGrid ? (
+            <GridOffsetEditorV05
+              model={model}
+              onModelChange={onModelChange}
+            />
+          ) : (
+            <LevelEditorV07
+              model={model}
+              onModelChange={onModelChange}
+            />
+          )}
         </div>
-
-        {tab === "grid" ? (
-          <div className="lgBody">{gridEditor}</div>
-        ) : (
-          <div className="lgBody">
-            <section className="lgCard">
-              <div className="lgTitle">
-                <span>MODEL</span>
-                <strong>Existing levels</strong>
-              </div>
-              <div className="lgList">
-                {model.levels.map((level) => (
-                  <div className="lgItem" key={level.id}>
-                    <strong>{level.name}</strong>
-                    <span>{level.elevation}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
 
         <footer className="lgFooter">
           Global coordinates · Canonical Core 0.5 model
