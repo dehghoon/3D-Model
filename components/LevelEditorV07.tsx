@@ -9,6 +9,7 @@ import LevelEditorV06 from "./LevelEditorV06";
 interface Props {
   model: StructuralModel;
   onModelChange: (model: StructuralModel, status: string) => void;
+  embedded?: boolean;
 }
 
 function changedLevel(before: StructuralModel, after: StructuralModel): {
@@ -28,7 +29,11 @@ function changedLevel(before: StructuralModel, after: StructuralModel): {
   return null;
 }
 
-export default function LevelEditorV07({ model, onModelChange }: Props) {
+export default function LevelEditorV07({
+  model,
+  onModelChange,
+  embedded = false,
+}: Props) {
   const [adjustConnected, setAdjustConnected] = useState(false);
 
   return (
@@ -49,6 +54,7 @@ export default function LevelEditorV07({ model, onModelChange }: Props) {
 
       <LevelEditorV06
         model={model}
+        embedded={embedded}
         onModelChange={(next, status) => {
           if (!adjustConnected) {
             onModelChange(next, status);
