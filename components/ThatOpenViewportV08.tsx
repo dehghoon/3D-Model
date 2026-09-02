@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { StructuralModel } from "@linkoteq/structural-core";
 
 import type { EditorSelection } from "../lib/editor/selection";
@@ -32,6 +32,7 @@ function isNonViewToolButton(target: EventTarget | null): boolean {
 }
 
 export default function ThatOpenViewportV08(props: Props) {
+  const hostRef = useRef<HTMLDivElement>(null);
   const [viewToolActive, setViewToolActive] = useState(false);
 
   useEffect(() => {
@@ -52,8 +53,29 @@ export default function ThatOpenViewportV08(props: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const syncNavigator = () => {
+      const navigator =
+        host.querySelector<HTMLElement>(".viewportReferenceNavigator");
+      if (!navigator) return;
+      navigator.hidden = !viewToolActive;
+      navigator.style.display = viewToolActive ? "" : "none";
+    };
+
+    syncNavigator();
+
+    const observer = new MutationObserver(syncNavigator);
+    observer.observe(host, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [viewToolActive]);
+
   return (
     <div
+      ref={hostRef}
       className={`thatOpenViewportToolHost ${
         viewToolActive ? "view-tool-active" : ""
       }`}
