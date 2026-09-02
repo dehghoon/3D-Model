@@ -1,4 +1,5 @@
 import type { StructuralModel } from "@linkoteq/structural-core";
+import { publishSelection } from "./selection-store";
 
 export type EditorSelection =
   | { type: "node"; id: string }
@@ -15,10 +16,13 @@ export function createSelection(
     throw new Error("Selection id is required.");
   }
 
-  return { type, id: normalizedId };
+  const selection = { type, id: normalizedId } as EditorSelection;
+  publishSelection(selection);
+  return selection;
 }
 
 export function clearSelection(): EditorSelection {
+  publishSelection(null);
   return null;
 }
 
@@ -53,7 +57,9 @@ export function reconcileSelection(
   model: StructuralModel,
   selection: EditorSelection,
 ): EditorSelection {
-  return selectionExists(model, selection) ? selection : null;
+  const reconciled = selectionExists(model, selection) ? selection : null;
+  publishSelection(reconciled);
+  return reconciled;
 }
 
 export function getSelectionLabel(selection: EditorSelection): string {
