@@ -19,7 +19,7 @@ const utilityTools: Array<{ id: UtilityTool; label: string; short: string; disab
   { id: "select", label: "Select", short: "S" },
   { id: "view", label: "View", short: "V" },
   { id: "move", label: "Move", short: "M", disabled: true },
-  { id: "copy", label: "Copy", short: "CP", disabled: true },
+  { id: "copy", label: "Copy", short: "CP" },
   { id: "delete", label: "Delete", short: "D" },
 ];
 
@@ -41,6 +41,10 @@ function openLevels() {
   window.dispatchEvent(new Event("linkoteq:levels-panel-open"));
 }
 
+function openCopy() {
+  window.dispatchEvent(new Event("linkoteq:copy-tool-open"));
+}
+
 export default function StructuralEditorShell() {
   const [mode, setMode] = useState<WorkspaceMode>("simple");
   const [activeModelTool, setActiveModelTool] = useState<ModelingTool | null>(null);
@@ -58,18 +62,28 @@ export default function StructuralEditorShell() {
   }
 
   function runUtilityTool(tool: UtilityTool) {
-    if (tool === "move" || tool === "copy") return;
+    if (tool === "move") return;
+
+    if (tool === "copy") {
+      openCopy();
+      setActiveUtilityTool("copy");
+      setActiveModelTool(null);
+      return;
+    }
+
     if (tool === "select") {
       clickEditorButton("Select");
       setActiveUtilityTool("select");
       setActiveModelTool(null);
       return;
     }
+
     if (tool === "view") {
       setActiveUtilityTool("view");
       setActiveModelTool(null);
       return;
     }
+
     if (tool === "delete") {
       clickEditorButton("Delete selected");
       setActiveUtilityTool("delete");
@@ -124,19 +138,21 @@ export default function StructuralEditorShell() {
             <div className="architectQuickActions">
               <button type="button" onClick={openGrid}>
                 <span className="architectQuickIcon" aria-hidden="true">G</span>
-                <span><strong>Grid</strong><small>Plan axes</small></span>
-              </button>
-              <button type="button" onClick={openLevels}>
-                <span className="architectQuickIcon" aria-hidden="true">L</span>
-                <span><strong>Levels</strong><small>Elevations</small></span>
+                <span ><strong>Grid</strong><small>Plan axes</small></span>
               </button>
 
-              {utilityTools.map((tool) => (
+              <button type="button" onClick={openLevels}>
+                <span className="architectQuickIcon" aria-hidden="true">L</span>
+                <span ><strong>Levels</strong><small>Elevations</small></span>
+              </button>
+
+              {utilityTools.map(
+tool) => (
                 <button key={tool.id} type="button" className={activeUtilityTool === tool.id ? "active" : ""} onClick={() => runUtilityTool(tool.id)} disabled={tool.disabled}>
                   <span className="architectQuickIcon" aria-hidden="true">{tool.short}</span>
-                  <span>
+                  <span >
                     <strong>{tool.label}</strong>
-                    <small>{tool.id === "select" ? "Pick objects" : tool.id === "view" ? "Navigate" : tool.id === "delete" ? "Remove selection" : "Coming next"}</small>
+                    <small>{tool.id === "select" ? "Pick objects" : tool.id === "view" ? "Navigate" : tool.id === "copy" ? "Duplicate selection" : tool.id === "delete" ? "Remove selection" : "Coming next"}</small>
                   </span>
                 </button>
               ))}
@@ -151,9 +167,9 @@ export default function StructuralEditorShell() {
             </div>
           </div>
           <div className="architectStatusbar" role="status" aria-live="polite">
-            <span><strong>Utility:</strong> {activeUtilityTool}</span>
+            <span ><strong>Utility:</strong> {activeUtilityTool}</span>
             <span className="architectStatusDivider" aria-hidden="true">|</span>
-            <span><strong>Add:</strong> {activeModelTool ?? "None"}</span>
+            <span ><strong>Add:</strong> {activeModelTool ?? "None"}</span>
           </div>
         </div>
       </div>
