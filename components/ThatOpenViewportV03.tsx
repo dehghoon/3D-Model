@@ -1,6 +1,6 @@
 "use client";
 
-import ThatOpenViewportV06 from "./ThatOpenViewportV06";
+import ThatOpenViewportV07 from "./ThatOpenViewportV07";
 import {
   publishSelection,
   publishSelections,
@@ -16,7 +16,7 @@ interface Props {
 
 export default function ThatOpenViewportV03(props: Props) {
   return (
-    <ThatOpenViewportV06
+    <ThatOpenViewportV07
       {...props}
       onSelect={(selection) => {
         publishSelection(selection);
