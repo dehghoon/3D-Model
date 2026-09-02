@@ -3,11 +3,14 @@
 import { useEffect } from "react";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { copySelection } from "../lib/editor/copy-command";
+import { deleteSelection } from "../lib/editor/commands";
 import {
   finishCopyInteraction,
   getInteractionState,
   startCopyInteraction,
+  startMoveInteraction,
 } from "../lib/editor/interaction-store";
+import { moveSelection } from "../lib/editor/move-command";
 import {
   getPublishedSelection,
   publishSelection,
@@ -19,7 +22,7 @@ interface Props {
   onModelChange: (model: StructuralModel, status: string) => void;
 }
 
-interface CopyCommitDetail {
+interface TransformCommitDetail {
   delta?: Vec3;
 }
 
@@ -30,12 +33,11 @@ interface PointerStart {
   pointerType: string;
 }
 
-function isShellCopyButton(target: EventTarget | null): boolean {
+function isUtilityButton(target: EventTarget | null, label: string): boolean {
   if (!(target instanceof Element)) return false;
   const button = target.closest<HTMLButtonElement>(".architectQuickActions button");
   if (!button || button.disabled) return false;
-  const label = button.querySelector("strong")?.textContent?.trim();
-  return label === "Copy";
+  return button.querySelector("strong")?.textContent?.trim() === label;
 }
 
 function isViewportTarget(target: EventTarget | null): boolean {
@@ -61,62 +63,112 @@ export default function CopyInteractionBridgeV01({
   useEffect(() => {
     let pointerStart: PointerStart | null = null;
 
-    const commitCopy = (delta: Vec3): boolean => {
+    const commitTransform = (delta: Vec3): boolean => {
       const selection = getPublishedSelection();
+      const interaction = getInteractionState();
+
       if (!selection) {
-        onModelChange(model, "Copy requires an active selection.");
+        onModelChange(model, "Select an object before using Move or Copy.");
         return false;
       }
 
       if (!hasDisplacement(delta)) {
-        onModelChange(model, "Copy target must differ from the base point.");
+        onModelChange(model, "Target point must differ from the base point.");
         return false;
       }
 
       try {
-        const result = copySelection(model, selection, delta);
-        publishSelection(result.selection);
-        onModelChange(
-          result.model,
-          `Copied ${selection.type} ${selection.id} by snapped displacement.`,
-        );
+        if (interaction.operation === "move") {
+          const result = moveSelection(model, selection, delta);
+          publishSelection(result.selection);
+          onModelChange(
+            result.model,
+            `Moved ${selection.type} ${selection.id} by snapped displacement.`,
+          );
+        } else {
+          const result = copySelection(model, selection, delta);
+          publishSelection(result.selection);
+          onModelChange(
+            result.model,
+            `Copied ${selection.type} ${selection.id} by snapped displacement.`,
+          );
+        }
         return true;
       } catch (error) {
         onModelChange(
           model,
-          error instanceof Error ? error.message : "Copy failed.",
+          error instanceof Error ? error.message : "Transform failed.",
         );
         return false;
       }
     };
 
-    const onCopyCommit = (event: Event) => {
-      const custom = event as CustomEvent<CopyCommitDetail>;
+    const onTransformCommit = (event: Event) => {
+      const custom = event as CustomEvent<TransformCommitDetail>;
       const delta = custom.detail?.delta;
       if (!delta) return;
-
-      if (commitCopy(delta)) {
-        finishCopyInteraction();
-      }
+      if (commitTransform(delta)) finishCopyInteraction();
     };
 
     const onDocumentClickCapture = (event: MouseEvent) => {
-      if (!isShellCopyButton(event.target)) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-
       const selection = getPublishedSelection();
-      startCopyInteraction(selection);
 
-      if (!selection) {
-        onModelChange(model, "Select an object before Copy.");
+      if (isUtilityButton(event.target, "Copy")) {
+        event.preventDefault();
+        event.stopPropagation();
+        startCopyInteraction(selection);
+        if (!selection) onModelChange(model, "Select an object before Copy.");
+        return;
+      }
+
+      if (isUtilityButton(event.target, "Move")) {
+        event.preventDefault();
+        event.stopPropagation();
+        startMoveInteraction(selection);
+        if (!selection) onModelChange(model, "Select an object before Move.");
+        return;
+      }
+
+      if (isUtilityButton(event.target, "Delete") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!selection) {
+          onModelChange(model, "Select an object before Delete.");
+          return;
+        }
+        try {
+          const result = deleteSelection(model, selection);
+          publishSelection(null);
+          onModelChange(
+            result.model,
+            `Deleted ${result.deleted.type} ${result.deleted.id}.`,
+          );
+        } catch (error) {
+          onModelChange(
+            model,
+            error instanceof Error ? error.message : "Delete failed.",
+          );
+        }
+        return;
+      }
+
+      if (isUtilityButton(event.target, "Select")) {
+        event.preventDefault();
+        event.stopPropagation();
+        finishCopyInteraction();
+        window.dispatchEvent(new Event("linkoteq:view-select"));
+        return;
+      }
+
+      if (isUtilityButton(event.target, "View")) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.dispatchEvent(new Event("linkoteq:view-cycle"));
       }
     };
 
     const onPointerDownCapture = (event: PointerEvent) => {
       if (!isViewportTarget(event.target) || !event.isPrimary) return;
-
       pointerStart = {
         x: event.clientX,
         y: event.clientY,
@@ -163,7 +215,7 @@ export default function CopyInteractionBridgeV01({
         interaction.preview.point,
       );
 
-      if (!commitCopy(delta)) return;
+      if (!commitTransform(delta)) return;
 
       finishCopyInteraction();
       event.preventDefault();
@@ -174,14 +226,14 @@ export default function CopyInteractionBridgeV01({
       pointerStart = null;
     };
 
-    window.addEventListener("linkoteq:copy-commit", onCopyCommit);
+    window.addEventListener("linkoteq:copy-commit", onTransformCommit);
     document.addEventListener("click", onDocumentClickCapture, true);
     document.addEventListener("pointerdown", onPointerDownCapture, true);
     document.addEventListener("pointerup", onPointerUpCapture, true);
     document.addEventListener("pointercancel", onPointerCancelCapture, true);
 
     return () => {
-      window.removeEventListener("linkoteq:copy-commit", onCopyCommit);
+      window.removeEventListener("linkoteq:copy-commit", onTransformCommit);
       document.removeEventListener("click", onDocumentClickCapture, true);
       document.removeEventListener("pointerdown", onPointerDownCapture, true);
       document.removeEventListener("pointerup", onPointerUpCapture, true);
