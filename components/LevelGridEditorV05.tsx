@@ -3,7 +3,7 @@ import type { StructuralModel } from "@linkoteq/structural-core";
 import CopyInteractionBridgeV01 from "./CopyInteractionBridgeV01";
 import CopyTool from "./CopyToolV05";
 import GridEditor from "./LevelGridEditorV05New";
-import LevelEditor from "./LevelEditorV06";
+import LevelEditor from "./LevelEditorV07";
 
 export default function LevelGridEditorV05({
   model,
