@@ -23,6 +23,7 @@ import {
   buildCopyPreview,
   disposeCopyPreview,
 } from "../lib/visualization/copy-preview";
+import { isTapGesture, pickSamples } from "../lib/visualization/mobile-picking";
 import { resolveSnapPoint } from "../lib/visualization/snap-resolver";
 
 interface Props {
@@ -42,15 +43,20 @@ interface Runtime {
   transient: THREE.Group | null;
 }
 
+interface PointerStart {
+  x: number;
+  y: number;
+  pointerType: string;
+  pointerId: number;
+}
+
 function fitCamera(runtime: Runtime, root: THREE.Object3D): void {
   const box = new THREE.Box3().setFromObject(root);
   if (box.isEmpty()) return;
-
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const span = Math.max(size.x, size.y, size.z, 8);
   const distance = Math.max(span * 1.8, 14);
-
   void runtime.camera.controls.setLookAt(
     center.x + distance,
     center.y + distance * 0.72,
@@ -141,15 +147,46 @@ function renderCopyPreview(runtime: Runtime): void {
   runtime.transient = transient;
 }
 
+async function pickStructuralObject(
+  runtime: Runtime,
+  event: PointerEvent,
+): Promise<EditorSelection> {
+  if (!runtime.build) return null;
+
+  const canvas = runtime.renderer.three.domElement;
+  const rect = canvas.getBoundingClientRect();
+  const samples = pickSamples(
+    event.clientX,
+    event.clientY,
+    rect,
+    event.pointerType,
+  );
+
+  for (const sample of samples) {
+    const hit = await runtime.caster.castRay({
+      items: runtime.build.pickables,
+      position: sample.position,
+    });
+    if (!hit) continue;
+
+    const selection = getObjectSelection(hit.object);
+    if (selection) return selection;
+  }
+
+  return null;
+}
+
 export default function ThatOpenViewportV04({ model, selection, onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<Runtime | null>(null);
   const onSelectRef = useRef(onSelect);
   const modelRef = useRef(model);
+  const selectionRef = useRef(selection);
   const interaction = useInteractionState();
 
   onSelectRef.current = onSelect;
   modelRef.current = model;
+  selectionRef.current = selection;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -184,14 +221,10 @@ export default function ThatOpenViewportV04({ model, selection, onSelect }: Prop
     };
     runtimeRef.current = runtime;
 
-    let pointerStart:
-      | {
-          x: number;
-          y: number;
-          pointerType: string;
-          pointerId: number;
-        }
-      | null = null;
+    const canvas = world.renderer.three.domElement;
+    canvas.style.touchAction = "none";
+
+    let pointerStart: PointerStart | null = null;
 
     const resolve = (event: PointerEvent) => {
       const current = runtimeRef.current;
@@ -200,7 +233,7 @@ export default function ThatOpenViewportV04({ model, selection, onSelect }: Prop
       return resolveSnapPoint(
         { clientX: event.clientX, clientY: event.clientY },
         modelRef.current,
-        state.selection ?? selection,
+        state.selection ?? selectionRef.current,
         current.camera.three,
         current.renderer.three.domElement,
         event.pointerType === "touch" ? 30 : 13,
@@ -208,6 +241,7 @@ export default function ThatOpenViewportV04({ model, selection, onSelect }: Prop
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      if (!event.isPrimary) return;
       pointerStart = {
         x: event.clientX,
         y: event.clientY,
@@ -219,7 +253,6 @@ export default function ThatOpenViewportV04({ model, selection, onSelect }: Prop
     const onPointerMove = (event: PointerEvent) => {
       const state = getInteractionState();
       if (state.mode !== "copy-target") return;
-
       const snap = resolve(event);
       setCopyPreview(snap);
       const current = runtimeRef.current;
@@ -230,10 +263,9 @@ export default function ThatOpenViewportV04({ model, selection, onSelect }: Prop
       const start = pointerStart;
       pointerStart = null;
       if (!start || start.pointerId !== event.pointerId) return;
-
-      const movement = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-      const tapTolerance = start.pointerType === "touch" ? 20 : 7;
-      if (movement > tapTolerance) return;
+      if (!isTapGesture(start.x, start.y, event.clientX, event.clientY, start.pointerType)) {
+        return;
+      }
 
       const state = getInteractionState();
 
@@ -265,12 +297,9 @@ export default function ThatOpenViewportV04({ model, selection, onSelect }: Prop
       }
 
       const current = runtimeRef.current;
-      if (!current?.build) return;
-
-      const hit = await current.caster.castRay({
-        items: current.build.pickables,
-      });
-      onSelectRef.current(hit ? getObjectSelection(hit.object) : null);
+      if (!current) return;
+      const picked = await pickStructuralObject(current, event);
+      onSelectRef.current(picked);
     };
 
     const onPointerCancel = () => {
@@ -284,17 +313,17 @@ export default function ThatOpenViewportV04({ model, selection, onSelect }: Prop
       if (current) clearTransient(current);
     };
 
-    container.addEventListener("pointerdown", onPointerDown, { passive: true });
-    container.addEventListener("pointermove", onPointerMove, { passive: true });
-    container.addEventListener("pointerup", onPointerUp, { passive: true });
-    container.addEventListener("pointercancel", onPointerCancel, { passive: true });
+    canvas.addEventListener("pointerdown", onPointerDown, { passive: true });
+    canvas.addEventListener("pointermove", onPointerMove, { passive: true });
+    canvas.addEventListener("pointerup", onPointerUp, { passive: true });
+    canvas.addEventListener("pointercancel", onPointerCancel, { passive: true });
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
-      container.removeEventListener("pointerdown", onPointerDown);
-      container.removeEventListener("pointermove", onPointerMove);
-      container.removeEventListener("pointerup", onPointerUp);
-      container.removeEventListener("pointercancel", onPointerCancel);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerCancel);
       window.removeEventListener("keydown", onKeyDown);
 
       clearTransient(runtime);
@@ -338,6 +367,7 @@ export default function ThatOpenViewportV04({ model, selection, onSelect }: Prop
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime) return;
+
     runtime.camera.controls.enabled = interaction.mode === "select";
     if (interaction.mode !== "copy-target") {
       clearTransient(runtime);
@@ -376,7 +406,7 @@ export default function ThatOpenViewportV04({ model, selection, onSelect }: Prop
         }}
       >
         {interaction.mode === "select"
-          ? "That Open · Pick / Touch / Orbit / Pan / Zoom"
+          ? "That Open · Touch Select / Orbit / Pan / Zoom"
           : interaction.message}
         {interaction.preview ? ` · ${interaction.preview.label}` : ""}
       </div>
