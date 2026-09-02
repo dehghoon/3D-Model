@@ -129,7 +129,7 @@ export default function CopyInteractionBridgeV01({
         return;
       }
 
-      if (isUtilityButton(event.target, "Delete") {
+      if (isUtilityButton(event.target, "Delete")) {
         event.preventDefault();
         event.stopPropagation();
         if (!selection) {
