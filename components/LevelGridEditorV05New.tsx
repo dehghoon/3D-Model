@@ -23,8 +23,10 @@ export default function LevelGridEditorV05New({
   useEffect(() => {
     const openGrid = () => setPanel("grid");
     const openLevels = () => setPanel("levels");
-    const closeGrid = () => setPanel((current) => (current === "grid" ? null : current));
-    const closeLevels = () => setPanel((current) => (current === "levels" ? null : current));
+    const closeGrid = () =>
+      setPanel((current) => (current === "grid" ? null : current));
+    const closeLevels = () =>
+      setPanel((current) => (current === "levels" ? null : current));
 
     window.addEventListener("linkoteq:grid-panel-open", openGrid);
     window.addEventListener("linkoteq:levels-panel-open", openLevels);
@@ -89,6 +91,7 @@ export default function LevelGridEditorV05New({
           ) : (
             <LevelEditorV07
               model={model}
+              embedded
               onModelChange={onModelChange}
             />
           )}
