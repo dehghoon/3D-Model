@@ -5,6 +5,7 @@ import "./main-site-shell.css";
 import "./sap2000-shell.css";
 import "./engineering-ribbon.css";
 import "./architect-editor.css";
+import "./architect-editor-v3.css";
 import "./architect-workspace.css";
 import "./contextual-helper.css";
 import "./level-grid-editor.css";
