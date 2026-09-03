@@ -19,37 +19,64 @@ const ITEMS: Array<{ key: keyof DisplayOptions; label: string }> = [
   { key: "surfaces", label: "Surfaces" },
 ];
 
-function findMaterialSelect(): HTMLSelectElement | null {
-  const labels = Array.from(
-    document.querySelectorAll<HTMLLabelElement>(
-      ".engineeringEditorStage .toolbar label",
-    ),
+const buttonStyle = {
+  width: "100%",
+  marginTop: 10,
+  minHeight: 40,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "7px 9px",
+  border: "1px solid #d7dee8",
+  borderRadius: 10,
+  background: "#f8fafc",
+  color: "#1e293b",
+  cursor: "pointer",
+  textAlign: "left",
+} as const;
+
+function QuickLibraryButton({
+  label,
+  caption,
+  icon,
+  ariaLabel,
+  eventName,
+}: {
+  label: string;
+  caption: string;
+  icon: string;
+  ariaLabel: string;
+  eventName: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      onClick={() => window.dispatchEvent(new Event(eventName))}
+      style={buttonStyle}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 28,
+          height: 28,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 8,
+          background: "#eff6ff",
+          color: "#2563eb",
+          fontWeight: 800,
+        }}
+      >
+        {icon}
+      </span>
+      <span>
+        <strong style={{ display: "block", fontSize: 10 }}>{label}</strong>
+        <small style={{ display: "block", fontSize: 8, color: "#64748b" }}>{caption}</small>
+      </span>
+    </button>
   );
-  const label = labels.find((item) =>
-    item.textContent?.trim().startsWith("Material"),
-  );
-  return label?.querySelector<HTMLSelectElement>("select") ?? null;
-}
-
-function openMaterialSelector(): void {
-  const focusMaterial = (): boolean => {
-    const select = findMaterialSelect();
-    if (!select) return false;
-    select.scrollIntoView({ behavior: "smooth", block: "center" });
-    select.focus();
-    return true;
-  };
-
-  if (focusMaterial()) return;
-
-  const beamButton = Array.from(
-    document.querySelectorAll<HTMLButtonElement>(
-      ".engineeringEditorStage .toolbar button",
-    ),
-  ).find((item) => item.textContent?.trim() === "Beam");
-
-  beamButton?.click();
-  window.requestAnimationFrame(() => void focusMaterial());
 }
 
 export default function ViewportDisplayOptionsV05() {
@@ -68,49 +95,21 @@ export default function ViewportDisplayOptionsV05() {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={openMaterialSelector}
-        aria-label="Open canonical material selector"
-        style={{
-          width: "100%",
-          marginTop: 10,
-          minHeight: 40,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "7px 9px",
-          border: "1px solid #d7dee8",
-          borderRadius: 10,
-          background: "#f8fafc",
-          color: "#1e293b",
-          cursor: "pointer",
-          textAlign: "left",
-        }}
-      >
-        <span
-          aria-hidden="true"
-          style={{
-            width: 28,
-            height: 28,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 8,
-            background: "#eff6ff",
-            color: "#2563eb",
-            fontWeight: 800,
-          }}
-        >
-          M
-        </span>
-        <span>
-          <strong style={{ display: "block", fontSize: 10 }}>Material</strong>
-          <small style={{ display: "block", fontSize: 8, color: "#64748b" }}>
-            Core → PyNite E, G, nu, rho, fy
-          </small>
-        </span>
-      </button>
+      <QuickLibraryButton
+        label="Material"
+        caption="Core → PyNite E, G, nu, rho, fy"
+        icon="M"
+        ariaLabel="Open canonical material selector"
+        eventName="linkoteq:material-panel-open"
+      />
+
+      <QuickLibraryButton
+        label="Section"
+        caption="Core → PyNite A, Iy, Iz, J → 3D geometry"
+        icon="S"
+        ariaLabel="Open canonical section library"
+        eventName="linkoteq:section-panel-open"
+      />
 
       <details
         aria-label="Viewport display options"
@@ -132,19 +131,10 @@ export default function ViewportDisplayOptionsV05() {
           }}
         >
           <strong style={{ fontSize: 11, color: "#263445" }}>Display</strong>
-          <span style={{ fontSize: 9, color: "#798493", fontWeight: 700 }}>
-            SHOW / HIDE
-          </span>
+          <span style={{ fontSize: 9, color: "#798493", fontWeight: 700 }}>SHOW / HIDE</span>
         </summary>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: 5,
-            marginTop: 8,
-          }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 5, marginTop: 8 }}>
           {ITEMS.map((item) => (
             <label
               key={item.key}
@@ -166,9 +156,7 @@ export default function ViewportDisplayOptionsV05() {
               <input
                 type="checkbox"
                 checked={options[item.key]}
-                onChange={(event) =>
-                  setDisplayOption(item.key, event.target.checked)
-                }
+                onChange={(event) => setDisplayOption(item.key, event.target.checked)}
                 style={{ margin: 0, accentColor: "#356efc" }}
               />
               <span>{item.label}</span>
