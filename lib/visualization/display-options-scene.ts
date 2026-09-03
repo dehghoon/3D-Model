@@ -10,6 +10,7 @@ const OVERLAY_ROOT = "core-display-overlays";
 const ANALYTICAL_GROUP = "display-analytical-members";
 const NODE_LABEL_GROUP = "display-node-labels";
 const MEMBER_LABEL_GROUP = "display-member-labels";
+const NODE_VISUAL_SCALE = 0.8;
 
 function toThree(position: { x: number; y: number; z: number }): THREE.Vector3 {
   return new THREE.Vector3(position.x, position.z, position.y);
@@ -32,8 +33,8 @@ function modelScale(model: StructuralModel): number {
 function makeLabel(text: string, scale: number): THREE.Sprite {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
-  canvas.width = 256;
-  canvas.height = 96;
+  canvas.width = 384;
+  canvas.height = 128;
 
   if (!context) {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial());
@@ -42,12 +43,12 @@ function makeLabel(text: string, scale: number): THREE.Sprite {
   }
 
   context.clearRect(0, 0, canvas.width, canvas.height);
-  context.font = "600 34px system-ui, sans-serif";
+  context.font = "700 48px Arial, sans-serif";
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillStyle = "rgba(255,255,255,0.94)";
-  context.strokeStyle = "rgba(30,41,59,0.85)";
-  context.lineWidth = 8;
+  context.fillStyle = "rgba(255,255,255,0.97)";
+  context.strokeStyle = "rgba(15,23,42,0.92)";
+  context.lineWidth = 10;
   context.lineJoin = "round";
   context.strokeText(text, canvas.width / 2, canvas.height / 2);
   context.fillStyle = "#0f172a";
@@ -55,6 +56,9 @@ function makeLabel(text: string, scale: number): THREE.Sprite {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+
   const material = new THREE.SpriteMaterial({
     map: texture,
     transparent: true,
@@ -63,7 +67,7 @@ function makeLabel(text: string, scale: number): THREE.Sprite {
   });
   const sprite = new THREE.Sprite(material);
   sprite.name = `label:${text}`;
-  sprite.scale.set(scale * 2.6, scale, 1);
+  sprite.scale.set(scale * 3.4, scale * 1.14, 1);
   sprite.renderOrder = 130;
   return sprite;
 }
@@ -91,7 +95,7 @@ export function buildDisplayOptionOverlays(model: StructuralModel): THREE.Group 
   for (const node of model.nodes) {
     const label = makeLabel(node.id, labelScale);
     label.position.copy(toThree(node.position));
-    label.position.y += labelScale * 0.9;
+    label.position.y += labelScale * 1.12;
     nodeLabels.add(label);
   }
 
@@ -109,7 +113,7 @@ export function buildDisplayOptionOverlays(model: StructuralModel): THREE.Group 
 
     const label = makeLabel(member.id, labelScale);
     label.position.copy(a.clone().lerp(b, 0.5));
-    label.position.y += labelScale * 0.85;
+    label.position.y += labelScale * 1.05;
     memberLabels.add(label);
   }
 
@@ -157,6 +161,7 @@ export function applyDisplayOptionsToScene(
       object.visible = options.extrudedSections;
     } else if (selection.type === "node") {
       object.visible = options.nodes;
+      object.scale.setScalar(NODE_VISUAL_SCALE);
     } else if (selection.type === "surface") {
       object.visible = options.surfaces;
     }
