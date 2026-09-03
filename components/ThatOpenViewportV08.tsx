@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { StructuralModel } from "@linkoteq/structural-core";
 
 import type { EditorSelection } from "../lib/editor/selection";
@@ -19,9 +19,14 @@ interface Props {
   ) => void;
 }
 
-function selectionKey(
-  selection: Exclude<EditorSelection, null>,
-): string {
+type ConcreteSelection = Exclude<EditorSelection, null>;
+
+type VisibilityCommand = {
+  action: "hide" | "isolate" | "show-all";
+  selections?: ConcreteSelection[];
+};
+
+function selectionKey(selection: ConcreteSelection): string {
   return `${selection.type}:${selection.id}`;
 }
 
@@ -44,7 +49,10 @@ function isNonViewToolButton(target: EventTarget | null): boolean {
 export default function ThatOpenViewportV08(props: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const additiveSelectRef = useRef(false);
+  const rightClickSelectionsRef = useRef<ConcreteSelection[]>([]);
   const [viewToolActive, setViewToolActive] = useState(false);
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(() => new Set());
+  const [isolateKeys, setIsolateKeys] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     const activateView = () => setViewToolActive(true);
@@ -99,6 +107,62 @@ export default function ThatOpenViewportV08(props: Props) {
     return () => observer.disconnect();
   }, [viewToolActive]);
 
+  useEffect(() => {
+    const handleVisibility = (event: Event) => {
+      const detail = (event as CustomEvent<VisibilityCommand>).detail;
+      if (!detail) return;
+
+      if (detail.action === "show-all") {
+        setHiddenKeys(new Set());
+        setIsolateKeys(null);
+        return;
+      }
+
+      const keys = new Set((detail.selections ?? []).map(selectionKey));
+      if (!keys.size) return;
+
+      if (detail.action === "isolate") {
+        setIsolateKeys(keys);
+        return;
+      }
+
+      setIsolateKeys(null);
+      setHiddenKeys((current) => {
+        const next = new Set(current);
+        keys.forEach((key) => next.add(key));
+        return next;
+      });
+    };
+
+    window.addEventListener(
+      "linkoteq:viewport-visibility",
+      handleVisibility as EventListener,
+    );
+    return () =>
+      window.removeEventListener(
+        "linkoteq:viewport-visibility",
+        handleVisibility as EventListener,
+      );
+  }, []);
+
+  const viewportModel = useMemo<StructuralModel>(() => {
+    const visible = (selection: ConcreteSelection) => {
+      const key = selectionKey(selection);
+      if (isolateKeys) return isolateKeys.has(key);
+      return !hiddenKeys.has(key);
+    };
+
+    return {
+      ...props.model,
+      members: props.model.members.filter((item) =>
+        visible({ type: "member", id: item.id }),
+      ),
+      surfaces: props.model.surfaces.filter((item) =>
+        visible({ type: "surface", id: item.id }),
+      ),
+    };
+  }, [props.model, hiddenKeys, isolateKeys]);
+
   const handleSelect = (selection: EditorSelection) => {
     if (!additiveSelectRef.current) {
       props.onSelect(selection);
@@ -122,15 +186,50 @@ export default function ThatOpenViewportV08(props: Props) {
     }
   };
 
+  const handlePointerDownCapture = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button === 2) {
+      rightClickSelectionsRef.current = [...getPublishedSelections()];
+    }
+  };
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+
+    const before = rightClickSelectionsRef.current;
+    const after = getPublishedSelections();
+    const picked = after.at(-1) ?? null;
+
+    if (
+      before.length > 1 &&
+      picked &&
+      before.some((item) => selectionKey(item) === selectionKey(picked))
+    ) {
+      publishSelections(before);
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("linkoteq:viewport-context-menu", {
+        detail: {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          selection: picked,
+        },
+      }),
+    );
+  };
+
   return (
     <div
       ref={hostRef}
       className={`thatOpenViewportToolHost ${
         viewToolActive ? "view-tool-active" : ""
       }`}
+      onPointerDownCapture={handlePointerDownCapture}
+      onContextMenu={handleContextMenu}
     >
       <ThatOpenViewportV07
         {...props}
+        model={viewportModel}
         onSelect={handleSelect}
       />
     </div>
