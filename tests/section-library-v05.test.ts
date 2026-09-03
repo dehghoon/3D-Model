@@ -7,7 +7,7 @@ function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("Section quick tool opens the canonical Section library", () => {
+test("Section quick tool is present and wired to the canonical library panel", () => {
   const quickTools = source("components/ViewportDisplayOptionsV05.tsx");
   const wrapper = source("components/ElementProperties.tsx");
 
@@ -23,7 +23,10 @@ test("Section library reuses approved CISC data and keeps AISC reference-only", 
 
   assert.match(panel, /CiscSectionSelectorV05/);
   assert.match(panel, /AISC Reference Families/);
-  assert.match(panel, /Reference only\. No AISC engineering properties are injected without an approved dataset\./);
+  assert.match(
+    panel,
+    /Reference only\. No AISC engineering properties are injected without an approved dataset\./,
+  );
   assert.doesNotMatch(panel, /W14x|W310x|HSS8x8/);
 });
 
@@ -42,7 +45,7 @@ test("Canonical Section editor exposes PyNite properties and preserves geometry"
   assert.match(panel, /Default Section/);
 });
 
-test("CISC adapter remains the only source of approved CISC section properties", () => {
+test("CISC adapter remains the approved source of CISC section properties", () => {
   const adapter = source("lib/cisc-section-library-v05.ts");
 
   assert.match(adapter, /ciscRecordToCoreSection/);
