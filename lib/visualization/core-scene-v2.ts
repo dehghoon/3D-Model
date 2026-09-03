@@ -86,10 +86,23 @@ function syncMultiSelectionHighlight(
     if (!(material instanceof THREE.MeshStandardMaterial)) return;
 
     material.color.setHex(0xf97316);
-    if (selection.type === "surface") {
-      material.opacity = 0.72;
-    }
+    if (selection.type === "surface") material.opacity = 0.72;
   });
+}
+
+function prioritizeNodePickables(build: CoreSceneBuild): void {
+  const rank = (object: THREE.Object3D): number => {
+    const selection = getObjectSelection(object);
+    if (selection?.type === "node") return 0;
+    if (selection?.type === "member") return 1;
+    if (selection?.type === "surface") return 2;
+    return 3;
+  };
+
+  build.pickables = build.pickables
+    .map((object, index) => ({ object, index }))
+    .sort((a, b) => rank(a.object) - rank(b.object) || a.index - b.index)
+    .map(({ object }) => object);
 }
 
 function disposeBoundaryConditionSymbols(root: THREE.Object3D): void {
@@ -113,13 +126,16 @@ export function buildCoreScene(
   const build = buildBaseCoreScene(model, selection);
   replaceMemberDisplayGeometry(build, model);
   syncMultiSelectionHighlight(build, model);
+  prioritizeNodePickables(build);
   build.root.add(buildStructuralGuides(model));
   build.root.add(buildBoundaryConditionSymbols(model));
   return build;
 }
 
 export function disposeCoreScene(root: THREE.Object3D): void {
-  const boundarySymbols = root.getObjectByName("core-boundary-condition-symbols");
+  const boundarySymbols = root.getObjectByName(
+    "core-boundary-condition-symbols",
+  );
   if (boundarySymbols) {
     disposeBoundaryConditionSymbols(boundarySymbols);
     root.remove(boundarySymbols);
