@@ -37,7 +37,8 @@ export default function ViewportDisplayOptionsV05() {
   }, []);
 
   return (
-    <section
+    <details
+      open={false}
       aria-label="Viewport display options"
       style={{
         marginTop: 10,
@@ -45,23 +46,29 @@ export default function ViewportDisplayOptionsV05() {
         borderTop: "1px solid #e4e9f0",
       }}
     >
-      <div
+      <summary
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 8,
-          marginBottom: 7,
+          cursor: "pointer",
+          listStyle: "none",
+          userSelect: "none",
         }}
       >
         <strong style={{ fontSize: 11, color: "#263445" }}>Display</strong>
-        <span style={{ fontSize: 8, color: "#798493" }}>VIEW</span>
-      </div>
+        <span style={{ fontSize: 9, color: "#798493", fontWeight: 700 }}>
+          SHOW / HIDE
+        </span>
+      </summary>
+
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "1fr",
           gap: 5,
+          marginTop: 8,
         }}
       >
         {ITEMS.map((item) => (
@@ -94,6 +101,6 @@ export default function ViewportDisplayOptionsV05() {
           </label>
         ))}
       </div>
-    </section>
+    </details>
   );
 }
