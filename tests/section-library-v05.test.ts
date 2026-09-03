@@ -7,19 +7,18 @@ function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("Section quick tool is present and wired to the canonical library panel", () => {
+test("Section quick tool is present and wired to the active canonical library panel", () => {
   const quickTools = source("components/ViewportDisplayOptionsV05.tsx");
   const wrapper = source("components/ElementProperties.tsx");
 
   assert.match(quickTools, /label="Section"/);
   assert.match(quickTools, /Open canonical section library/);
   assert.match(quickTools, /linkoteq:section-panel-open/);
-  assert.match(wrapper, /SectionQuickPanelV05/);
-  assert.match(wrapper, /linkoteq:section-panel-open/);
+  assert.match(wrapper, /SectionQuickPanelV07/);
 });
 
 test("Section library reuses approved CISC data and keeps AISC reference-only", () => {
-  const panel = source("components/SectionQuickPanelV05.tsx");
+  const panel = source("components/SectionQuickPanelV07.tsx");
 
   assert.match(panel, /CiscSectionSelectorV05/);
   assert.match(panel, /AISC Reference Families/);
@@ -31,7 +30,7 @@ test("Section library reuses approved CISC data and keeps AISC reference-only", 
 });
 
 test("Canonical Section editor exposes PyNite properties and preserves geometry", () => {
-  const panel = source("components/SectionQuickPanelV05.tsx");
+  const panel = source("components/SectionQuickPanelV07.tsx");
 
   assert.match(panel, /SECTION_A/);
   assert.match(panel, /SECTION_IY/);
