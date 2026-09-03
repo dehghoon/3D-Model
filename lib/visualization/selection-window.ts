@@ -72,10 +72,12 @@ function segmentsIntersect(
 
 function segmentIntersectsRect(a: ScreenPoint, b: ScreenPoint, rect: Rect): boolean {
   if (inside(a, rect) || inside(b, rect)) return true;
+
   const tl = { x: rect.left, y: rect.top };
   const tr = { x: rect.right, y: rect.top };
   const br = { x: rect.right, y: rect.bottom };
   const bl = { x: rect.left, y: rect.bottom };
+
   return (
     segmentsIntersect(a, b, tl, tr) ||
     segmentsIntersect(a, b, tr, br) ||
@@ -86,20 +88,21 @@ function segmentIntersectsRect(a: ScreenPoint, b: ScreenPoint, rect: Rect): bool
 
 function project(
   position: { x: number; y: number; z: number },
-  camera: THREE.Camer,
+  camera: THREE.Camera,
   rect: DOMRect,
 ): ScreenPoint | null {
   const projected = new THREE.Vector3(position.x, position.z, position.y).project(camera);
   if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y)) return null;
+
   return {
     x: rect.left + ((projected.x + 1) / 2) * rect.width,
     y: rect.top + ((1 - projected.y) / 2) * rect.height,
   };
 }
 
-fanction selectMemberSelectionsInWindow(
+function selectMemberSelectionsInWindow(
   model: StructuralModel,
-  camera: THREE.Camer,
+  camera: THREE.Camera,
   canvasRect: DOMRect,
   window: SelectionWindow,
 ): Array<Exclude<EditorSelection, null>> {
@@ -126,15 +129,15 @@ fanction selectMemberSelectionsInWindow(
 
 export function selectNodesInWindow(
   model: StructuralModel,
-  camera: THREE.Camera,
+  camera: THREE.Camer,
   canvasRect: DOMRect,
   window: SelectionWindow,
 ): Array<Exclude<EditorSelection, null>> {
   const selectionRect = rectOf(window);
 
   return model.nodes.flatMap((node) => {
-    const point = project(node.position, camer, canvasRect);
-    return point€˜& inside(point, selectionRect)
+    const point = project(node.position, camera, canvasRect);
+    return point && inside(point, selectionRect)
       ? [{ type: "node" as const, id: node.id }]
       : [];
   });
@@ -144,7 +147,7 @@ export function selectNodesInWindow(
 // It now returns all selectable point/member elements in the window.
 export function selectMembersInWindow(
   model: StructuralModel,
-  camera: THREE.Camer,
+  camera: THREE.Camera,
   canvasRect: DOMRect,
   window: SelectionWindow,
 ): Array<Exclude<EditorSelection, null>> {
