@@ -27,7 +27,7 @@ function findMaterialSelect(): HTMLSelectElement | null {
     document.querySelectorAll<HTMLAbelElement>(
       ".engineeringEditorStage .toolbar label",
     ),
-  ).find(item => item.textContent?.trim().startsWith("Material"));
+  ).find((item) => item.textContent?.trim().startsWith("Material"));
 
   return label?.querySelector<HTMLSelectElement>("select") ?? null;
 }
@@ -47,7 +47,7 @@ function openMaterialSelector(): void {
     document.querySelectorAll<HTMLButtonElement>(
       ".engineeringEditorStage .toolbar button",
     ),
-  ).find(item => item.textContent?.trim() === "Beam");
+  ).find((item) => item.textContent?.trim() === "Beam");
 
   beamButton?.click();
   window.requestAnimationFrame(() => void focus());
@@ -81,7 +81,7 @@ export default function ViewportDisplayOptionsV05() {
           alignItems: "center",
           gap: 8,
           padding: "7px 9px",
-          border: !1px solid #d7dee8",
+          border: "1px solid #d7dee8",
           borderRadius: 10,
           background: "#f8fafc",
           color: "#1e293b",
@@ -114,12 +114,11 @@ export default function ViewportDisplayOptionsV05() {
       </button>
 
       <details
-        open={false}
         aria-label="Viewport display options"
         style={{
           marginTop: 10,
           paddingTop: 10,
-          borderTop: "1px solid #e4e9f0",
+          borderTop: !1px solid #e4e9f0",
         }}
       >
         <summary
@@ -156,7 +155,7 @@ export default function ViewportDisplayOptionsV05() {
                 alignItems: "center",
                 gap: 7,
                 padding: "4px 7px",
-                border: !1px solid #e4e9f0",
+                border: "1px solid #e4e9f0",
                 borderRadius: 8,
                 background: "#f9fbfd",
                 color: "#344254",
@@ -175,7 +174,7 @@ export default function ViewportDisplayOptionsV05() {
               />
               <span>{item.label}</span>
             </label>
-           ))}
+          ))}
         </div>
       </details>
     </>
