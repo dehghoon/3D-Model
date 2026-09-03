@@ -1,15 +1,26 @@
 "use client";
 
-import { createPortal } from "react-dom";
-import type { Load, Member, Node, StructuralModel, Surface } from "@linkoteq/structural-core";
+import type {
+  Load,
+  Member,
+  Node,
+  StructuralModel,
+  Surface,
+} from "@linkoteq/structural-core";
+
+import type { EditorSelection } from "../lib/editor/selection";
+
+type ConcreteSelection = Exclude<EditorSelection, null>;
 
 type Props = {
   model: StructuralModel;
+  selections?: ConcreteSelection[];
   member?: Member;
   surface?: Surface;
   node?: Node;
   open: boolean;
   onClose: () => void;
+  onModelChange?: (model: StructuralModel, status: string) => void;
 };
 
 const card: React.CSSProperties = {
@@ -20,13 +31,15 @@ const card: React.CSSProperties = {
   display: "grid",
   gap: 6,
 };
+
 const row: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "100px 1fr",
+  gridTemplateColumns: "104px minmax(0, 1fr)",
   gap: 8,
   fontSize: 10,
   alignItems: "start",
 };
+
 const label: React.CSSProperties = { color: "#667085" };
 
 function memberLength(model: StructuralModel, member: Member) {
@@ -76,127 +89,339 @@ function loadSummary(load: Load): string {
     case "self-weight":
       return `${load.globalDirection} × ${load.factor}`;
     case "level":
-      return load.forceUnit;
     case "diaphragm":
       return load.forceUnit;
   }
 }
 
-export default function ElementProperties({ model, member, surface, node, open, onClose }: Props) {
-  if (!open || typeof document === "undefined") return null;
-  const id = member?.id || surface?.id || node?.id;
-  if (!id) return null;
+function keyOf(selection: ConcreteSelection): string {
+  return `${selection.type}:${selection.id}`;
+}
 
-  const loads = model.loads.filter((load) => loadTargets(load).includes(id));
-  const section = member?.sectionId ? model.sections.find((s) => s.id === member.sectionId) : undefined;
-  const materialId = member?.materialId || surface?.materialId;
-  const material = materialId ? model.materials.find((m) => m.id === materialId) : undefined;
-  const type = member?.type || surface?.type || "node";
-  const length = member
-    ? memberLength(model, member)
-    : surface?.type === "wall"
-      ? wallLength(model, surface)
+function uniqueSelections(selections: ConcreteSelection[]): ConcreteSelection[] {
+  return Array.from(new Map(selections.map((item) => [keyOf(item), item])).values());
+}
+
+function commonValue<T>(values: T[]): { value: T | undefined; mixed: boolean } {
+  if (!values.length) return { value: undefined, mixed: false };
+  const first = values[0];
+  return {
+    value: values.every((value) => value === first) ? first : undefined,
+    mixed: !values.every((value) => value === first),
+  };
+}
+
+function selectionLabel(count: number, types: Set<string>): string {
+  if (count === 1) {
+    const type = Array.from(types)[0] ?? "element";
+    return `1 ${type} selected`;
+  }
+  if (types.size === 1) {
+    const type = Array.from(types)[0] ?? "element";
+    return `${count} ${type}s selected`;
+  }
+  return `${count} elements selected`;
+}
+
+export default function ElementProperties({
+  model,
+  selections,
+  member,
+  surface,
+  node,
+  open,
+  onClose,
+  onModelChange,
+}: Props) {
+  if (!open) return null;
+
+  const legacySelection: ConcreteSelection[] = member
+    ? [{ type: "member", id: member.id }]
+    : surface
+      ? [{ type: "surface", id: surface.id }]
+      : node
+        ? [{ type: "node", id: node.id }]
+        : [];
+
+  const activeSelections = uniqueSelections(
+    selections?.length ? selections : legacySelection,
+  );
+
+  if (!activeSelections.length) return null;
+
+  const selectedMembers = activeSelections
+    .filter((item) => item.type === "member")
+    .map((item) => model.members.find((memberItem) => memberItem.id === item.id))
+    .filter((item): item is Member => Boolean(item));
+  const selectedSurfaces = activeSelections
+    .filter((item) => item.type === "surface")
+    .map((item) => model.surfaces.find((surfaceItem) => surfaceItem.id === item.id))
+    .filter((item): item is Surface => Boolean(item));
+  const selectedNodes = activeSelections
+    .filter((item) => item.type === "node")
+    .map((item) => model.nodes.find((nodeItem) => nodeItem.id === item.id))
+    .filter((item): item is Node => Boolean(item));
+
+  const ids = new Set(activeSelections.map((item) => item.id));
+  const loads = model.loads.filter((load) =>
+    loadTargets(load).some((target) => ids.has(target)),
+  );
+  const types = new Set(activeSelections.map((item) => item.type));
+  const single = activeSelections.length === 1 ? activeSelections[0] : undefined;
+  const singleMember = single?.type === "member" ? selectedMembers[0] : undefined;
+  const singleSurface = single?.type === "surface" ? selectedSurfaces[0] : undefined;
+  const singleNode = single?.type === "node" ? selectedNodes[0] : undefined;
+  const singleLength = singleMember
+    ? memberLength(model, singleMember)
+    : singleSurface?.type === "wall"
+      ? wallLength(model, singleSurface)
       : undefined;
 
-  return createPortal(
-    <div className="propertiesBackdrop" onPointerDown={onClose}>
-      <aside className="propertiesDrawer" onPointerDown={(event) => event.stopPropagation()}>
-        <div className="propertiesHeader">
-          <div>
-            <strong>Properties</strong>
-            <span> · {id}</span>
-          </div>
-          <button onClick={onClose}>×</button>
-        </div>
+  const assignmentTargets = [...selectedMembers, ...selectedSurfaces];
+  const canEditAssignments =
+    Boolean(onModelChange) &&
+    assignmentTargets.length === activeSelections.length &&
+    assignmentTargets.length > 0;
 
-        <div className="propertiesBody">
-          <div style={card}>
-            <div style={row}><span style={label}>Element No.</span><b>{id}</b></div>
-            <div style={row}><span style={label}>Type</span><span>{type}</span></div>
-            {member && (
+  const sectionState = commonValue(selectedMembers.map((item) => item.sectionId));
+  const materialState = commonValue(
+    assignmentTargets.map((item) => item.materialId),
+  );
+  const levelState = commonValue(assignmentTargets.map((item) => item.levelId));
+
+  const updateMemberField = (
+    field: "sectionId" | "materialId" | "levelId",
+    value: string,
+  ) => {
+    if (!onModelChange || !selectedMembers.length) return;
+    const targets = new Set(selectedMembers.map((item) => item.id));
+    const next = {
+      ...model,
+      members: model.members.map((item) =>
+        targets.has(item.id)
+          ? { ...item, [field]: value || undefined }
+          : item,
+      ),
+    };
+    onModelChange(
+      next,
+      `Updated ${field} for ${selectedMembers.length} selected member${selectedMembers.length === 1 ? "" : "s"}.`,
+    );
+  };
+
+  const updateAssignmentField = (
+    field: "materialId" | "levelId",
+    value: string,
+  ) => {
+    if (!onModelChange || !assignmentTargets.length) return;
+    const memberIds = new Set(selectedMembers.map((item) => item.id));
+    const surfaceIds = new Set(selectedSurfaces.map((item) => item.id));
+    const next = {
+      ...model,
+      members: model.members.map((item) =>
+        memberIds.has(item.id)
+          ? { ...item, [field]: value || undefined }
+          : item,
+      ),
+      surfaces: model.surfaces.map((item) =>
+        surfaceIds.has(item.id)
+          ? { ...item, [field]: value || undefined }
+          : item,
+      ),
+    };
+    onModelChange(
+      next,
+      `Updated ${field} for ${assignmentTargets.length} selected element${assignmentTargets.length === 1 ? "" : "s"}.`,
+    );
+  };
+
+  const mixedOption = (mixed: boolean) =>
+    mixed ? <option value="">— Multiple values —</option> : null;
+
+  return (
+    <aside
+      className="propertiesSidePanel"
+      aria-label="Element properties"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <header className="propertiesHeader">
+        <div>
+          <strong>Properties</strong>
+          <span>{selectionLabel(activeSelections.length, types)}</span>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close properties">
+          ×
+        </button>
+      </header>
+
+      <div className="propertiesBody">
+        {activeSelections.length > 1 ? (
+          <div className="propertiesSelectionSummary" role="status">
+            <strong>{activeSelections.length}</strong>
+            <span>Selected</span>
+            <small>
+              {selectedMembers.length} members · {selectedSurfaces.length} surfaces ·{" "}
+              {selectedNodes.length} nodes
+            </small>
+          </div>
+        ) : null}
+
+        {canEditAssignments ? (
+          <section style={card}>
+            <div className="propertiesSectionHeading">
+              <strong>Common assignments</strong>
+              <span>Applies to selection</span>
+            </div>
+
+            {selectedMembers.length === activeSelections.length ? (
+              <label className="propertiesField">
+                <span>Section</span>
+                <select
+                  value={sectionState.value ?? ""}
+                  onChange={(event) =>
+                    updateMemberField("sectionId", event.target.value)
+                  }
+                >
+                  {mixedOption(sectionState.mixed)}
+                  {!sectionState.mixed ? <option value="">Not assigned</option> : null}
+                  {model.sections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.designation || section.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            <label className="propertiesField">
+              <span>Material</span>
+              <select
+                value={materialState.value ?? ""}
+                onChange={(event) =>
+                  updateAssignmentField("materialId", event.target.value)
+                }
+              >
+                {mixedOption(materialState.mixed)}
+                {!materialState.mixed ? <option value="">Not assigned</option> : null}
+                {model.materials.map((materialItem) => (
+                  <option key={materialItem.id} value={materialItem.id}>
+                    {materialItem.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="propertiesField">
+              <span>Level</span>
+              <select
+                value={levelState.value ?? ""}
+                onChange={(event) =>
+                  updateAssignmentField("levelId", event.target.value)
+                }
+              >
+                {mixedOption(levelState.mixed)}
+                {!levelState.mixed ? <option value="">Not assigned</option> : null}
+                {model.levels.map((levelItem) => (
+                  <option key={levelItem.id} value={levelItem.id}>
+                    {levelItem.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
+        ) : null}
+
+        {single ? (
+          <section style={card}>
+            <div style={row}>
+              <span style={label}>Element ID</span>
+              <b>{single.id}</b>
+            </div>
+            <div style={row}>
+              <span style={label}>Type</span>
+              <span>{single.type}</span>
+            </div>
+
+            {singleMember ? (
               <>
-                <div style={row}><span style={label}>Start node</span><span>{member.startNodeId}</span></div>
-                <div style={row}><span style={label}>End node</span><span>{member.endNodeId}</span></div>
+                <div style={row}>
+                  <span style={label}>Member type</span>
+                  <span>{singleMember.type}</span>
+                </div>
+                <div style={row}>
+                  <span style={label}>Start node</span>
+                  <span>{singleMember.startNodeId}</span>
+                </div>
+                <div style={row}>
+                  <span style={label}>End node</span>
+                  <span>{singleMember.endNodeId}</span>
+                </div>
               </>
-            )}
-            {surface && (
+            ) : null}
+
+            {singleSurface ? (
               <div style={row}>
                 <span style={label}>Boundary nodes</span>
-                <span>{surface.boundaryNodeIds.join(", ")}</span>
+                <span>{singleSurface.boundaryNodeIds.join(", ")}</span>
               </div>
-            )}
-            {node && (
+            ) : null}
+
+            {singleNode ? (
               <div style={row}>
                 <span style={label}>Coordinates</span>
-                <span>{node.position.x.toFixed(3)}, {node.position.y.toFixed(3)}, {node.position.z.toFixed(3)} m</span>
+                <span>
+                  {singleNode.position.x.toFixed(3)}, {singleNode.position.y.toFixed(3)},{" "}
+                  {singleNode.position.z.toFixed(3)} m
+                </span>
               </div>
-            )}
-            {(member || surface) && (
+            ) : null}
+
+            {(singleMember || singleSurface) ? (
               <div style={row}>
                 <span style={label}>Level</span>
-                <span>{member?.levelId || surface?.levelId || "—"}</span>
+                <span>{singleMember?.levelId || singleSurface?.levelId || "—"}</span>
               </div>
-            )}
-            {length !== undefined && (
-              <div style={row}><span style={label}>Length</span><b>{length.toFixed(3)} m</b></div>
-            )}
-            {member && (
-              <div style={row}>
-                <span style={label}>Section</span>
-                <span>{section?.designation || member.sectionId || "Not assigned"}</span>
-              </div>
-            )}
-            {(member || surface) && (
-              <div style={row}>
-                <span style={label}>Material</span>
-                <span>{material?.name || materialId || "Not assigned"}</span>
-              </div>
-            )}
-          </div>
+            ) : null}
 
-          <div style={card}>
-            <strong style={{ fontSize: 11 }}>Assigned loads</strong>
-            {loads.length ? (
-              loads.map((load) => (
-                <div key={load.id} style={{ fontSize: 10 }}>
-                  <b>{load.loadCaseId}</b> · {loadSummary(load)} · {load.type}
-                </div>
-              ))
-            ) : (
-              <span style={{ fontSize: 10, color: "#98a2b3" }}>No loads assigned.</span>
-            )}
-          </div>
-
-          <div style={card}>
-            <strong style={{ fontSize: 11 }}>References</strong>
-            {member && (
-              <>
-                <div style={row}>
-                  <span style={label}>Section ID</span>
-                  <span>{member.sectionId || "—"}</span>
-                </div>
-                <div style={row}>
-                  <span style={label}>Material ID</span>
-                  <span>{member.materialId || "—"}</span>
-                </div>
-              </>
-            )}
-            {surface && (
+            {singleLength !== undefined ? (
               <div style={row}>
-                <span style={label}>Load transfer</span>
-                <span>{surface.loadTransfer?.method || "—"}</span>
+                <span style={label}>Length</span>
+                <b>{singleLength.toFixed(3)} m</b>
               </div>
-            )}
-            {loads.map((load) => (
-              <div key={`ref-${load.id}`} style={row}>
-                <span style={label}>{load.id}</span>
-                <span>{load.provenance?.sourceId || "manual"}</span>
+            ) : null}
+          </section>
+        ) : null}
+
+        <section style={card}>
+          <strong style={{ fontSize: 11 }}>Assigned loads</strong>
+          {loads.length ? (
+            loads.map((load) => (
+              <div key={load.id} style={{ fontSize: 10 }}>
+                <b>{load.loadCaseId}</b> · {loadSummary(load)} · {load.type}
               </div>
+            ))
+          ) : (
+            <span style={{ fontSize: 10, color: "#98a2b3" }}>
+              No loads assigned to this selection.
+            </span>
+          )}
+        </section>
+
+        <section style={card}>
+          <div className="propertiesSectionHeading">
+            <strong>Selection references</strong>
+            <span>Canonical Core IDs</span>
+          </div>
+          <div className="propertiesSelectionList">
+            {activeSelections.map((item) => (
+              <span key={keyOf(item)}>
+                <b>{item.type}</b>
+                {item.id}
+              </span>
             ))}
           </div>
-        </div>
-      </aside>
-    </div>,
-    document.body,
+        </section>
+      </div>
+    </aside>
   );
 }
