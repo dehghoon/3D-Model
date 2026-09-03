@@ -211,7 +211,7 @@ export function stepThatOpenLevel(
 async function pickFromItems(
   runtime: ThatOpenRuntime,
   items: THREE.Object3D[],
-  position: { x: number; y: number },
+  position: THREE.Vector2,
 ): Promise<EditorSelection> {
   if (!items.length) return null;
   const hit = await runtime.caster.castRay({ items, position });
