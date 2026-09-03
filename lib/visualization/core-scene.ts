@@ -11,12 +11,38 @@ function toThree(node: Node): THREE.Vector3 {
   return new THREE.Vector3(node.position.x, node.position.z, node.position.y);
 }
 
-function selectionMatches(selection: EditorSelection, type: string, id: string): boolean {
+function selectionMatches(
+  selection: EditorSelection,
+  type: "node" | "member" | "surface",
+  id: string,
+): boolean {
   return Boolean(selection && selection.type === type && selection.id === id);
 }
 
-function tag(object: THREE.Object3D, type: "node" | "member" | "surface", id: string): void {
+function tag(
+  object: THREE.Object3D,
+  type: "node" | "member" | "surface",
+  id: string,
+): void {
   object.userData.linkoteqSelection = { type, id };
+}
+
+function orientedBox(
+  start: THREE.Vector3,
+  direction: THREE.Vector3,
+  length: number,
+  width: number,
+): THREE.BoxGeometry {
+  const geometry = new THREE.BoxGeometry(width, length, width);
+  geometry.translate(0, length / 2, 0);
+  geometry.applyQuaternion(
+    new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      direction.clone().normalize(),
+    ),
+  );
+  geometry.translate(start.x, start.y, start.z);
+  return geometry;
 }
 
 function memberObject(
@@ -38,28 +64,44 @@ function memberObject(
   const group = new THREE.Group();
   group.name = `member:${member.id}`;
 
-  const geometry = new THREE.BoxGeometry(selected ? 0.28 : 0.22, length, selected ? 0.28 : 0.22);
-  geometry.translate(0, length / 2, 0);
-  geometry.applyQuaternion(
-    new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()),
+  const geometry = orientedBox(
+    start,
+    direction,
+    length,
+    selected ? 0.28 : 0.22,
   );
-  geometry.translate(start.x, start.y, start.z);
-
   const visible = new THREE.Mesh(
     geometry,
     new THREE.MeshStandardMaterial({
-      color: selected ? 0xf97316 : member.type === "column" ? 0x2563eb : 0x26734d,
+      color:
+        selected
+          ? 0xf97316
+          : member.type === "column"
+            ? 0x2563eb
+            : 0x26734d,
     }),
   );
   tag(visible, "member", member.id);
   group.add(visible);
 
-  const hitGeometry = geometry.clone();
+  // Keep member hit geometry away from its end nodes so node picking is
+  // unambiguous at structural joints. The visible member remains full length.
+  const endClearance = Math.min(0.34, length * 0.22);
+  const hitLength = Math.max(length - endClearance * 2, length * 0.4);
+  const actualClearance = (length - hitLength) / 2;
+  const hitStart = start
+    .clone()
+    .add(direction.clone().normalize().multiplyScalar(actualClearance));
+  const hitGeometry = orientedBox(hitStart, direction, hitLength, 0.42);
+
   const hit = new THREE.Mesh(
     hitGeometry,
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+    new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    }),
   );
-  hit.scale.setScalar(1.8);
   tag(hit, "member", member.id);
   group.add(hit);
 
@@ -74,11 +116,13 @@ function surfaceObject(
   const nodes = surface.boundaryNodeIds
     .map((id) => model.nodes.find((node) => node.id === id))
     .filter((node): node is Node => Boolean(node));
+
   if (nodes.length < 3) return null;
 
   const vertices = nodes.map(toThree);
   const origin = vertices[0];
   const normal = new THREE.Vector3();
+
   for (let index = 1; index < vertices.length - 1; index += 1) {
     normal.add(
       new THREE.Vector3().crossVectors(
@@ -87,10 +131,14 @@ function surfaceObject(
       ),
     );
   }
+
   if (normal.lengthSq() < 1e-12) return null;
   normal.normalize();
 
-  const offset = vertices.find((vertex, index) => index > 0 && vertex.distanceToSquared(origin) > 1e-12);
+  const offset = vertices.find(
+    (vertex, index) =>
+      index > 0 && vertex.distanceToSquared(origin) > 1e-12,
+  );
   if (!offset) return null;
 
   const u = offset.clone().sub(origin).normalize();
@@ -99,13 +147,17 @@ function surfaceObject(
     const relative = vertex.clone().sub(origin);
     return new THREE.Vector2(relative.dot(u), relative.dot(v));
   });
+
   const faces = THREE.ShapeUtils.triangulateShape(contour, []);
   if (!faces.length) return null;
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
-    new THREE.Float32BufferAttribute(vertices.flatMap((point) => [point.x, point.y, point.z]), 3),
+    new THREE.Float32BufferAttribute(
+      vertices.flatMap((point) => [point.x, point.y, point.z]),
+      3,
+    ),
   );
   geometry.setIndex(faces.flat());
   geometry.computeVertexNormals();
@@ -128,7 +180,11 @@ function surfaceObject(
 function gridObject(grids: GridLine[]): THREE.Group {
   const group = new THREE.Group();
   group.name = "core-grids";
-  const material = new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.75 });
+  const material = new THREE.LineBasicMaterial({
+    color: 0x94a3b8,
+    transparent: true,
+    opacity: 0.75,
+  });
 
   for (const grid of grids) {
     const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -137,10 +193,14 @@ function gridObject(grids: GridLine[]): THREE.Group {
     ]);
     group.add(new THREE.Line(geometry, material));
   }
+
   return group;
 }
 
-export function buildCoreScene(model: StructuralModel, selection: EditorSelection): CoreSceneBuild {
+export function buildCoreScene(
+  model: StructuralModel,
+  selection: EditorSelection,
+): CoreSceneBuild {
   const root = new THREE.Group();
   root.name = "linkoteq-core-scene";
   const pickables: THREE.Object3D[] = [];
@@ -167,9 +227,12 @@ export function buildCoreScene(model: StructuralModel, selection: EditorSelectio
 
   for (const node of model.nodes) {
     const selected = selectionMatches(selection, "node", node.id);
+
     const visible = new THREE.Mesh(
       new THREE.SphereGeometry(selected ? 0.15 : 0.095, 16, 16),
-      new THREE.MeshStandardMaterial({ color: selected ? 0xf97316 : 0x2563eb }),
+      new THREE.MeshStandardMaterial({
+        color: selected ? 0xf97316 : 0x2563eb,
+      }),
     );
     visible.position.copy(toThree(node));
     tag(visible, "node", node.id);
@@ -177,8 +240,12 @@ export function buildCoreScene(model: StructuralModel, selection: EditorSelectio
     pickables.push(visible);
 
     const hit = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 12, 12),
-      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+      new THREE.SphereGeometry(0.34, 14, 14),
+      new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      }),
     );
     hit.position.copy(toThree(node));
     tag(hit, "node", node.id);
@@ -191,9 +258,11 @@ export function buildCoreScene(model: StructuralModel, selection: EditorSelectio
 
 export function disposeCoreScene(root: THREE.Object3D): void {
   const disposedMaterials = new Set<THREE.Material>();
+
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
     if (mesh.geometry) mesh.geometry.dispose();
+
     const material = mesh.material;
     if (Array.isArray(material)) {
       material.forEach((item) => {
@@ -209,14 +278,25 @@ export function disposeCoreScene(root: THREE.Object3D): void {
   });
 }
 
-export function getObjectSelection(object: THREE.Object3D): Exclude<EditorSelection, null> | null {
+export function getObjectSelection(
+  object: THREE.Object3D,
+): Exclude<EditorSelection, null> | null {
   let current: THREE.Object3D | null = object;
+
   while (current) {
     const value = current.userData.linkoteqSelection as
-      | { type?: "node" | "member" | "surface"; id?: string }
+      | {
+          type?: "node" | "member" | "surface";
+          id?: string;
+        }
       | undefined;
-    if (value?.type && value.id) return { type: value.type, id: value.id };
+
+    if (value?.type && value.id) {
+      return { type: value.type, id: value.id };
+    }
+
     current = current.parent;
   }
+
   return null;
 }
