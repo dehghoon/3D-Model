@@ -136,44 +136,6 @@ export default function ThatOpenViewportV08(props: Props) {
     return () => observer.disconnect();
   }, [viewToolActive]);
 
-  useEffect(() => {
-    const handleVisibility = (event: Event) => {
-      const detail = (event as CustomEvent<VisibilityCommand>).detail;
-      if (!detail) return;
-
-      if (detail.action === "show-all") {
-        setHiddenKeys(new Set());
-        setIsolateKeys(null);
-        return;
-      }
-
-      const keys = new Set((detail.selections ?? []).map(selectionKey));
-      if (!keys.size) return;
-
-      if (detail.action === "isolate") {
-        setIsolateKeys(keys);
-        return;
-      }
-
-      setIsolateKeys(null);
-      setHiddenKeys((current) => {
-        const next = new Set(current);
-        keys.forEach((key) => next.add(key));
-        return next;
-      });
-    };
-
-    window.addEventListener(
-      "linkoteq:viewport-visibility",
-      handleVisibility as EventListener,
-    );
-    return () =>
-      window.removeEventListener(
-        "linkoteq:viewport-visibility",
-        handleVisibility as EventListener,
-      );
-  }, []);
-
   const viewportModel = useMemo<StructuralModel>(() => {
     const visible = (selection: ConcreteSelection) => {
       const key = selectionKey(selection);
@@ -198,7 +160,6 @@ export default function ThatOpenViewportV08(props: Props) {
     } else {
       publishSelections(next);
       props.onSelect(next.at(-1) ?? null);
-      queueMicrotask(() => publishSelections(next));
     }
   };
 
@@ -207,6 +168,7 @@ export default function ThatOpenViewportV08(props: Props) {
       props.onSelect(selection);
       return;
     }
+
     if (!selection) return;
 
     const current = getPublishedSelections();
@@ -221,7 +183,7 @@ export default function ThatOpenViewportV08(props: Props) {
 
   const openProperties = () => {
     const selections = contextMenu?.selections ?? getPublishedSelections();
-    const target = contextMenu?.target ?? selections.at(-1) ?? nul;
+    const target = contextMenu?.target ?? selections.at(-1) ?? null;
     if (!target) return;
 
     props.onSelect(target);
@@ -242,7 +204,8 @@ export default function ThatOpenViewportV08(props: Props) {
       const keys = new Set(
         (contextMenu?.selections ?? getPublishedSelections()).map(selectionKey),
       );
-      if (!eys.size) return;
+      if (!keys.size) return;
+
       if (action === "isolate") {
         setIsolateKeys(keys);
       } else {
@@ -263,9 +226,7 @@ export default function ThatOpenViewportV08(props: Props) {
     setContextMenu(null);
   };
 
-  const handlePointerDownCapture = (
-    event: React.PointerEvent<HTMLDivElement>,
-  ) => {
+  const handlePointerDownCapture = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button === 2) {
       rightClickSelectionsRef.current = [...getPublishedSelections()];
     }
@@ -273,10 +234,9 @@ export default function ThatOpenViewportV08(props: Props) {
 
   const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
-
     const before = rightClickSelectionsRef.current;
     const after = getPublishedSelections();
-    const picked = after.at(-1) ?? nul;
+    const picked = after.at(-1) ?? null;
     let active = after;
 
     if (
@@ -299,90 +259,38 @@ export default function ThatOpenViewportV08(props: Props) {
   };
 
   return (
-    <div
-      ref={hostRef}
-      className={`thatOpenViewportToolHost ${
-        viewToolActive ? "view-tool-active" : ""
-      }`}
+    <div ref={hostRef} className={`thatOpenViewportToolHost ${viewToolActive ? "view-tool-active" : ""}`}
       onPointerDownCapture={handlePointerDownCapture}
-      onContextMenu={handleContextMenu}
-    >
-      <ThatOpenViewportV07
-        {...props}
-        model={viewportModel}
-        onSelect={handleSelect}
-      />
+      onContextMenu={handleContextMenu}>
+      <ThatOpenViewportV07 {...props} model={viewportModel} onSelect={handleSelect} />
 
       {contextMenu ? (
-        <div
-          className="viewportContextMenu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          role="menu"
-          aria-label={
-            contextMenu.target ? "Selection context menu" : "Viewport context menu"
-          }
-          onPointerDown={(event) => event.stopPropagation()}
-          onContextMenu={(event) => event.preventDefault()}
-        >
+        <div className="viewportContextMenu" style={{ left: contextMenu.x, top: contextMenu.y }}
+          role="menu" aria-label={contextMenu.target ? "Selection context menu" : "Viewport context menu"}
+          onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => event.preventDefault()}>
           <div className="viewportContextMenuHeader">
-            {contextMenu.target
-              ? `${contextMenu.selections.length || 1} selected`
-              : "Viewport"}
+            {contextMenu.target ? `${contextMenu.selections.length || 1} selected` : "Viewport"}
           </div>
-
           {contextMenu.target ? (
             <>
-              <button type="button" role="menuitem" onClick={openProperties}>
-                Properties
-              </button>
-              <button type="button" role="menuitem" onClick={openProperties}>
-                Assign Section / Material / Level
-              </button>
+              <button type="button" role="menuitem" onClick={openProperties}>Properties</button>
+              <button type="button" role="menuitem" onClick={openProperties}>Assign Section / Material / Level</button>
               <div className="viewportContextDivider" />
-              <button type="button" role="menuitem" onClick={() => runEditorCommand("Move")}>
-                Move
-              </button>
-              <button type="button" role="menuitem" onClick={() => runEditorCommand("Copy")}>
-                Copy
-              </button>
+              <button type="button" role="menuitem" onClick={() => runEditorCommand("Move")}>Move</button>
+              <button type="button" role="menuitem" onClick={() => runEditorCommand("Copy")}>Copy</button>
               <div className="viewportContextDivider" />
-              <button type="button" role="menuitem" onClick={() => applyVisibility("isolate")}>
-                Isolate Selection
-              </button>
-              <button type="button" role="menuitem" onClick={() => applyVisibility("hide")}>
-                Hide Selection
-              </button>
-              <button type="button" role="menuitem" onClick={() => applyVisibility("show-all")}>
-                Show All
-              </button>
+              <button type="button" role="menuitem" onClick={() => applyVisibility("isolate")}>Isolate Selection</button>
+              <button type="button" role="menuitem" onClick={() => applyVisibility("hide")}>Hide Selection</button>
+              <button type="button" role="menuitem" onClick={() => applyVisibility("show-all")}>Show All</button>
               <div className="viewportContextDivider" />
-              <button
-                type="button"
-                role="menuitem"
-                className="viewportContextDanger"
-                onClick={() => runEditorCommand("Delete selected")}
-              >
-                Delete Selection
-              </button>
+              <button type="button" role="menuitem" className="viewportContextDanger"
+                onClick={() => runEditorCommand("Delete selected")}>Delete Selection</button>
             </>
           ) : (
             <>
-              <button type="button" role="menuitem" onClick={selectAll}>
-                Select All
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  props.onSelect(null);
-                  setContextMenu(null);
-                }}
-              >
-                Clear Selection
-              </button>
-              <button type="button" role="menuitem" onClick={() => applyVisibility("show-all")}>
-                Show All
-              </button>
+              <button type="button" role="menuitem" onClick={selectAll}>Select All</button>
+              <button type="button" role="menuitem" onClick={() => { props.onSelect(null); setContextMenu(null); }}>Clear Selection</button>
+              <button type="button" role="menuitem" onClick={() => applyVisibility("show-all")}>Show All</button>
             </>
           )}
         </div>
