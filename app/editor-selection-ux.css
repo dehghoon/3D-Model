@@ -1,0 +1,246 @@
+.propertiesSidePanel {
+  position: fixed;
+  top: 84px;
+  right: 16px;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 104px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(16, 24, 40, 0.18);
+  backdrop-filter: blur(10px);
+  z-index: 90;
+}
+
+.propertiesHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  border-bottom: 1px solid #eaecf0;
+  background: #ffffff;
+}
+
+.propertiesHeader > div {
+  display: grid;
+  gap: 2px;
+}
+
+.propertiesHeader strong {
+  color: #101828;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.propertiesHeader span {
+  color: #667085;
+  font-size: 11px;
+}
+
+.propertiesHeader button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #475467;
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.propertiesHeader button:hover {
+  background: #f2f4f7;
+  color: #101828;
+}
+
+.propertiesBody {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.propertiesSelectionSummary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1px 9px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.propertiesSelectionSummary strong {
+  grid-row: 1 / span 2;
+  min-width: 34px;
+  font-size: 22px;
+  line-height: 1;
+  color: #101828;
+}
+
+.propertiesSelectionSummary span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #344054;
+}
+
+.propertiesSelectionSummary small {
+  font-size: 9px;
+  color: #667085;
+}
+
+.propertiesSectionHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.propertiesSectionHeading strong {
+  font-size: 11px;
+  color: #344054;
+}
+
+.propertiesSectionHeading span {
+  font-size: 9px;
+  color: #98a2b3;
+}
+
+.propertiesField {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  font-size: 10px;
+}
+
+.propertiesField > span {
+  color: #667085;
+}
+
+.propertiesField select {
+  min-width: 0;
+  height: 30px;
+  border: 1px solid #d0d5dd;
+  border-radius: 7px;
+  padding: 0 8px;
+  background: #ffffff;
+  color: #101828;
+  font: inherit;
+}
+
+.propertiesField select:focus-visible {
+  outline: 2px solid #84adff;
+  outline-offset: 1px;
+}
+
+.propertiesSelectionList {
+  max-height: 138px;
+  overflow: auto;
+  display: grid;
+  gap: 4px;
+}
+
+.propertiesSelectionList > span {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 6px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #475467;
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.propertiesSelectionList b {
+  color: #344054;
+  text-transform: capitalize;
+}
+
+.viewportContextMenu {
+  position: fixed;
+  z-index: 140;
+  width: 224px;
+  max-height: min(420px, calc(100vh - 16px));
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 36px rgba(16, 24, 40, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.viewportContextMenuHeader {
+  padding: 6px 8px 7px;
+  color: #667085;
+  font-size: 10px;
+ font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.viewportContextMenu button {
+  width: 100%;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  color: #344054;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+}
+
+.viewportContextMenu button:hover,
+.viewportContextMenu button:focus-visible {
+  background: #f2f4f7;
+  color: #101828;
+  outline: none;
+}
+
+.viewportContextDivider {
+  height: 1px;
+  margin: 5px 4px;
+  background: #eaecf0;
+}
+
+.viewportContextMenu .viewportContextDanger {
+  color: #b42318;
+}
+
+.viewportContextMenu .viewportContextDanger:hover,
+.viewportContextMenu .viewportContextDanger:focus-visible {
+  background: #fef3f2;
+  color: #912018;
+}
+
+@media (max-width: 720px) {
+  .propertiesSidePanel {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    max-height: 62vh;
+    border-radius: 14px;
+  }
+
+  .viewportContextMenu {
+    width: min(224px, calc(100vw- 16px));
+  }
+}
