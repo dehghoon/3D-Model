@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import { applyDefaultBaseSupports } from "../lib/base-support-defaults-v05";
 import { createNodeFromGlobalCoordinates } from "../lib/editor-modeling-v05";
 import LevelGridEditorV05 from "./LevelGridEditorV05";
 
@@ -29,33 +30,36 @@ export default function NodeCreatorV05({ model, onModelChange, onNodeCreated }: 
         y: parseCoordinate(y),
         z: parseCoordinate(z),
       });
-      onModelChange(result.model, `Canonical Core v0.5 node ${result.node.id} created.`);
+      const nextModel = applyDefaultBaseSupports(result.model, {
+        onlyNodeIds: new Set([result.node.id]),
+      });
+      onModelChange(nextModel, `Canonical Core v0.5 node ${result.node.id} created.`);
       onNodeCreated?.(result.node.id);
     } catch (error) {
       onModelChange(model, error instanceof Error ? error.message : "Node creation failed.");
-    }
+  }
   }
 
   return (
     <>
-    <section className="panelBlock">
-      <h3>Create Node</h3>
-      <label>
-        Global X
-        <input type="number" step="any" value={x} onChange={(event) => setX(event.target.value)} />
-      </label>
-      <label>
-        Global Y
-        <input type="number" step="any" value={y} onChange={(event) => setY(event.target.value)} />
-      </label>
-      <label>
-        Global Z
-        <input type="number" step="any" value={z} onChange={(event) => setZ(event.target.value)} />
-      </label>
-      <button onClick={createNode}>Create Node</button>
-      <p className="selectionText">Coordinates are stored in the Core global model coordinate system.</p>
-    </section>
-    <LevelGridEditorV05 model={model} onModelChange={onModelChange} />
+      <section className="panelBlock">
+        <h3>Create Node</h3>
+        <label>
+          Global X
+          <input type="number" step="any" value={x} onChange={(event) => setX(event.target.value)} />
+        </label>
+        <label>
+          Global Y
+          <input type="number" step="any" value={y} onChange={(event) => setY(event.target.value)} />
+        </label>
+        <label>
+          Global Z
+          <input type="number" step="any" value={z} onChange={(event) => setZ(event.target.value)} />
+        </label>
+        <button onClick={createNode}>Create Node</button>
+        <p className="selectionText">Coordinates are stored in the Core global model coordinate system.</p>
+      </section>
+      <LevelGridEditorV05 model={model} onModelChange={onModelChange} />
     </>
   );
 }
