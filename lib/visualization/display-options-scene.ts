@@ -121,7 +121,6 @@ export function applyDisplayOptionsToScene(
   root: THREE.Object3D,
   options: DisplayOptions = getDisplayOptions(),
 ): void {
-  const overlays = root.getObjectByName(OVERLAY_ROOT);
   const analytical = root.getObjectByName(ANALYTICAL_GROUP);
   if (analytical) analytical.visible = !options.extrudedSections;
 
@@ -133,6 +132,7 @@ export function applyDisplayOptionsToScene(
 
   const grids = root.getObjectByName("core-grids");
   if (grids) grids.visible = options.grids;
+
   const guides = root.getObjectByName("linkoteq-structural-guides");
   if (guides) guides.visible = options.grids;
 
@@ -156,7 +156,7 @@ export function applyDisplayOptionsToScene(
     if (selection.type === "member") {
       object.visible = options.extrudedSections;
     } else if (selection.type === "node") {
-      object.visible = options.noder;
+      object.visible = options.nodes;
     } else if (selection.type === "surface") {
       object.visible = options.surfaces;
     }
@@ -169,7 +169,11 @@ export function disposeDisplayOptionOverlays(root: THREE.Object3D): void {
     if (mesh.geometry) mesh.geometry.dispose();
 
     const material = mesh.material;
-    const materials = Array.isArray(material) ? material : material ? [material] : [];
+    const materials = Array.isArray(material)
+      ? material
+      : material
+        ? [material]
+        : [];
     for (const item of materials) {
       const spriteMaterial = item as THREE.SpriteMaterial;
       spriteMaterial.map?.dispose();
