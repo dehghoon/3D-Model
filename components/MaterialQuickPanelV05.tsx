@@ -67,22 +67,28 @@ export default function MaterialQuickPanelV05({
         </p>
 
         <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
-          {model.materials.length ? model.materials.map((material) => {
-            const p = material.analysis;
-            return (
-              <article key={material.id} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10 }}>
-                <strong>{material.name}</strong>
-                <small style={{ display: "block", color: "#64748b", marginTop: 2 }}>{material.type} ·${material.id}</small>
-                <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.6 }}>
-                  E: {p.E.value} {p.E.unit} · G: {p.G.value} {p.G.unit} · nu: {p.nu}<br />
-                  rho: {p.rho.value} {p.rho.unit}{p.fy ? ` ¶ fy: ${p.fy.value} ${p.fy.unit}` : ""}
-                </div>
-              </article>
-            );
-          }) : <p>No canonical materials are loaded in this project.</p>}
+          {model.materials.length > 0 ? (
+            model.materials.map((material) => {
+              const p = material.analysis;
+              return (
+                <article key={material.id} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 10 }}>
+                  <strong>{material.name}</strong>
+                  <small style={{ display: "block", color: "#64748b", marginTop: 2 }}>
+                    {material.type} · {material.id}
+                  </small>
+                  <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.6 }}>
+                    E: {p.E.value} {p.E.unit} · G: {p.G.value} {p.G.unit} · nu: {p.nu}<br />
+                    rho: {p.rho.value} {p.rho.unit}{p.fy ? ` · fy: ${p.fy.value} ${p.fy.unit}` : ""}
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <p>No canonical materials are loaded in this project.</p>
+          )}
         </div>
 
-        <hr>
+        <hr />
         <h3>Assign Selection</h3>
         {hasTargets ? (
           <AssignmentPropertiesV05
