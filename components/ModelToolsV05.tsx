@@ -11,6 +11,10 @@ import {
   DEFAULT_CISC_DESIGNATION,
   loadApprovedCiscSections,
 } from "../lib/cisc-section-library-v05";
+import {
+  getDefaultMaterialId,
+  getDefaultSectionId,
+} from "../lib/modeling-default-preferences-v05";
 
 type Tool = "select" | "beam" | "column" | "brace" | "wall" | "slab";
 
@@ -48,9 +52,13 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
   const [sectionId, setSectionId] = useState("");
   const [status, setStatus] = useState("Select a modeling tool.");
   const initializingDefaultRef = useRef(false);
+  const previousDefaultMaterialRef = useRef("");
+  const previousDefaultSectionRef = useRef("");
 
   const isMemberTool = tool === "beam" || tool === "column" || tool === "brace";
   const isSurfaceTool = tool === "wall" || tool === "slab";
+  const defaultMaterialId = getDefaultMaterialId(model);
+  const defaultSectionId = getDefaultSectionId(model);
 
   useEffect(() => {
     if (!isUninitializedModel(model)) {
@@ -87,9 +95,22 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
   }, [model, onModelChange]);
 
   useEffect(() => {
-    if (!materialId && model.materials[0]) setMaterialId(model.materials[0].id);
-    if (!sectionId && model.sections[0]) setSectionId(model.sections[0].id);
-  }, [materialId, sectionId, model.materials, model.sections]);
+    setMaterialId((current) => {
+      const previousDefault = previousDefaultMaterialRef.current;
+      if (!current || current === previousDefault) return defaultMaterialId;
+      return current;
+    });
+    previousDefaultMaterialRef.current = defaultMaterialId;
+  }, [defaultMaterialId]);
+
+  useEffect(() => {
+    setSectionId((current) => {
+      const previousDefault = previousDefaultSectionRef.current;
+      if (!current || current === previousDefault) return defaultSectionId;
+      return current;
+    });
+    previousDefaultSectionRef.current = defaultSectionId;
+  }, [defaultSectionId]);
 
   const pickedLabel = useMemo(
     () => (pickedNodeIds.length ? pickedNodeIds.join(" -> ") : "None"),
@@ -99,16 +120,19 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
   function chooseTool(next: Tool) {
     setTool(next);
     setPickedNodeIds([]);
+
     if (next === "select") {
       setStatus("Selection mode.");
       return;
     }
+
     if (next === "wall" || next === "slab") {
       setStatus(
-      `${next === "wall" ? "Wall" : "Slab"} tool: select boundary nodes in order, then finish.`,
+        `${next === "wall" ? "Wall" : "Slab"} tool: select boundary nodes in order, then finish.`,
       );
       return;
     }
+
     setStatus(`${next[0].toUpperCase()}${next.slice(1)} tool: select start and end nodes.`);
   }
 
@@ -150,7 +174,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
         }
       }
 
-      setStatus(`${next.length} node$"{next.length === 1 ? "" : "s"} picked.`);
+      setStatus(`${next.length} node${next.length === 1 ? "" : "s"} picked.`);
       return next;
     });
   }, [selectedNodeId, tool, model, isMemberTool, materialId, sectionId, onModelChange]);
@@ -169,17 +193,20 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
             (id) => model.nodes.find((node) => node.id === id)?.levelId === firstNode.levelId,
           ),
       );
-    const result = createSurfaceFromCanonicalRefs(model, {
-      type: tool as SurfaceType,
-      boundaryNodeIds: pickedNodeIds,
-      ...(sameLevel && firstNode?.levelId ? { levelId: firstNode.levelId } : {}),
-    });
-    onModelChange(result.model, `Created ${result.surface.type} ${result.surface.id} from viewport boundary picks.`);
-    setPickedNodeIds([]);
-    setStatus(`Created ${result.surface.type} ${result.surface.id}.`);
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : "Surface creation failed.");
-  }
+      const result = createSurfaceFromCanonicalRefs(model, {
+        type: tool as SurfaceType,
+        boundaryNodeIds: pickedNodeIds,
+        ...(sameLevel && firstNode?.levelId ? { levelId: firstNode.levelId } : {}),
+      });
+      onModelChange(
+        result.model,
+        `Created ${result.surface.type} ${result.surface.id} from viewport boundary picks.`,
+      );
+      setPickedNodeIds([]);
+      setStatus(`Created ${result.surface.type} ${result.surface.id}.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Surface creation failed.");
+    }
   }
 
   return (
