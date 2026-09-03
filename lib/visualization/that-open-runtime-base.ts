@@ -66,4 +66,308 @@ export function createThatOpenRuntime(container: HTMLDivElement): ThatOpenRuntim
   };
 }
 
-// NOTE: The remaining runtime exports are unchanged from the current main branch.
+export function rebuildThatOpenScene(
+  runtime: ThatOpenRuntime,
+  model: StructuralModel,
+  selection: EditorSelection,
+): void {
+  clearTransformPreview(runtime);
+  if (runtime.build) {
+    runtime.scene.remove(runtime.build.root);
+    disposeCoreScene(runtime.build.root);
+  }
+  runtime.build = buildCoreScene(model, selection);
+  runtime.scene.add(runtime.build.root);
+  if (
+    !runtime.fitted &&
+    (model.nodes.length ||
+      model.members.length ||
+      model.surfaces.length ||
+      model.grids.length ||
+      model.levels.length)
+  ) {
+    setThatOpenView(runtime, "3d");
+    runtime.fitted = true;
+  }
+}
+
+export function setThatOpenView(runtime: ThatOpenRuntime, mode: ViewMode): void {
+  const data = frame(runtime);
+  if (!data) return;
+  const { center, distance } = data;
+  runtime.viewMode = mode;
+  runtime.axisIndex = 0;
+  runtime.levelIndex = 0;
+  runtime.camera.three.up.set(
+    0,
+    mode === "bottom" ? 0 : 1,
+    mode === "bottom" ? 1 : 0,
+  );
+
+  const offset =
+    mode === "3d"
+      ? new THREE.Vector3(distance, distance * 0.72, distance)
+      : mode === "front"
+        ? new THREE.Vector3(0, 0, distance)
+        : mode === "left"
+          ? new THREE.Vector3(-distance, 0, 0)
+          : mode === "right"
+            ? new THREE.Vector3(distance, 0, 0)
+            : new THREE.Vector3(0.001, -distance, 0.001);
+
+  void runtime.camera.controls.setLookAt(
+    center.x + offset.x,
+    center.y + offset.y,
+    center.z + offset.z,
+    center.x,
+    center.y,
+    center.z,
+    true,
+  );
+}
+
+function gridOffsets(model: StructuralModel, axis: "x" | "y"): number[] {
+  const eps = 1e-9;
+  const values = model.grids.flatMap((grid) => {
+    const dx = Math.abs(grid.end.x - grid.start.x);
+    const dy = Math.abs(grid.end.y - grid.start.y);
+    if (axis === "x" && dx < eps && dy > eps) return [grid.start.x];
+    if (axis === "y" && dy < eps && dx > eps) return [grid.start.y];
+    return [];
+  });
+  return [
+    ...new Set(values.map((value) => Number(value.toFixed(9)))),
+  ].sort((a, b) => a - b);
+}
+
+export function stepThatOpenAxis(
+  runtime: ThatOpenRuntime,
+  model: StructuralModel,
+  step: -1 | 1,
+): void {
+  if (runtime.viewMode === "3d") return;
+  const axis =
+    runtime.viewMode === "left" || runtime.viewMode === "right" ? "y" : "x";
+  const offsets = gridOffsets(model, axis);
+  if (!offsets.length) return;
+
+  runtime.axisIndex =
+    (runtime.axisIndex + step + offsets.length) % offsets.length;
+
+  const target = runtime.camera.controls.getTarget(new THREE.Vector3());
+  const position = runtime.camera.three.position.clone();
+  const next = offsets[runtime.axisIndex];
+  const delta = axis === "x" ? next - target.x : next - target.z;
+
+  if (axis === "x") {
+    target.x = next;
+    position.x += delta;
+  } else {
+    target.z = next;
+    position.z += delta;
+  }
+
+  void runtime.camera.controls.setLookAt(
+    position.x,
+    position.y,
+    position.z,
+    target.x,
+    target.y,
+    target.z,
+    true,
+  );
+}
+
+export function stepThatOpenLevel(
+  runtime: ThatOpenRuntime,
+  model: StructuralModel,
+  step: -1 | 1,
+): void {
+  if (runtime.viewMode === "3d" || !model.levels.length) return;
+
+  const levels = [...model.levels].sort(
+    (a, b) => a.elevation - b.elevation,
+  );
+  runtime.levelIndex =
+    (runtime.levelIndex + step + levels.length) % levels.length;
+
+  const target = runtime.camera.controls.getTarget(new THREE.Vector3());
+  const position = runtime.camera.three.position.clone();
+  const elevation = levels[runtime.levelIndex].elevation;
+  position.y += elevation - target.y;
+  target.y = elevation;
+
+  void runtime.camera.controls.setLookAt(
+    position.x,
+    position.y,
+    position.z,
+    target.x,
+    target.y,
+    target.z,
+    true,
+  );
+}
+
+async function pickFromItems(
+  runtime: ThatOpenRuntime,
+  items: THREE.Object3D[],
+  position: { x: number; y: number },
+): Promise<EditorSelection> {
+  if (!items.length) return null;
+  const hit = await runtime.caster.castRay({ items, position });
+  if (!hit) return null;
+  return getObjectSelection(hit.object);
+}
+
+export async function pickThatOpen(
+  runtime: ThatOpenRuntime,
+  event: PointerEvent,
+): Promise<EditorSelection> {
+  if (!runtime.build) return null;
+
+  const rect =
+    runtime.renderer.three.domElement.getBoundingClientRect();
+
+  const nodePickables = runtime.build.pickables.filter(
+    (object) => getObjectSelection(object)?.type === "node",
+  );
+  const otherPickables = runtime.build.pickables.filter(
+    (object) => getObjectSelection(object)?.type !== "node",
+  );
+
+  for (const sample of pickSamples(
+    event.clientX,
+    event.clientY,
+    rect,
+    event.pointerType,
+  )) {
+    const node = await pickFromItems(
+      runtime,
+      nodePickables,
+      sample.position,
+    );
+    if (node) return node;
+
+    const other = await pickFromItems(
+      runtime,
+      otherPickables,
+      sample.position,
+    );
+    if (other) return other;
+  }
+
+  return null;
+}
+
+export function snapThatOpen(
+  runtime: ThatOpenRuntime,
+  event: PointerEvent,
+  model: StructuralModel,
+  selection: EditorSelection,
+) {
+  const state = getInteractionState();
+  return resolveSnapPoint(
+    { clientX: event.clientX, clientY: event.clientY },
+    model,
+    state.selection ?? selection,
+    runtime.camera.three,
+    runtime.renderer.three.domElement,
+    event.pointerType === "touch" ? 30 : 13,
+  );
+}
+
+export function deltaBetween(base: Vec3, target: Vec3): Vec3 {
+  return {
+    x: target.x - base.x,
+    y: target.y - base.y,
+    z: target.z - base.z,
+  };
+}
+
+export function clearTransformPreview(runtime: ThatOpenRuntime): void {
+  if (!runtime.transient) return;
+  runtime.scene.remove(runtime.transient);
+  disposeCopyPreview(runtime.transient);
+  runtime.transient = null;
+}
+
+export function renderTransformPreview(runtime: ThatOpenRuntime): void {
+  clearTransformPreview(runtime);
+  const state = getInteractionState();
+
+  if (
+    state.mode !== "copy-target" ||
+    !state.selection ||
+    !state.base ||
+    !state.preview ||
+    !runtime.build
+  ) {
+    return;
+  }
+
+  const delta = deltaBetween(state.base.point, state.preview.point);
+  const group = new THREE.Group();
+
+  if (
+    Math.abs(delta.x) +
+      Math.abs(delta.y) +
+      Math.abs(delta.z) >
+    1e-10
+  ) {
+    const ghost = buildCopyPreview(
+      runtime.build.root,
+      state.selection,
+      delta,
+    );
+    if (ghost) group.add(ghost);
+  }
+
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(
+        state.base.point.x,
+        state.base.point.z,
+        state.base.point.y,
+      ),
+      new THREE.Vector3(
+        state.preview.point.x,
+        state.preview.point.z,
+        state.preview.point.y,
+      ),
+    ]),
+    new THREE.LineBasicMaterial({
+      color: 0x0284c7,
+      transparent: true,
+      opacity: 0.85,
+      depthTest: false,
+    }),
+  );
+  group.add(line);
+
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(0.13, 14, 14),
+    new THREE.MeshBasicMaterial({
+      color: 0x0ea5e9,
+      depthTest: false,
+      depthWrite: false,
+    }),
+  );
+  marker.position.set(
+    state.preview.point.x,
+    state.preview.point.z,
+    state.preview.point.y,
+  );
+  group.add(marker);
+
+  runtime.scene.add(group);
+  runtime.transient = group;
+}
+
+export function disposeThatOpenRuntime(runtime: ThatOpenRuntime): void {
+  clearTransformPreview(runtime);
+  if (runtime.build) {
+    runtime.scene.remove(runtime.build.root);
+    disposeCoreScene(runtime.build.root);
+  }
+  runtime.components.dispose();
+}
