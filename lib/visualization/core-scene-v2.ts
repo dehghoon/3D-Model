@@ -8,6 +8,7 @@ import {
   getObjectSelection,
   type CoreSceneBuild,
 } from "./core-scene";
+import { buildRealMemberGeometry } from "./section-profile-geometry";
 import {
   buildStructuralGuides,
   disposeStructuralGuides,
@@ -15,10 +16,56 @@ import {
 
 export type { CoreSceneBuild };
 
-function selectionKey(
-  selection: Exclude<EditorSelection, null>,
-): string {
+function selectionKey(selection: Exclude<EditorSelection, null>): string {
   return `${selection.type}:${selection.id}`;
+}
+
+function replaceMemberDisplayGeometry(
+  build: CoreSceneBuild,
+  model: StructuralModel,
+): void {
+  const nodes = new Map(model.nodes.map((node) => [node.id, node]));
+
+  for (const member of model.members) {
+    const startNode = nodes.get(member.startNodeId);
+    const endNode = nodes.get(member.endNodeId);
+    if (!startNode || !endNode) continue;
+
+    const start = new THREE.Vector3(
+      startNode.position.x,
+      startNode.position.z,
+      startNode.position.y,
+    );
+    const end = new THREE.Vector3(
+      endNode.position.x,
+      endNode.position.z,
+      endNode.position.y,
+    );
+    const geometry = buildRealMemberGeometry(model, member, start, end);
+    if (!geometry) continue;
+
+    const group = build.root.getObjectByName(`member:${member.id}`);
+    if (!group) {
+      geometry.dispose();
+      continue;
+    }
+
+    const visible = group.children.find((child) => {
+      const mesh = child as THREE.Mesh;
+      return (
+        mesh.isMesh &&
+        mesh.material instanceof THREE.MeshStandardMaterial
+      );
+    }) as THREE.Mesh | undefined;
+
+    if (!visible) {
+      geometry.dispose();
+      continue;
+    }
+
+    visible.geometry.dispose();
+    visible.geometry = geometry;
+  }
 }
 
 function syncMultiSelectionHighlight(
@@ -49,6 +96,7 @@ export function buildCoreScene(
   selection: EditorSelection,
 ): CoreSceneBuild {
   const build = buildBaseCoreScene(model, selection);
+  replaceMemberDisplayGeometry(build, model);
   syncMultiSelectionHighlight(build, model);
   build.root.add(buildStructuralGuides(model));
   return build;
