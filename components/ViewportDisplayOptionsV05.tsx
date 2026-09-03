@@ -21,7 +21,7 @@ const ITEMS: Array<{ key: keyof DisplayOptions; label: string }> = [
 
 function findMaterialSelect(): HTMLSelectElement | null {
   const labels = Array.from(
-    document.querySelectorAll<HTMLAbelElement>(
+    document.querySelectorAll<HTMLLabelElement>(
       ".engineeringEditorStage .toolbar label",
     ),
   );
@@ -117,7 +117,7 @@ export default function ViewportDisplayOptionsV05() {
         style={{
           marginTop: 10,
           paddingTop: 10,
-          borderTop: !1px solid #e4e9f0",
+          borderTop: "1px solid #e4e9f0",
         }}
       >
         <summary
