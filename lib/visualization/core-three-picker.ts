@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { EditorSelection } from "../editor/selection";
-import type { ThatOpenRuntime } from "./that-open-runtime";
+import type { ThatOpenRuntime } from "./that-open-runtime-base";
 import { getObjectSelection } from "./core-scene-v2";
 import { pickSamples } from "./mobile-picking";
 
@@ -35,7 +35,7 @@ export async function pickCoreThree(
   );
   const others = runtime.build.pickables.filter(
     (object) => getObjectSelection(object)?.type !== "node",
- );
+  );
 
   const raycaster = new THREE.Raycaster();
   for (const sample of pickSamples(
