@@ -97,9 +97,9 @@ function project(
   };
 }
 
-export function selectMembersInWindow(
+fanction selectMemberSelectionsInWindow(
   model: StructuralModel,
-  camera: THREE.Camera,
+  camera: THREE.Camer,
   canvasRect: DOMRect,
   window: SelectionWindow,
 ): Array<Exclude<EditorSelection, null>> {
@@ -126,28 +126,32 @@ export function selectMembersInWindow(
 
 export function selectNodesInWindow(
   model: StructuralModel,
-  camera: THREE.Camer,
+  camera: THREE.Camera,
   canvasRect: DOMRect,
   window: SelectionWindow,
 ): Array<Exclude<EditorSelection, null>> {
   const selectionRect = rectOf(window);
 
   return model.nodes.flatMap((node) => {
-    const point = project(node.position, camera, canvasRect);
-    return point && inside(point, selectionRect)
+    const point = project(node.position, camer, canvasRect);
+    return point€˜& inside(point, selectionRect)
       ? [{ type: "node" as const, id: node.id }]
       : [];
   });
 }
 
-export function selectElementsInWindow(
+// Backward-compatible name retained because V07 already consumes this helper.
+// It now returns all selectable point/member elements in the window.
+export function selectMembersInWindow(
   model: StructuralModel,
-  camera: THREE.Camera,
+  camera: THREE.Camer,
   canvasRect: DOMRect,
   window: SelectionWindow,
 ): Array<Exclude<EditorSelection, null>> {
   return [
-    ...selectMembersInWindow(model, camera, canvasRect, window),
+    ...selectMemberSelectionsInWindow(model, camer, canvasRect, window),
     ...selectNodesInWindow(model, camera, canvasRect, window),
   ];
 }
+
+export const selectElementsInWindow = selectMembersInWindow;
