@@ -8,6 +8,7 @@ import {
   getObjectSelection,
   type CoreSceneBuild,
 } from "./core-scene";
+import { buildBoundaryConditionSymbols } from "./boundary-condition-symbols";
 import { buildRealMemberGeometry } from "./section-profile-geometry";
 import {
   buildStructuralGuides,
@@ -91,6 +92,20 @@ function syncMultiSelectionHighlight(
   });
 }
 
+function disposeBoundaryConditionSymbols(root: THREE.Object3D): void {
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (mesh.geometry) mesh.geometry.dispose();
+
+    const material = mesh.material;
+    if (Array.isArray(material)) {
+      material.forEach((item) => item.dispose());
+    } else if (material instanceof THREE.Material) {
+      material.dispose();
+    }
+  });
+}
+
 export function buildCoreScene(
   model: StructuralModel,
   selection: EditorSelection,
@@ -99,15 +114,23 @@ export function buildCoreScene(
   replaceMemberDisplayGeometry(build, model);
   syncMultiSelectionHighlight(build, model);
   build.root.add(buildStructuralGuides(model));
+  build.root.add(buildBoundaryConditionSymbols(model));
   return build;
 }
 
 export function disposeCoreScene(root: THREE.Object3D): void {
+  const boundarySymbols = root.getObjectByName("core-boundary-condition-symbols");
+  if (boundarySymbols) {
+    disposeBoundaryConditionSymbols(boundarySymbols);
+    root.remove(boundarySymbols);
+  }
+
   const guides = root.getObjectByName("linkoteq-structural-guides");
   if (guides) {
     disposeStructuralGuides(guides);
     root.remove(guides);
   }
+
   disposeBaseCoreScene(root);
 }
 
