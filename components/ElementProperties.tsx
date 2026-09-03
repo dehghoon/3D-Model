@@ -3,7 +3,7 @@
 import type { ComponentProps } from "react";
 import ElementPropertiesV05 from "./ElementPropertiesV05";
 import MaterialQuickPanelV05 from "./MaterialQuickPanelV05";
-import SectionQuickPanelV06 from "./SectionQuickPanelV06";
+import SectionQuickPanelV07 from "./SectionQuickPanelV07";
 
 type Props = ComponentProps<typeof ElementPropertiesV05>;
 
@@ -29,7 +29,7 @@ export default function ElementProperties(props: Props) {
         surfaces={surfaces}
         onModelChange={onModelChange}
       />
-      <SectionQuickPanelV06
+      <SectionQuickPanelV07
         model={props.model}
         members={members}
         onModelChange={onModelChange}
