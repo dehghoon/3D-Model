@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
+import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
 
 type WorkspaceMode = "simple" | "advanced";
 type ModelingTool = "Column" | "Beam" | "Brace" | "Slab" | "Wall";
@@ -58,7 +59,7 @@ function utilityDescription(tool: UtilityTool): string {
 export default function StructuralEditorShellV3() {
   const [mode, setMode] = useState<WorkspaceMode>("simple");
   const [activeModelTool, setActiveModelTool] = useState<ModelingTool | null>(null);
-  const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("Select");
+  const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("View");
 
   function runModelTool(tool: ModelingTool): void {
     if (clickEditorButton(tool)) {
@@ -91,7 +92,6 @@ export default function StructuralEditorShellV3() {
             <span>Core 0.5 · That Open</span>
           </div>
         </div>
-
         <div className="architectModeSwitch" aria-label="Workspace mode">
           <button
             type="button"
@@ -108,7 +108,6 @@ export default function StructuralEditorShellV3() {
             Advanced Mode
           </button>
         </div>
-
         <div className="architectTopActions" aria-label="Project actions">
           <button
             type="button"
@@ -181,7 +180,6 @@ export default function StructuralEditorShellV3() {
               </div>
               <span className="architectPanelBadge">Simple</span>
             </div>
-
             <div className="architectQuickActions">
               <button type="button" onClick={openGrid}>
                 <span className="architectQuickIcon" aria-hidden="true">
@@ -192,7 +190,6 @@ export default function StructuralEditorShellV3() {
                   <small>Plan axes</small>
                 </span>
               </button>
-
               <button type="button" onClick={openLevels}>
                 <span className="architectQuickIcon" aria-hidden="true">
                   L
@@ -202,7 +199,6 @@ export default function StructuralEditorShellV3() {
                   <small>Elevations</small>
                 </span>
               </button>
-
               {utilityTools.map((tool) => (
                 <button
                   key={tool}
@@ -224,6 +220,7 @@ export default function StructuralEditorShellV3() {
                 </button>
               ))}
             </div>
+            <ViewportDisplayOptionsV05 />
           </aside>
         ) : null}
 
@@ -233,7 +230,6 @@ export default function StructuralEditorShellV3() {
               <StructuralEditorV05 />
             </div>
           </div>
-
           <div className="architectStatusbar" role="status" aria-live="polite">
             <span>
               <strong>Utility:</strong> {activeUtilityTool}
