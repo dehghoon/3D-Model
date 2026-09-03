@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import type { Node, StructuralDOF, StructuralModel, SupportRestraints, SupportSpring } from "@linkoteq/structural-core";
+import { createSupportFromCanonicalNode } from "../lib/editor-support-v05";
 
 type Props = { model: StructuralModel; nodes: Node[]; onModelChange?: (model: StructuralModel, status: string) => void };
 const DOFS: StructuralDOF[] = ["DX","DY","DZ","RX","RY","RZ"];
-const EMPTY: SupportRestraints = { DX:false,DY:false,DZ:false,RX:false,RY:false,RZ:false };
-
 function nextId(prefix:string, ids:string[]) {
   let i=1; const used=new Set(ids); while(used.has(`${prefix}${i}`)) i+=1; return `${prefix}${i}`;
 }
@@ -41,13 +40,18 @@ export default function NodeBoundaryPropertiesV05({model,nodes,onModelChange}:Pr
   const applySupport=()=>{
     if(!onModelChange) return;
     const changes=Object.fromEntries(DOFS.filter(d=>restraints[d]!==undefined).map(d=>[d,Boolean(restraints[d])])) as Partial<SupportRestraints>;
-    let next=[...model.supports];
+    let working={...model,supports:[...model.supports]};
     for(const node of nodes){
-      const i=next.findIndex(s=>s.nodeId===node.id);
-      if(i>=0) next[i]={...next[i],restraints:{...next[i].restraints,...changes}};
-      else next.push({id:nextId("SUP",next.map(s=>s.id)),nodeId:node.id,restraints:{...EMPTY,...changes}});
+      const i=working.supports.findIndex(s=>s.nodeId===node.id);
+      if(i>=0){
+        const supports=[...working.supports];
+        supports[i]={...supports[i],restraints:{...supports[i].restraints,...changes}};
+        working={...working,supports};
+      }else{
+        working=createSupportFromCanonicalNode(working,{nodeId:node.id,restraints:changes}).model;
+      }
     }
-    onModelChange({...model,supports:next},"Updated canonical Core v0.5 support restraints."); setMode(null);
+    onModelChange(working,"Updated canonical Core v0.5 support restraints."); setMode(null);
   };
   const addSpring=()=>{
     if(!onModelChange) return;
