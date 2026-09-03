@@ -44,7 +44,7 @@ export function isTapGesture(
 export function pickSamples(
   clientX: number,
   clientY: number,
-  rect: PointerRect,
+  _rect: PointerRect,
   pointerType: string,
 ): PointerSample[] {
   const offsets =
@@ -67,7 +67,9 @@ export function pickSamples(
       : [[0, 0]];
 
   return offsets.map(([dx, dy]) => ({
-    position: pointerToNdc(clientX + dx, clientY + dy, rect),
+    // That Open SimpleRaycaster 3.4.x expects raw screen/client coordinates
+    // and performs its own conversion to normalized device coordinates.
+    position: new THREE.Vector2(clientX + dx, clientY + dy),
     distancePx: Math.hypot(dx, dy),
   }));
 }
