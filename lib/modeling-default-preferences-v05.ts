@@ -1,10 +1,12 @@
 import type { StructuralModel } from "@linkoteq/structural-core";
 
+type ProjectMetadata = Record<string, string | number | boolean | null>;
+
 const DEFAULT_MATERIAL_KEY = "defaultMaterialId";
 const DEFAULT_SECTION_KEY = "defaultSectionId";
 
-function metadata(model: StructuralModel): Record<string, unknown> {
-  return (model.project.metadata ?? {}) as Record<string, unknown>;
+function metadata(model: StructuralModel): ProjectMetadata {
+  return { ...(model.project.metadata ?? {}) };
 }
 
 export function getDefaultMaterialId(model: StructuralModel): string {
@@ -23,9 +25,7 @@ export function setModelingDefaults(
   model: StructuralModel,
   values: { materialId?: string; sectionId?: string },
 ): StructuralModel {
-  const nextMetadata: Record<string, unknown> = {
-    ...metadata(model),
-  };
+  const nextMetadata = metadata(model);
 
   if (values.materialId !== undefined) {
     if (values.materialId && !model.materials.some((item) => item.id === values.materialId)) {
