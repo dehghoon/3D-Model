@@ -129,7 +129,7 @@ function selectMemberSelectionsInWindow(
 
 export function selectNodesInWindow(
   model: StructuralModel,
-  camera: THREE.Camer,
+  camera: THREE.Camera,
   canvasRect: DOMRect,
   window: SelectionWindow,
 ): Array<Exclude<EditorSelection, null>> {
@@ -152,7 +152,7 @@ export function selectMembersInWindow(
   window: SelectionWindow,
 ): Array<Exclude<EditorSelection, null>> {
   return [
-    ...selectMemberSelectionsInWindow(model, camer, canvasRect, window),
+    ...selectMemberSelectionsInWindow(model, camera, canvasRect, window),
     ...selectNodesInWindow(model, camera, canvasRect, window),
   ];
 }
