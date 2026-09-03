@@ -34,7 +34,9 @@ export default function AssignmentPropertiesV05({ model, members, surfaces, onMo
   const materialState = common(targets.map((item) => item.materialId));
   const sectionState = common(...members.map((item) => item.sectionId)]);
   const levelState = common(targets.map((item) => item.levelId));
-  const material = materialState.value ? model.materials.find((item) => item.id === materialState.value) : undefined;
+  const material = materialState.value
+    ? model.materials.find((item) => item.id === materialState.value)
+    : undefined;
 
   const setMaterial = (value: string) => {
     if (!onModelChange || (members.length && !value)) return;
@@ -42,8 +44,10 @@ export default function AssignmentPropertiesV05({ model, members, surfaces, onMo
     const surfaceIds = new Set(surfaces.map((item) => item.id));
     onModelChange({
       ...model,
-      members: model.members.map((item) => memberIds.has(item.id) ? { ...item, materialId: value } : item),
-      surfaces: model.surfaces.map((item) => surfaceIds.has(Item.id) ? { ...item, materialId: value || undefined } : item),
+      members: model.members.map((item) =>
+        memberIds.has(item.id) ? { ...item, materialId: value } : item),
+      surfaces: model.surfaces.map((item) =>
+        surfaceIds.has(item.id) ? { ...item, materialId: value || undefined } : item),
     }, "Updated canonical Core v0.5 material assignment.");
   };
 
@@ -52,7 +56,8 @@ export default function AssignmentPropertiesV05({ model, members, surfaces, onMo
     const ids = new Set(members.map((item) => item.id));
     onModelChange({
       ...model,
-      members: model.members.map((item) => ids.has(item.id) ? { ...item, sectionId: value } : item),
+      members: model.members.map((item) =>
+        ids.has(item.id) ? { ...item, sectionId: value } : item),
     }, "Updated canonical Core v0.5 section assignment.");
   };
 
@@ -62,8 +67,10 @@ export default function AssignmentPropertiesV05({ model, members, surfaces, onMo
     const surfaceIds = new Set(surfaces.map((item) => item.id));
     onModelChange({
       ...model,
-      members: model.members.map((item) => memberIds.has(item.id) ? { ...item, levelId: value || undefined } : item),
-      surfaces: model.surfaces.map((item) => surfaceIds.has(item.id) ? { ...item, levelId: value || undefined } : item),
+      members: model.members.map((item) =>
+        memberIds.has(item.id) ? { ...item, levelId: value || undefined } : item),
+      surfaces: model.surfaces.map((item) =>
+        surfaceIds.has(item.id) ? { ...item, levelId: value || undefined } : item),
     }, "Updated canonical Core v0.5 level assignment.");
   };
 
@@ -71,27 +78,35 @@ export default function AssignmentPropertiesV05({ model, members, surfaces, onMo
     <section className="propertyActionCard">
       <div className="propertiesSectionHeading"><strong>Assignments</strong><span>Core v0.5</span></div>
       {members.length === targets.length ? (
-        <label className="propertiesField"><span>Section</span>
+        <label className="propertiesField">
+          <span>Section</span>
           <select value={sectionState.value ?? ""} onChange={(event) => setSection(event.target.value)}>
             {sectionState.mixed ? <option value="">— Multiple values —</option> : null}
-            {model.sections.map((item) => <option key={item.id} value={item.id}>{item.designation || item.id}</option>)}
+            {model.sections.map((item) => (
+              <option key={item.id} value={item.id}>{item.designation || item.id}</option>
+            ))}
           </select>
         </label>
       ) : null}
-      <label className="propertiesField"><span>Material</span>
+
+      <label className="propertiesField">
+        <span>Material</span>
         <select value={materialState.value ?? ""} onChange={(event) => setMaterial(event.target.value)}>
           {materialState.mixed ? <option value="">— Multiple values —</option> : null}
           {!members.length ? <option value="">Not assigned</option> : null}
-          {model.materials.map((material) => <option key={material.id} value={material.id}>{material.name}</option>)}
+          {model.materials.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </label>
-      <label className="propertiesField"><span>Level</span>
+
+      <label className="propertiesField">
+        <span>Level</span>
         <select value={levelState.value ?? ""} onChange={(event) => setLevel(event.target.value)}>
           {levelState.mixed ? <option value="">— Multiple values —</option> : null}
           <option value="">Not assigned</option>
           {model.levels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </label>
+
       <MaterialInfo material={material} />
     </section>
   );
