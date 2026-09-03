@@ -8,10 +8,7 @@ import {
   type DisplayOptions,
 } from "../lib/visualization/display-options-store";
 
-const ITEMS: Array<{
-  key: keyof DisplayOptions;
-  label: string;
-}> = [
+const ITEMS: Array<{ key: keyof DisplayOptions; label: string }> = [
   { key: "extrudedSections", label: "Extrude" },
   { key: "nodes", label: "Nodes" },
   { key: "nodeNumbers", label: "Node Numbers" },
@@ -23,17 +20,19 @@ const ITEMS: Array<{
 ];
 
 function findMaterialSelect(): HTMLSelectElement | null {
-  const label = Array.from(
+  const labels = Array.from(
     document.querySelectorAll<HTMLAbelElement>(
       ".engineeringEditorStage .toolbar label",
     ),
-  ).find((item) => item.textContent?.trim().startsWith("Material"));
-
+  );
+  const label = labels.find((item) =>
+    item.textContent?.trim().startsWith("Material"),
+  );
   return label?.querySelector<HTMLSelectElement>("select") ?? null;
 }
 
 function openMaterialSelector(): void {
-  const focus = () => {
+  const focusMaterial = (): boolean => {
     const select = findMaterialSelect();
     if (!select) return false;
     select.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -41,7 +40,7 @@ function openMaterialSelector(): void {
     return true;
   };
 
-  if (focus()) return;
+  if (focusMaterial()) return;
 
   const beamButton = Array.from(
     document.querySelectorAll<HTMLButtonElement>(
@@ -50,7 +49,7 @@ function openMaterialSelector(): void {
   ).find((item) => item.textContent?.trim() === "Beam");
 
   beamButton?.click();
-  window.requestAnimationFrame(() => void focus());
+  window.requestAnimationFrame(() => void focusMaterial());
 }
 
 export default function ViewportDisplayOptionsV05() {
@@ -68,7 +67,7 @@ export default function ViewportDisplayOptionsV05() {
   }, []);
 
   return (
-    <>
+    <div>
       <button
         type="button"
         onClick={openMaterialSelector}
@@ -177,6 +176,6 @@ export default function ViewportDisplayOptionsV05() {
           ))}
         </div>
       </details>
-    </>
+    </div>
   );
 }
