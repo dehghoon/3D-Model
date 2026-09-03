@@ -7,14 +7,29 @@ function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("properties panel consumes the shared multi-selection set", () => {
-  const properties = source("components/ElementProperties.tsx");
+test("properties panel composes Core v0.5 multi-selection editors", () => {
+  const route = source("components/ElementProperties.tsx");
+  const properties = source("components/ElementPropertiesV05.tsx");
+  const assignments = source("components/AssignmentPropertiesV05.tsx");
+  const members = source("components/MemberPropertiesV05.tsx");
+  const nodes = source("components/NodeBoundaryPropertiesV05.tsx");
   const editor = source("components/StructuralEditorV06.tsx");
 
-  assert.match(properties, /selections\?: ConcreteSelection\[\]/);
-  assert.match(properties, /Common assignments/);
-  assert.match(properties, /Multiple values/);
-  assert.match(properties, /Selection references/);
+  assert.match(route, /ElementPropertiesV05/);
+  assert.match(properties, /AssignmentPropertiesV05/);
+  assert.match(properties, /MemberPropertiesV05/);
+  assert.match(properties, /NodeBoundaryPropertiesV05/);
+  assert.match(assignments, /Multiple values/);
+  assert.match(assignments, /materialId/);
+  assert.match(assignments, /sectionId/);
+  assert.match(members, /rotationDeg/);
+  assert.match(members, /startRelease/);
+  assert.match(members, /endRelease/);
+  assert.match(nodes, /SupportRestraints/);
+  assert.match(nodes, /supportSprings/);
+  assert.match(nodes, /enforcedNodeDisplacements/);
+  assert.match(nodes, /tension-only/);
+  assert.match(nodes, /compression-only/);
   assert.match(editor, /usePublishedSelections/);
   assert.match(editor, /selectedMembers=\{selectedMembers\}/);
   assert.match(editor, /selectedSurfaces=\{selectedSurfaces\}/);
@@ -35,12 +50,15 @@ test("viewport context menu preserves selection-oriented commands", () => {
   assert.match(viewport, /publishSelections\(before\)/);
 });
 
-test("selection UX stylesheet is loaded by the root layout", () => {
+test("property editor styles are loaded by the root layout", () => {
   const layout = source("app/layout.tsx");
-  const styles = source("app/editor-selection-ux.css");
+  const baseStyles = source("app/editor-selection-ux.css");
+  const engineeringStyles = source("app/engineering-properties-v05.css");
 
   assert.match(layout, /editor-selection-ux\.css/);
-  assert.match(styles, /\.propertiesSidePanel/);
-  assert.match(styles, /\.viewportContextMenu/);
-  assert.match(styles, /@media \(max-width: 720px\)/);
+  assert.match(layout, /engineering-properties-v05\.css/);
+  assert.match(baseStyles, /\.propertiesSidePanel/);
+  assert.match(engineeringStyles, /\.propertyActionCard/);
+  assert.match(engineeringStyles, /\.propertyActionGrid/);
+  assert.match(engineeringStyles, /@media \(max-width: 720px\)/);
 });
