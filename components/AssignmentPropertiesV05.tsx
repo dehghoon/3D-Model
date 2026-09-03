@@ -32,7 +32,7 @@ export default function AssignmentPropertiesV05({ model, members, surfaces, onMo
   if (!targets.length) return null;
 
   const materialState = common(targets.map((item) => item.materialId));
-  const sectionState = common(...members.map((item) => item.sectionId)]);
+  const sectionState = common([...members.map((item) => item.sectionId)]);
   const levelState = common(targets.map((item) => item.levelId));
   const material = materialState.value
     ? model.materials.find((item) => item.id === materialState.value)
@@ -88,7 +88,6 @@ export default function AssignmentPropertiesV05({ model, members, surfaces, onMo
           </select>
         </label>
       ) : null}
-
       <label className="propertiesField">
         <span>Material</span>
         <select value={materialState.value ?? ""} onChange={(event) => setMaterial(event.target.value)}>
@@ -97,7 +96,6 @@ export default function AssignmentPropertiesV05({ model, members, surfaces, onMo
           {model.materials.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </label>
-
       <label className="propertiesField">
         <span>Level</span>
         <select value={levelState.value ?? ""} onChange={(event) => setLevel(event.target.value)}>
