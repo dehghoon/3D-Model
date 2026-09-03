@@ -20,13 +20,14 @@ function modelScale(model: StructuralModel): number {
     Math.max(...zs) - Math.min(...zs),
     1,
   );
-  return Math.min(
-    Math.max(span * 0.018, 0.14),
-    0.42,
-  );
+  return Math.min(Math.max(span * 0.018, 0.14), 0.42);
 }
 
-function makeReleaseSymbol(position: THREE.Vector3, memberDirection: THREE.Vector3, size: number): THREE.Group {
+function makeReleaseSymbol(
+  position: THREE.Vector3,
+  memberDirection: THREE.Vector3,
+  size: number,
+): THREE.Group {
   const group = new THREE.Group();
   const material = new THREE.MeshBasicMaterial({
     color: 0xf59e0b,
@@ -35,7 +36,7 @@ function makeReleaseSymbol(position: THREE.Vector3, memberDirection: THREE.Vecto
     side: THREE.DoubleSide,
   });
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(size * 0.42, size * 0.09, 8, 28),
+    new THREE.TorusGeometry(size * 0.5, size * 0.1, 8, 28),
     material,
   );
   ring.quaternion.setFromUnitVectors(
@@ -90,7 +91,7 @@ export function buildBoundaryConditionSymbols(model: StructuralModel): THREE.Gro
   for (const support of model.supports) {
     const node = nodes.get(support.nodeId);
     if (!node) continue;
-    const symbol = makeSupportSymbol(toThreePosition(node.position), size);
+    const symbol = makeSupportSymbol(toThreePosition(node.position), size * 1.18);
     symbol.name = `support-symbol:${support.id}`;
     root.add(symbol);
   }
@@ -99,19 +100,27 @@ export function buildBoundaryConditionSymbols(model: StructuralModel): THREE.Gro
     const startNode = nodes.get(member.startNodeId);
     const endNode = nodes.get(member.endNodeId);
     if (!startNode || !endNode) continue;
+
     const start = toThreePosition(startNode.position);
     const end = toThreePosition(endNode.position);
     const direction = end.clone().sub(start);
-    if (direction.lengthSq() < 1e-12) continue;
+    const length = direction.length();
+    if (length < 1e-12) continue;
+
+    const unitDirection = direction.clone().normalize();
+    const releaseOffset = Math.min(size * 0.72, length * 0.18);
+    const releaseSize = size * 1.16;
 
     if (hasRelease(member.startRelease)) {
-      const symbol = makeReleaseSymbol(start, direction, size);
+      const position = start.clone().add(unitDirection.clone().multiplyScalar(releaseOffset));
+      const symbol = makeReleaseSymbol(position, direction, releaseSize);
       symbol.name = `release-symbol:${member.id}:start`;
       root.add(symbol);
     }
 
     if (hasRelease(member.endRelease)) {
-      const symbol = makeReleaseSymbol(end, direction, size);
+      const position = end.clone().add(unitDirection.clone().multiplyScalar(-releaseOffset));
+      const symbol = makeReleaseSymbol(position, direction, releaseSize);
       symbol.name = `release-symbol:${member.id}:end`;
       root.add(symbol);
     }
