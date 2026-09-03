@@ -86,7 +86,7 @@ function segmentIntersectsRect(a: ScreenPoint, b: ScreenPoint, rect: Rect): bool
 
 function project(
   position: { x: number; y: number; z: number },
-  camera: THREE.Camera,
+  camera: THREE.Camer,
   rect: DOMRect,
 ): ScreenPoint | null {
   const projected = new THREE.Vector3(position.x, position.z, position.y).project(camera);
@@ -122,4 +122,32 @@ export function selectMembersInWindow(
 
     return selected ? [{ type: "member" as const, id: member.id }] : [];
   });
+}
+
+export function selectNodesInWindow(
+  model: StructuralModel,
+  camera: THREE.Camer,
+  canvasRect: DOMRect,
+  window: SelectionWindow,
+): Array<Exclude<EditorSelection, null>> {
+  const selectionRect = rectOf(window);
+
+  return model.nodes.flatMap((node) => {
+    const point = project(node.position, camera, canvasRect);
+    return point && inside(point, selectionRect)
+      ? [{ type: "node" as const, id: node.id }]
+      : [];
+  });
+}
+
+export function selectElementsInWindow(
+  model: StructuralModel,
+  camera: THREE.Camera,
+  canvasRect: DOMRect,
+  window: SelectionWindow,
+): Array<Exclude<EditorSelection, null>> {
+  return [
+    ...selectMembersInWindow(model, camera, canvasRect, window),
+    ...selectNodesInWindow(model, camera, canvasRect, window),
+  ];
 }
