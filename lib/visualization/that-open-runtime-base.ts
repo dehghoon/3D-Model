@@ -3,9 +3,9 @@ import * as THREE from "three";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../editor/selection";
 import { getInteractionState } from "../editor/interaction-store";
-import { buildCoreScene, disposeCoreScene, getObjectSelection, type CoreSceneBuild } from "./core-scene-v2";
+import { buildCoreScene, disposeCoreScene, type CoreSceneBuild } from "./core-scene-v2";
 import { buildCopyPreview, disposeCopyPreview } from "./copy-preview";
-import { pickSamples } from "./mobile-picking";
+import { pickCoreThree } from "./core-three-picker";
 import { resolveSnapPoint } from "./snap-resolver";
 
 export type ViewMode = "3d" | "front" | "left" | "right" | "bottom";
@@ -35,13 +35,17 @@ function frame(runtime: ThatOpenRuntime) {
   if (!bounds) return null;
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
-  return { center, distance: Math.max(Math.max(size.x, size.y, size.z, 8) * 1.8, 14) };
+  return {
+    center,
+    distance: Math.max(Math.max(size.x, size.y, size.z, 8) * 1.8, 14),
+  };
 }
 
 export function createThatOpenRuntime(container: HTMLDivElement): ThatOpenRuntime {
   const components = new OBC.Components();
   const worlds = components.get(OBC.Worlds);
-  const world = worlds.create<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBC.SimpleRenderer>();
+  const world =
+    worlds.create<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBC.SimpleRenderer>();
   world.scene = new OBC.SimpleScene(components);
   world.scene.setup();
   world.scene.three.background = new THREE.Color(0xf8fafc);
@@ -51,6 +55,7 @@ export function createThatOpenRuntime(container: HTMLDivElement): ThatOpenRuntim
   world.camera.updateAspect();
   const caster = components.get(OBC.Raycasters).get(world);
   world.renderer.three.domElement.style.touchAction = "none";
+
   return {
     components,
     scene: world.scene.three,
@@ -91,7 +96,10 @@ export function rebuildThatOpenScene(
   }
 }
 
-export function setThatOpenView(runtime: ThatOpenRuntime, mode: ViewMode): void {
+export function setThatOpenView(
+  runtime: ThatOpenRuntime,
+  mode: ViewMode,
+): void {
   const data = frame(runtime);
   if (!data) return;
   const { center, distance } = data;
@@ -126,7 +134,10 @@ export function setThatOpenView(runtime: ThatOpenRuntime, mode: ViewMode): void 
   );
 }
 
-function gridOffsets(model: StructuralModel, axis: "x" | "y"): number[] {
+function gridOffsets(
+  model: StructuralModel,
+  axis: "x" | "y",
+): number[] {
   const eps = 1e-9;
   const values = model.grids.flatMap((grid) => {
     const dx = Math.abs(grid.end.x - grid.start.x);
@@ -135,9 +146,10 @@ function gridOffsets(model: StructuralModel, axis: "x" | "y"): number[] {
     if (axis === "y" && dy < eps && dx > eps) return [grid.start.y];
     return [];
   });
-  return [
-    ...new Set(values.map((value) => Number(value.toFixed(9)))),
-  ].sort((a, b) => a - b);
+
+  return [...new Set(values.map((value) => Number(value.toFixed(9))))].sort(
+    (a, b) => a - b,
+  );
 }
 
 export function stepThatOpenAxis(
@@ -208,55 +220,11 @@ export function stepThatOpenLevel(
   );
 }
 
-async function pickFromItems(
-  runtime: ThatOpenRuntime,
-  items: THREE.Object3D[],
-  position: THREE.Vector2,
-): Promise<EditorSelection> {
-  if (!items.length) return null;
-  const hit = await runtime.caster.castRay({ items, position });
-  if (!hit) return null;
-  return getObjectSelection(hit.object);
-}
-
 export async function pickThatOpen(
   runtime: ThatOpenRuntime,
   event: PointerEvent,
 ): Promise<EditorSelection> {
-  if (!runtime.build) return null;
-
-  const rect =
-    runtime.renderer.three.domElement.getBoundingClientRect();
-
-  const nodePickables = runtime.build.pickables.filter(
-    (object) => getObjectSelection(object)?.type === "node",
-  );
-  const otherPickables = runtime.build.pickables.filter(
-    (object) => getObjectSelection(object)?.type !== "node",
-  );
-
-  for (const sample of pickSamples(
-    event.clientX,
-    event.clientY,
-    rect,
-    event.pointerType,
-  )) {
-    const node = await pickFromItems(
-      runtime,
-      nodePickables,
-      sample.position,
-    );
-    if (node) return node;
-
-    const other = await pickFromItems(
-      runtime,
-      otherPickables,
-      sample.position,
-    );
-    if (other) return other;
-  }
-
-  return null;
+  return pickCoreThree(runtime, event);
 }
 
 export function snapThatOpen(
@@ -309,9 +277,7 @@ export function renderTransformPreview(runtime: ThatOpenRuntime): void {
   const group = new THREE.Group();
 
   if (
-    Math.abs(delta.x) +
-      Math.abs(delta.y) +
-      Math.abs(delta.z) >
+    Math.abs(delta.x) + Math.abs(delta.y) + Math.abs(delta.z) >
     1e-10
   ) {
     const ghost = buildCopyPreview(
