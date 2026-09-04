@@ -1,3 +1,3 @@
 "use client";
 
-export { default } from "./SectionQuickPanelV07";
+export { default } from "./UnifiedSectionQuickPanelV08";
