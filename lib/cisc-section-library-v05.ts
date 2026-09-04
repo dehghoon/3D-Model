@@ -136,22 +136,24 @@ export function ciscRecordToCoreSection(record: CiscSectionRecord): Section {
     J: unitValue(requiredNumber(record, "torsional_constant"), inertiaUnit),
   };
 
-  const Sy = optionalNumber(record, "elastic_modulus_major");
-  const Sz = optionalNumber(record, "elastic_modulus_minor");
-  const Zy = optionalNumber(record, "plastic_modulus_major");
-  const Zz = optionalNumber(record, "plastic_modulus_minor");
-  const ry = optionalNumber(record, "radius_of_gyration_major");
-  const rz = optionalNumber(record, "radius_of_gyration_minor");
+  const optionalAnalysis = [
+    ["Sy", "elastic_modulus_major", sectionModulusUnit],
+    ["Sz", "elastic_modulus_minor", sectionModulusUnit],
+    ["Zy", "plastic_modulus_major", sectionModulusUnit],
+    ["Zz", "plastic_modulus_minor", sectionModulusUnit],
+    ["ry", "radius_of_gyration_major", lengthUnit],
+    ["rz", "radius_of_gyration_minor", lengthUnit],
+  ] as const;
 
-  if (Sy !== undefined) analysis.Sy = unitValue(Sy, sectionModulusUnit);
-  if (Sz !== undefined) analysis.Sz = unitValue(Sz, sectionModulusUnit);
-  if (Zy !== undefined) analysis.Zy = unitValue(Zy, sectionModulusUnit);
-  if (Zz !== undefined) analysis.Zz = unitValue(Zz, sectionModulusUnit);
-  if (ry !== undefined) analysis.ry = unitValue(ry, lengthUnit);
-  if (rz !== undefined) analysis.rz = unitValue(rz, lengthUnit);
+  for (const [target, source, unit] of optionalAnalysis) {
+    const value = optionalNumber(record, source);
+    if (value !== undefined) {
+      (analysis as Record<string, UnitValue>)[target] = unitValue(value, unit);
+    }
+  }
 
   const geometry: NonNullable<Section["geometry"]> = {};
-  const geometryMap: Array<[string, string]> = [
+  const geometryMap = [
     ["depth", "depth"],
     ["flangeWidth", "flange_width"],
     ["flangeThickness", "flange_thickness"],
@@ -163,11 +165,12 @@ export function ciscRecordToCoreSection(record: CiscSectionRecord): Section {
     ["stemThickness", "W"],
     ["insideRadius", "RI"],
     ["outsideRadius", "RO"],
-  ];
+  ] as const;
 
   for (const [target, source] of geometryMap) {
-    if (geometry[target] !== undefined) continue;
-    addGeometryValue(geometry, target, record, source, lengthUnit);
+    if (geometry[target] === undefined) {
+      addGeometryValue(geometry, target, record, source, lengthUnit);
+    }
   }
 
   const warping = optionalNumber(record, "warping_constant");
@@ -188,7 +191,7 @@ export function ciscRecordToCoreSection(record: CiscSectionRecord): Section {
           ? unitValue(warping, record.units.warping ?? "mm6")
           : undefined,
       massPerLength:
-        mass !== undefined 
+        mass !== undefined
           ? unitValue(mass, record.units.mass ?? "kg/m")
           : undefined,
     },
@@ -263,26 +266,10 @@ export function createDefaultPortalFrame(record: CiscSectionRecord): StructuralM
       },
     ],
     nodes: [
-      {
-        id: "N1",
-        position: { x: 0, y: 0, z: 0 },
-        levelId: "LEVEL-BASE",
-      },
-      {
-        id: "N2",
-        position: { x: 0, y: 0, z: 3.5 },
-        levelId: "LEVEL-ROOF",
-      },
-      {
-        id: "N3",
-        position: { x: 6, y: 0, z: 3.5 },
-        levelId: "LEVEL-ROOF",
-      },
-      {
-        id: "N4",
-        position: { x: 6, y: 0, z: 0 },
-        levelId: "LEVEL-BASE",
-      },
+      { id: "N1", position: { x: 0, y: 0, z: 0 }, levelId: "LEVEL-BASE" },
+      { id: "N2", position: { x: 0, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
+      { id: "N3", position: { x: 6, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
+      { id: "N4", position: { x: 6, y: 0, z: 0 }, levelId: "LEVEL-BASE" },
     ],
     members: [
       {
