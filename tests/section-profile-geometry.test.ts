@@ -7,14 +7,19 @@ function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("real section renderer consumes Core section geometry with explicit units", () => {
+test("real section renderer consumes Core geometry with explicit unit conversion", () => {
   const renderer = source("lib/visualization/section-profile-geometry.ts");
 
-  assert.match(renderer, /UnitValue/);
-  assert.match(renderer, /["W\",\"WF\",\"I"]/);
-  assert.match(renderer, /["HSS\",\"RHS\",\"SHS\",\"BOX"]/);
-  assert.match(renderer, /["PIPE\",\"CHS"]/);
-  assert.match(renderer, /return null;/);
+  assert.match(renderer, /FACTOR/);
+  assert.match(renderer, /geometry\[key\]/);
+  assert.match(renderer, /\["W","WF","I","HP","M","S"\]/);
+  assert.match(renderer, /\["C","MC","CHANNEL"\]/);
+  assert.match(renderer, /\["L","ANGLE"\]/);
+  assert.match(renderer, /\["WT","TEE"\]/);
+  assert.match(renderer, /"HS SQ"/);
+  assert.match(renderer, /"HA RE"/);
+  assert.match(renderer, /"HS RO"/);
+  assert.match(renderer, /"HA RO"/);
 });
 
 test("member profile orientation follows Core local axes and rotation", () => {
@@ -32,5 +37,5 @@ test("active core scene replaces only the visible member geometry", () => {
   assert.match(scene, /buildRealMemberGeometry/);
   assert.match(scene, /MeshStandardMaterial/);
   assert.match(scene, /visible\.geometry = geometry/);
-  assert.doesNotMatch(scene, /hit\\.geometry = geometry/);
+  assert.doesNotMatch(scene, /hit\.geometry = geometry/);
 });
