@@ -6,6 +6,6 @@
       "main": true
     }
   },
-  "installCommand": "npm cache clean --force && npm install --force --prefer-online",
+  "installCommand": "npm install --no-audit --no-fund",
   "buildCommand": "node -e \"const fs=require('fs');const p='components/StructuralEditorV05.tsx';const s=fs.readFileSync(p,'utf8');fs.writeFileSync(p,s.replace(/diaphragms/g,'diaphragms'));\" && next build"
 }
