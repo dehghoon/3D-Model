@@ -5,6 +5,7 @@ import ElementPropertiesV05 from "./ElementPropertiesV05";
 import MaterialQuickPanelV05 from "./MaterialQuickPanelV05";
 import QuickLibraryPanelStylesV05 from "./QuickLibraryPanelStylesV05";
 import SectionQuickPanelV07 from "./SectionQuickPanelV07";
+import ConcreteWoodSectionPanelV01 from "./ConcreteWoodSectionPanelV01";
 
 type Props = ComponentProps<typeof ElementPropertiesV05>;
 
@@ -34,6 +35,10 @@ export default function ElementProperties(props: Props) {
       <SectionQuickPanelV07
         model={props.model}
         members={members}
+        onModelChange={onModelChange}
+      />
+      <ConcreteWoodSectionPanelV01
+        model={props.model}
         onModelChange={onModelChange}
       />
     </>
