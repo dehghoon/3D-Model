@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import { getPublishedSelections } from "../editor/selection-store";
 import {
   getDisplayOptions,
   type DisplayOptions,
@@ -11,6 +12,8 @@ const ANALYTICAL_GROUP = "display-analytical-members";
 const NODE_LABEL_GROUP = "display-node-labels";
 const MEMBER_LABEL_GROUP = "display-member-labels";
 const NODE_VISUAL_SCALE = 0.8;
+const DEFAULT_ANALYTICAL_COLOR = 0x334155;
+const SELECTED_COLOR = 0xf97316;
 
 function toThree(position: { x: number; y: number; z: number }): THREE.Vector3 {
   return new THREE.Vector3(position.x, position.z, position.y);
@@ -78,11 +81,6 @@ export function buildDisplayOptionOverlays(model: StructuralModel): THREE.Group 
 
   const analytical = new THREE.Group();
   analytical.name = ANALYTICAL_GROUP;
-  const lineMaterial = new THREE.LineBasicMaterial({
-    color: 0x334155,
-    transparent: true,
-    opacity: 0.9,
-  });
 
   const nodeLabels = new THREE.Group();
   nodeLabels.name = NODE_LABEL_GROUP;
@@ -91,6 +89,11 @@ export function buildDisplayOptionOverlays(model: StructuralModel): THREE.Group 
 
   const nodes = new Map(model.nodes.map((node) => [node.id, node]));
   const labelScale = modelScale(model);
+  const selectedMemberIds = new Set(
+    getPublishedSelections()
+      .filter((selection) => selection.type === "member")
+      .map((selection) => selection.id),
+  );
 
   for (const node of model.nodes) {
     const label = makeLabel(node.id, labelScale);
@@ -107,8 +110,16 @@ export function buildDisplayOptionOverlays(model: StructuralModel): THREE.Group 
     const a = toThree(start.position);
     const b = toThree(end.position);
     const geometry = new THREE.BufferGeometry().setFromPoints([a, b]);
-    const line = new THREE.Line(geometry, lineMaterial);
+    const material = new THREE.LineBasicMaterial({
+      color: selectedMemberIds.has(member.id)
+        ? SELECTED_COLOR
+        : DEFAULT_ANALYTICAL_COLOR,
+      transparent: true,
+      opacity: 0.95,
+    });
+    const line = new THREE.Line(geometry, material);
     line.name = `analytical-member:${member.id}`;
+    line.userData.linkoteqSelection = { type: "member", id: member.id };
     analytical.add(line);
 
     const label = makeLabel(member.id, labelScale);
@@ -170,10 +181,10 @@ export function applyDisplayOptionsToScene(
 
 export function disposeDisplayOptionOverlays(root: THREE.Object3D): void {
   root.traverse((object) => {
-    const mesh = object as THREE.Mesh;
-    if (mesh.geometry) mesh.geometry.dispose();
+    const renderable = object as THREE.Mesh;
+    if (renderable.geometry) renderable.geometry.dispose();
 
-    const material = mesh.material;
+    const material = renderable.material;
     const materials = Array.isArray(material)
       ? material
       : material
