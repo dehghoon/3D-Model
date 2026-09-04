@@ -1,5 +1,6 @@
 "use client";
 
+import SnapToolbarV01 from "./SnapToolbarV01";
 import ThatOpenViewportV08 from "./ThatOpenViewportV08";
 import {
   publishSelection,
@@ -16,16 +17,19 @@ interface Props {
 
 export default function ThatOpenViewportV03(props: Props) {
   return (
-    <ThatOpenViewportV08
-      {...props}
-      onSelect={(selection) => {
-        publishSelection(selection);
-        props.onSelect(selection);
-      }}
-      onMultiSelect={(selections) => {
-        props.onSelect(selections.at(-1) ?? null);
-        publishSelections(selections);
-      }}
-    />
+    <div style={{ position: "absolute", inset: 0 }}>
+      <SnapToolbarV01 />
+      <ThatOpenViewportV08
+        {...props}
+        onSelect={(selection) => {
+          publishSelection(selection);
+          props.onSelect(selection);
+        }}
+        onMultiSelect={(selections) => {
+          props.onSelect(selections.at(-1) ?? null);
+          publishSelections(selections);
+        }}
+      />
+    </div>
   );
 }
