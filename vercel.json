@@ -7,5 +7,5 @@
     }
   },
   "installCommand": "npm install --no-audit --no-fund",
-  "buildCommand": "node -e \"const fs=require('fs');const p='components/StructuralEditorV05.tsx';const s=fs.readFileSync(p,'utf8');fs.writeFileSync(p,s.replace(/diaphragms/g,'diaphragms'));\" && next build"
+  "buildCommand": "node -e \"const fs=require('fs');const p='lib/cisc-section-library-v05.ts';const s=fs.readFileSync(p,'utf8');fs.writeFileSync(p,s.replace(/diaphhragms/g,'diaphragms'));\" && next build"
 }
