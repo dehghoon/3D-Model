@@ -188,7 +188,9 @@ export function ciscRecordToCoreSection(record: CiscSectionRecord): Section {
           ? unitValue(warping, record.units.warping ?? "mm6")
           : undefined,
       massPerLength:
-        mass !== undefined ? unitValue(mass, record.units.mass ?? "kg/m") : undefined,
+        mass !== undefined 
+          ? unitValue(mass, record.units.mass ?? "kg/m")
+          : undefined,
     },
     libraryRef: {
       library: "CISC",
@@ -241,33 +243,82 @@ export function createDefaultPortalFrame(record: CiscSectionRecord): StructuralM
       { id: "LEVEL-ROOF", name: "Roof", elevation: 3.5 },
     ],
     grids: [
-      { id: "GRID-A", label: "A", start: { x: 0, y: -2, z: 0 }, end: { x: 0, y: 2, z: 0 } },
-      { id: "GRID-B", label: "B", start: { x: 6, y: -2, z: 0 }, end: { x: 6, y: 2, z 0 } },
-    { id: "GRID-1", label: "1", start: { x: -2, y: 0, z 0 }, end: { x: 8, y: 0, z: 0 } },
-  ],
+      {
+        id: "GRID-A",
+        label: "A",
+        start: { x: 0, y: -2, z: 0 },
+        end: { x: 0, y: 2, z: 0 },
+      },
+      {
+        id: "GRID-B",
+        label: "B",
+        start: { x: 6, y: -2, z: 0 },
+        end: { x: 6, y: 2, z: 0 },
+      },
+      {
+        id: "GRID-1",
+        label: "1",
+        start: { x: -2, y: 0, z: 0 },
+        end: { x: 8, y: 0, z: 0 },
+      },
+    ],
     nodes: [
-      { id: "N1", position: { x: 0, y: 0, z 0 }, levelId: "LEVEL-BASE" },
-      { id: "N2", position: { x: 0, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
-      { id: "N3", position: { x: 6, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
-    { id: "N4", position: { x: 6, y: 0, z: 0 }, levelId: "LEVEL-BASE" },
-  ],
-  members: [
-    {
-      id: "C1", type: "column", startNodeId: "N1", endNodeId: "N2", materialId: material.id, sectionId: section.id },
-    {
-      id: "B1", type: "beam", startNodeId: "N2", endNodeId: "N3", materialId: material.id, sectionId: section.id },
-    {
-      id: "C2", type: "column", startNodeId: "N4", endNodeId: "N3", materialId: material.id, sectionId: section.id },
-  ],
-  surfaces: [],
-  diaphragms: [],
-  materials: [material],
-  sections: [section],
-  supports: [],
-  loadSources: [],
-  loadCases: [],
-  loads: [],
-  loadCombinations: [],
+      {
+        id: "N1",
+        position: { x: 0, y: 0, z: 0 },
+        levelId: "LEVEL-BASE",
+      },
+      {
+        id: "N2",
+        position: { x: 0, y: 0, z: 3.5 },
+        levelId: "LEVEL-ROOF",
+      },
+      {
+        id: "N3",
+        position: { x: 6, y: 0, z: 3.5 },
+        levelId: "LEVEL-ROOF",
+      },
+      {
+        id: "N4",
+        position: { x: 6, y: 0, z: 0 },
+        levelId: "LEVEL-BASE",
+      },
+    ],
+    members: [
+      {
+        id: "C1",
+        type: "column",
+        startNodeId: "N1",
+        endNodeId: "N2",
+        materialId: material.id,
+        sectionId: section.id,
+      },
+      {
+        id: "B1",
+        type: "beam",
+        startNodeId: "N2",
+        endNodeId: "N3",
+        materialId: material.id,
+        sectionId: section.id,
+      },
+      {
+        id: "C2",
+        type: "column",
+        startNodeId: "N4",
+        endNodeId: "N3",
+        materialId: material.id,
+        sectionId: section.id,
+      },
+    ],
+    surfaces: [],
+    diaphhragms: [],
+    materials: [material],
+    sections: [section],
+    supports: [],
+    loadSources: [],
+    loadCases: [],
+    loads: [],
+    loadCombinations: [],
   };
 }
 
