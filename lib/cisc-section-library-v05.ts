@@ -6,10 +6,7 @@ import type {
   UnitValue,
 } from "@linkoteq/structural-core";
 
-export const APPROVED_CISC_DATASET_URL =
-  process.env.NEXT_PUBLIC_CISC_DATASET_URL ??
-  "https://raw.githubusercontent.com/dehghoon/steel-verification/main/data/cisc/cisc_sections.json";
-
+export const APPROVED_CISC_DATASET_URL = "/api/cisc-sections";
 export const DEFAULT_CISC_DESIGNATION = "W310X39";
 
 export interface CiscSectionRecord {
@@ -26,31 +23,55 @@ export interface CiscSectionRecord {
 
 interface CiscDataset {
   dataset_version: string;
+  total?: number;
   sections: CiscSectionRecord[];
 }
 
-function requiredNumber(record: CiscSectionRecord, key: string): number {
+const CORE_REQUIRED_PROPERTY_KEYS = [
+  "gross_area",
+  "moment_of_inertia_major",
+  "moment_of_inertia_minor",
+  "torsional_constant",
+] as const;
+
+function finiteProperty(record: CiscSectionRecord, key: string): number | undefined {
   const value = record.properties[key];
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function requiredNumber(record: CiscSectionRecord, key: string): number {
+  const value = finiteProperty(record, key);
+  if (value === undefined) {
     throw new Error(`CISC_SECTION_PROPERTY_REQUIRED:${record.id}:${key}`);
   }
   return value;
 }
 
 function optionalNumber(record: CiscSectionRecord, key: string): number | undefined {
-  const value = record.properties[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return finiteProperty(record, key);
 }
 
 function unitValue(value: number, unit: string): UnitValue {
   return { value, unit };
 }
 
+export function isCiscRecordCoreAssignable(record: CiscSectionRecord): boolean {
+  return CORE_REQUIRED_PROPERTY_KEYS.every(
+    (key) => finiteProperty(record, key) !== undefined,
+  );
+}
+
+export function ciscRecordMissingCoreProperties(record: CiscSectionRecord): string[] {
+  return CORE_REQUIRED_PROPERTY_KEYS.filter(
+    (key) => finiteProperty(record, key) === undefined,
+  );
+}
+
 export async function loadApprovedCiscSections(): Promise<{
   datasetVersion: string;
   sections: CiscSectionRecord[];
 }> {
-  const response = await fetch(APPROVED_CISC_DATASET_URL, { cache: "force-cache" });
+  const response = await fetch(APPROVED_CISC_DATASET_URL, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`CISC_DATASET_FETCH_FAILED:${response.status}`);
   }
@@ -69,15 +90,37 @@ export async function loadApprovedCiscSections(): Promise<{
       Boolean(item) &&
       typeof item.id === "string" &&
       typeof item.designation === "string" &&
-      item.family === "W" &&
-      item.dataset_version === payload.dataset_version,
+      typeof item.family === "string" &&
+      typeof item.source === "string" &&
+      item.dataset_version === payload.dataset_version &&
+      typeof item.units === "object" &&
+      item.units !== null &&
+      typeof item.properties === "object" &&
+      item.properties !== null,
   );
 
   if (!sections.length) {
-    throw new Error("CISC_DATASET_HAS_NO_W_SECTIONS");
+    throw new Error("CISC_DATASET_HAS_NO_SECTIONS");
+  }
+
+  if (typeof payload.total === "number" && payload.total !== sections.length) {
+    throw new Error("CISC_DATASET_SECTION_COUNT_MISMATCH");
   }
 
   return { datasetVersion: payload.dataset_version, sections };
+}
+
+function addGeometryValue(
+  geometry: NonNullable<Section["geometry"]>,
+  target: string,
+  record: CiscSectionRecord,
+  source: string,
+  unit: string,
+): void {
+  const value = optionalNumber(record, source);
+  if (value !== undefined) {
+    geometry[target] = unitValue(value, unit);
+  }
 }
 
 export function ciscRecordToCoreSection(record: CiscSectionRecord): Section {
@@ -113,14 +156,22 @@ export function ciscRecordToCoreSection(record: CiscSectionRecord): Section {
     ["flangeWidth", "flange_width"],
     ["flangeThickness", "flange_thickness"],
     ["webThickness", "web_thickness"],
+    ["depth", "D"],
+    ["width", "B"],
+    ["thickness", "T"],
+    ["designThickness", "Tdes"],
+    ["stemThickness", "W"],
+    ["insideRadius", "RI"],
+    ["outsideRadius", "RO"],
   ];
 
   for (const [target, source] of geometryMap) {
-    const value = optionalNumber(record, source);
-    if (value !== undefined) {
-      geometry[target] = unitValue(value, lengthUnit);
-    }
+    if (geometry[target] !== undefined) continue;
+    addGeometryValue(geometry, target, record, source, lengthUnit);
   }
+
+  const warping = optionalNumber(record, "warping_constant");
+  const mass = optionalNumber(record, "mass_per_length");
 
   return {
     id: record.id,
@@ -133,19 +184,11 @@ export function ciscRecordToCoreSection(record: CiscSectionRecord): Section {
       designationImperial: record.designation_imperial ?? null,
       designationMetric: record.designation_metric ?? null,
       warpingConstant:
-        optionalNumber(record, "warping_constant") !== undefined
-          ? unitValue(
-              optionalNumber(record, "warping_constant")!,
-              record.units.warping ?? "mm6",
-            )
+        warping !== undefined
+          ? unitValue(warping, record.units.warping ?? "mm6")
           : undefined,
       massPerLength:
-        optionalNumber(record, "mass_per_length") !== undefined
-          ? unitValue(
-              optionalNumber(record, "mass_per_length")!,
-              record.units.mass ?? "kg/m",
-            )
-          : undefined,
+        mass !== undefined ? unitValue(mass, record.units.mass ?? "kg/m") : undefined,
     },
     libraryRef: {
       library: "CISC",
@@ -171,9 +214,7 @@ export function verifiedLegacySteel350W(): Material {
       rho: { value: 7850, unit: "kg/m3" },
       fy: { value: 350, unit: "MPa" },
     },
-    steel: {
-      grade: "350W",
-    },
+    steel: { grade: "350W" },
     metadata: {
       source: "3D-Model/tests/fixtures/legacy-v02-project.json",
     },
@@ -201,50 +242,32 @@ export function createDefaultPortalFrame(record: CiscSectionRecord): StructuralM
     ],
     grids: [
       { id: "GRID-A", label: "A", start: { x: 0, y: -2, z: 0 }, end: { x: 0, y: 2, z: 0 } },
-      { id: "GRID-B", label: "B", start: { x: 6, y: -2, z: 0 }, end: { x: 6, y: 2, z: 0 } },
-      { id: "GRID-1", label: "1", start: { x: -2, y: 0, z: 0 }, end: { x: 8, y: 0, z: 0 } },
-    ],
+      { id: "GRID-B", label: "B", start: { x: 6, y: -2, z: 0 }, end: { x: 6, y: 2, z 0 } },
+    { id: "GRID-1", label: "1", start: { x: -2, y: 0, z 0 }, end: { x: 8, y: 0, z: 0 } },
+  ],
     nodes: [
-      { id: "N1", position: { x: 0, y: 0, z: 0 }, levelId: "LEVEL-BASE" },
+      { id: "N1", position: { x: 0, y: 0, z 0 }, levelId: "LEVEL-BASE" },
       { id: "N2", position: { x: 0, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
-       { id: "N3", position: { x: 6, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
-       { id: "N4", position: { x: 6, y: 0, z: 0 }, levelId: "LEVEL-BASE" },
-    ],
-    members: [
-      {
-        id: "C1",
-        type: "column",
-        startNodeId: "N1",
-        endNodeId: "N2",
-        materialId: material.id,
-        sectionId: section.id,
-      },
-      {
-        id: "B1",
-        type: "beam",
-        startNodeId: "N2",
-        endNodeId: "N3",
-        materialId: material.id,
-        sectionId: section.id,
-      },
-      {
-        id: "C2",
-        type: "column",
-        startNodeId: "N4",
-        endNodeId: "N3",
-        materialId: material.id,
-        sectionId: section.id,
-      },
-    ],
-    surfaces: [],
-    diaphragms: [],
-    materials: [material],
-    sections: [section],
-    supports: [],
-    loadSources: [],
-    loadCases: [],
-    loads: [],
-    loadCombinations: [],
+      { id: "N3", position: { x: 6, y: 0, z: 3.5 }, levelId: "LEVEL-ROOF" },
+    { id: "N4", position: { x: 6, y: 0, z: 0 }, levelId: "LEVEL-BASE" },
+  ],
+  members: [
+    {
+      id: "C1", type: "column", startNodeId: "N1", endNodeId: "N2", materialId: material.id, sectionId: section.id },
+    {
+      id: "B1", type: "beam", startNodeId: "N2", endNodeId: "N3", materialId: material.id, sectionId: section.id },
+    {
+      id: "C2", type: "column", startNodeId: "N4", endNodeId: "N3", materialId: material.id, sectionId: section.id },
+  ],
+  surfaces: [],
+  diaphragms: [],
+  materials: [material],
+  sections: [section],
+  supports: [],
+  loadSources: [],
+  loadCases: [],
+  loads: [],
+  loadCombinations: [],
   };
 }
 
