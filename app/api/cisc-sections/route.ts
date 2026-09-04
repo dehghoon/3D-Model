@@ -34,7 +34,6 @@ export async function GET() {
 
     while (offset < total) {
       const params = new URLSearchParams({
-        family: "",
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
