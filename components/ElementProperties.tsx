@@ -3,6 +3,7 @@
 import type { ComponentProps } from "react";
 import ElementPropertiesV05 from "./ElementPropertiesV05";
 import MaterialQuickPanelV05 from "./MaterialQuickPanelV05";
+import QuickLibraryPanelStylesV05 from "./QuickLibraryPanelStylesV05";
 import SectionQuickPanelV07 from "./SectionQuickPanelV07";
 
 type Props = ComponentProps<typeof ElementPropertiesV05>;
@@ -22,6 +23,7 @@ export default function ElementProperties(props: Props) {
 
   return (
     <>
+      <QuickLibraryPanelStylesV05 />
       <ElementPropertiesV05 {...props} />
       <MaterialQuickPanelV05
         model={props.model}
