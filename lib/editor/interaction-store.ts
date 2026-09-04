@@ -9,7 +9,7 @@ export type InteractionMode = "select" | "copy-base" | "copy-target";
 
 export interface SnapPoint {
   point: Vec3;
-  kind: "node" | "endpoint" | "midpoint" | "grid" | "work-plane";
+  kind: "node" | "endpoint" | "midpoint" | "perpendicular" | "grid" | "work-plane";
   label: string;
 }
 
@@ -43,7 +43,6 @@ function startTransformInteraction(
   selection: EditorSelection,
 ): void {
   const label = operation === "copy" ? "Copy" : "Move";
-
   if (!selection) {
     emit({
       mode: "select",
@@ -51,7 +50,7 @@ function startTransformInteraction(
       selection: null,
       base: null,
       preview: null,
-      message: `Select an object before ${label}.`,
+      message: `${label}: select an object first.`,
     });
     return;
   }
