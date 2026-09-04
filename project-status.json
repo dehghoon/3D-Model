@@ -47,10 +47,11 @@
     },
     "productionBuild": {
       "command": "npm run build",
-      "result": "PASSED"
+      "result": "FAILED_ON_VERCEL_FC3414D",
+      "detail": "Typecheck failed on a misspelled diaphragms field; main source verified corrected and rebuild requested."
     }
   },
-  "productionVerification": "NOT_COMPLETE",
+  "productionVerification": "REBUILD_PENDING",
   "remainingBlockers": [
     "Preservation and verification of the legacy 3D editor UX after StructuralEditorV05 introduction",
     "Deployment verification",
