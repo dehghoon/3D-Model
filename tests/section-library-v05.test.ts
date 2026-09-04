@@ -42,6 +42,14 @@ test("All approved CISC families are browsable while incomplete canonical record
   assert.match(adapter, /ciscRecordMissingCoreProperties/);
 });
 
+test("W-section verification remains isolated from the general CISC catalog", () => {
+  const route = source("app/api/w-sections/route.ts");
+
+  assert.match(route, /calculations\/w-section\/core/);
+  assert.match(route, /W-section design service/);
+  assert.doesNotMatch(route, /cisc-sections/);
+});
+
 test("Section library keeps AISC reference-only and preserves canonical editing", () => {
   const panel = source("components/SectionQuickPanelV07.tsx");
 
