@@ -163,8 +163,8 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
   }
 
   useEffect(() => {
-    if (!selectedNideId || tool === "select") return;
-    const snap = nodeSnap(model, selectedNideId);
+    if (!selectedNodeId || tool === "select") return;
+    const snap = nodeSnap(model, selectedNodeId);
     if (!snap) return;
 
     if (isMemberTool) {
