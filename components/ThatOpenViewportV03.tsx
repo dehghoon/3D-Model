@@ -1,5 +1,6 @@
 "use client";
 
+import MemberDrawStatusBarV01 from "./MemberDrawStatusBarV01";
 import SnapToolbarV01 from "./SnapToolbarV01";
 import ThatOpenViewportV08 from "./ThatOpenViewportV08";
 import {
@@ -19,6 +20,7 @@ export default function ThatOpenViewportV03(props: Props) {
   return (
     <div style={{ position: "absolute", inset: 0 }}>
       <SnapToolbarV01 />
+      <MemberDrawStatusBarV01 />
       <ThatOpenViewportV08
         {...props}
         onSelect={(selection) => {
