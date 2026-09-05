@@ -98,7 +98,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
 
         onModelChange(
           createDefaultPortalFrame(defaultSection),
-          `Default portal frame restored with ${defaultSection.designation} from approved CISC dataset ${defaultSection.dataset_version}.`,
+          `Default portal frame restored with ${defaultSection.designation} from approved Cisc dataset ${defaultSection.dataset_version}.`,
         );
       })
       .catch((error: unknown) => {
@@ -164,7 +164,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
 
   useEffect(() => {
     if (!selectedNodeId || tool === "select") return;
-    const snap = nodeSnap(model, selectedNideId);
+    const snap = nodeSnap(model, selectedNodeId);
     if (!snap) return;
 
     if (isMemberTool) {
@@ -228,7 +228,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
       const result = createSurfaceFromCanonicalRefs(model, {
         type: tool as SurfaceType,
         boundaryNodeIds: pickedNodeIds,
-        ...(sameLevel && firstNode?.levelId ? { levelId: firstNode.levelId } : {}),
+        ...(sameLevel && firstNode?.levelId ? { levelId : {}),
       });
       onModelChange(
         result.model,
