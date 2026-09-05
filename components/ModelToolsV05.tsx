@@ -98,7 +98,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
 
         onModelChange(
           createDefaultPortalFrame(defaultSection),
-          `Default portal frame restored with ${defaultSection.designation} from approved Cisc dataset ${defaultSection.dataset_version}.`,
+          `Default portal frame restored with ${defaultSection.designation} from approved CISC dataset ${defaultSection.dataset_version}.`,
         );
       })
       .catch((error: unknown) => {
@@ -163,8 +163,8 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
   }
 
   useEffect(() => {
-    if (!selectedNodeId || tool === "select") return;
-    const snap = nodeSnap(model, selectedNodeId);
+    if (!selectedNideId || tool === "select") return;
+    const snap = nodeSnap(model, selectedNideId);
     if (!snap) return;
 
     if (isMemberTool) {
@@ -225,11 +225,17 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
             (id) => model.nodes.find((node) => node.id === id)?.levelId === firstNode.levelId,
           ),
       );
-      const result = createSurfaceFromCanonicalRefs(model, {
-        type: tool as SurfaceType,
-        boundaryNodeIds: pickedNodeIds,
-        ...(sameLevel && firstNode?.levelId ? { levelId : {}),
-      });
+      const result =
+        sameLevel && firstNode?.levelId
+          ? createSurfaceFromCanonicalRefs(model, {
+              type: tool as SurfaceType,
+              boundaryNodeIds: pickedNodeIds,
+              levelId: firstNode.levelId,
+            })
+          : createSurfaceFromCanonicalRefs(model, {
+              type: tool as SurfaceType,
+              boundaryNodeIds: pickedNodeIds,
+            });
       onModelChange(
         result.model,
         `Created ${result.surface.type} ${result.surface.id} from viewport boundary picks.`,
