@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MemberType, StructuralModel, SurfaceType } from "@linkoteq/structural-core";
+import type {
+  MemberType,
+  StructuralModel,
+  SurfaceType,
+} from "@linkoteq/structural-core";
 import CiscSectionSelectorV05 from "./CiscSectionSelectorV05";
 import LevelGridEditorV05 from "./LevelGridEditorV05";
 import { createSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
@@ -58,6 +62,7 @@ function isUninitializedModel(model: StructuralModel): boolean {
 function nodeSnap(model: StructuralModel, nodeId: string): SnapPoint | null {
   const node = model.nodes.find((item) => item.id === nodeId);
   if (!node) return null;
+
   return {
     point: { ...node.position },
     kind: "node",
@@ -65,16 +70,22 @@ function nodeSnap(model: StructuralModel, nodeId: string): SnapPoint | null {
   };
 }
 
-export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: Props) {
+export default function ModelToolsV05({
+  model,
+  selectedNodeId,
+  onModelChange,
+}: Props) {
   const [tool, setTool] = useState<Tool>("select");
   const [pickedNodeIds, setPickedNodeIds] = useState<string[]>([]);
   const [materialId, setMaterialId] = useState("");
   const [sectionId, setSectionId] = useState("");
   const [status, setStatus] = useState("Select a modeling tool.");
   const initializingDefaultRef = useRef(false);
+  const ignoredSelectionRef = useRef<string | null>(null);
   const drawState = useMemberDrawState();
 
-  const isMemberTool = tool === "beam" || tool === "column" || tool === "brace";
+  const isMemberTool =
+    tool === "beam" || tool === "column" || tool === "brace";
   const isSurfaceTool = tool === "wall" || tool === "slab";
   const defaultMaterialId = getDefaultMaterialId(model);
   const defaultSectionId = getDefaultSectionId(model);
@@ -91,10 +102,13 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
       .then(({ sections }) => {
         const defaultSection =
           sections.find(
-            (item) => item.designation.toUpperCase() === DEFAULT_CISC_DESIGNATION,
+            (item) =>
+              item.designation.toUpperCase() === DEFAULT_CISC_DESIGNATION,
           ) ?? sections[0];
 
-        if (!defaultSection) throw new Error("CISC_DEFAULT_SECTION_NOT_FOUND");
+        if (!defaultSection) {
+          throw new Error("CISC_DEFAULT_SECTION_NOT_FOUND");
+        }
 
         onModelChange(
           createDefaultPortalFrame(defaultSection),
@@ -120,8 +134,11 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
   }, [defaultSectionId]);
 
   useEffect(() => {
-    updateMemberDrawReferences(materialId, sectionId);
-  }, [materialId, sectionId]);
+    updateMemberDrawReferences(
+      materialId || defaultMaterialId,
+      sectionId || defaultSectionId,
+    );
+  }, [materialId, sectionId, defaultMaterialId, defaultSectionId]);
 
   const pickedLabel = useMemo(
     () => (pickedNodeIds.length ? pickedNodeIds.join(" -> ") : "None"),
@@ -133,12 +150,14 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
     setPickedNodeIds([]);
 
     if (next === "select") {
+      ignoredSelectionRef.current = null;
       cancelMemberDraw();
       setStatus("Selection mode.");
       return;
     }
 
     if (next === "wall" || next === "slab") {
+      ignoredSelectionRef.current = selectedNodeId ?? null;
       cancelMemberDraw();
       setStatus(
         `${next === "wall" ? "Wall" : "Slab"} tool: select boundary nodes in order, then finish.`,
@@ -146,7 +165,10 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
       return;
     }
 
-    if (!materialId || !sectionId) {
+    const resolvedMaterialId = materialId || defaultMaterialId;
+    const resolvedSectionId = sectionId || defaultSectionId;
+
+    if (!resolvedMaterialId || !resolvedSectionId) {
       cancelMemberDraw();
       setStatus(
         "Choose approved canonical material and section records before drawing a member.",
@@ -154,16 +176,28 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
       return;
     }
 
+    if (!materialId) setMaterialId(resolvedMaterialId);
+    if (!sectionId) setSectionId(resolvedSectionId);
+
+    ignoredSelectionRef.current = selectedNodeId ?? null;
     beginMemberDraw({
       type: next as MemberType,
-      materialId,
-      sectionId,
+      materialId: resolvedMaterialId,
+      sectionId: resolvedSectionId,
     });
-    setStatus(`${next[0].toUpperCase()}${next.slice(1)} draw: pick a start node.`);
+    setStatus(
+      `${next[0].toUpperCase()}${next.slice(1)} draw: pick first point.`,
+    );
   }
 
   useEffect(() => {
     if (!selectedNodeId || tool === "select") return;
+
+    if (selectedNodeId === ignoredSelectionRef.current) {
+      return;
+    }
+    ignoredSelectionRef.current = selectedNodeId;
+
     const snap = nodeSnap(model, selectedNodeId);
     if (!snap) return;
 
@@ -173,7 +207,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
 
       if (!draw.start) {
         setMemberDrawStart(snap);
-        setStatus(`${draw.type}: start ${snap.label}; pick an end node.`);
+        setStatus(`${draw.type}: pick second point.`);
         return;
       }
 
@@ -185,21 +219,28 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
           start: draw.start,
           end: snap,
         });
+
         onModelChange(
           result.model,
           `Created ${draw.type} ${result.memberId} from canonical snapped node references.`,
         );
         continueMemberDraw(snap, result.memberId);
-        setStatus(`Created ${draw.type} ${result.memberId}. Continue from ${snap.label} or choose Select.`);
+        setStatus(
+          `Created ${draw.type} ${result.memberId}. Continue from ${snap.label} or choose Select.`,
+        );
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Member creation failed.");
+        setStatus(
+          error instanceof Error ? error.message : "Member creation failed.",
+        );
       }
       return;
     }
 
     if (isSurfaceTool) {
       setPickedNodeIds((current) =>
-        current.includes(selectedNodeId) ? current : [...current, selectedNodeId],
+        current.includes(selectedNodeId)
+          ? current
+          : [...current, selectedNodeId],
       );
     }
   }, [
@@ -218,13 +259,18 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
     }
 
     try {
-      const firstNode = model.nodes.find((node) => node.id === pickedNodeIds[0]);
+      const firstNode = model.nodes.find(
+        (node) => node.id === pickedNodeIds[0],
+      );
       const sameLevel = Boolean(
         firstNode?.levelId &&
           pickedNodeIds.every(
-            (id) => model.nodes.find((node) => node.id === id)?.levelId === firstNode.levelId,
+            (id) =>
+              model.nodes.find((node) => node.id === id)?.levelId ===
+              firstNode.levelId,
           ),
       );
+
       const result =
         sameLevel && firstNode?.levelId
           ? createSurfaceFromCanonicalRefs(model, {
@@ -236,6 +282,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
               type: tool as SurfaceType,
               boundaryNodeIds: pickedNodeIds,
             });
+
       onModelChange(
         result.model,
         `Created ${result.surface.type} ${result.surface.id} from viewport boundary picks.`,
@@ -243,14 +290,22 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
       setPickedNodeIds([]);
       setStatus(`Created ${result.surface.type} ${result.surface.id}.`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Surface creation failed.");
+      setStatus(
+        error instanceof Error ? error.message : "Surface creation failed.",
+      );
     }
   }
 
   return (
     <>
-      <CiscSectionSelectorV05 model={model} onModelChange={onModelChange} />
-      <LevelGridEditorV05 model={model} onModelChange={onModelChange} />
+      <CiscSectionSelectorV05
+        model={model}
+        onModelChange={onModelChange}
+      />
+      <LevelGridEditorV05
+        model={model}
+        onModelChange={onModelChange}
+      />
 
       <section className="panelBlock">
         <h3>Model Tools</h3>
@@ -270,7 +325,10 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
           <>
             <label>
               Material
-              <select value={materialId} onChange={(event) => setMaterialId(event.target.value)}>
+              <select
+                value={materialId}
+                onChange={(event) => setMaterialId(event.target.value)}
+              >
                 <option value="">Select material</option>
                 {model.materials.map((material) => (
                   <option key={material.id} value={material.id}>
@@ -279,9 +337,13 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
                 ))}
               </select>
             </label>
+
             <label>
               Section
-              <select value={sectionId} onChange={(event) => setSectionId(event.target.value)}>
+              <select
+                value={sectionId}
+                onChange={(event) => setSectionId(event.target.value)}
+              >
                 <option value="">Select section</option>
                 {model.sections.map((section) => (
                   <option key={section.id} value={section.id}>
@@ -298,6 +360,7 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
             <p className="selectionText">
               {isMemberTool ? drawState.message : status}
             </p>
+
             {isSurfaceTool ? (
               <>
                 <p className="selectionText">Picked: {pickedLabel}</p>
@@ -306,13 +369,16 @@ export default function ModelToolsV05({ model, selectedNodeId, onModelChange }: 
                   onClick={finishSurface}
                   disabled={pickedNodeIds.length < 3}
                 >
-                  Finish {tool === "wall" ? "Wall" : "Slab"} ({pickedNodeIds.length})
+                  Finish {tool === "wall" ? "Wall" : "Slab"} (
+                  {pickedNodeIds.length})
                 </button>
               </>
             ) : null}
           </>
         ) : (
-          <p className="selectionText">Use the viewport to select model entities.</p>
+          <p className="selectionText">
+            Use the viewport to select model entities.
+          </p>
         )}
       </section>
     </>
