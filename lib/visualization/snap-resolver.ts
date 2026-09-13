@@ -9,10 +9,26 @@ interface ScreenPointer {
   clientY: number;
 }
 
+export interface SnapCandidateEventDetail {
+  active: boolean;
+  clientX?: number;
+  clientY?: number;
+  kind?: SnapPoint["kind"];
+  label?: string;
+}
+
+function emitSnapCandidate(detail: SnapCandidateEventDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<SnapCandidateEventDetail>("linkoteq:snap-candidate", {
+      detail,
+    }),
+  );
+}
+
 function toThree(point: Vec3): THREE.Vector3 {
   return new THREE.Vector3(point.x, point.z, point.y);
 }
-
 function fromThree(point: THREE.Vector3): Vec3 {
   return { x: point.x, y: point.z, z: point.y };
 }
@@ -23,7 +39,6 @@ function selectedElevation(model: StructuralModel, selection: EditorSelection): 
   if (selection.type === "node") {
     return model.nodes.find((node) => node.id === selection.id)?.position.z ?? 0;
   }
-
   if (selection.type === "member") {
     const member = model.members.find((item) => item.id === selection.id);
     const node = member
@@ -159,6 +174,7 @@ function uniqueCandidates(model: StructuralModel): SnapPoint[] {
     for (const grid of model.grids) {
       const dx = Math.abs(grid.end.x - grid.start.x);
       const dy = Math.abs(grid.end.y - grid.start.y);
+
       if (dx < epsilon && dy > epsilon) {
         verticals.push({ x: grid.start.x, label: grid.label });
       } else if (dy < epsilon && dx > epsilon) {
@@ -193,6 +209,7 @@ function perpendicularCandidates(model: StructuralModel, cursor: Vec3): SnapPoin
 
     const t = THREE.MathUtils.clamp(p.clone().sub(a).dot(ab) / lengthSquared, 0, 1);
     const projected = a.addScaledVector(ab, t);
+
     return [{
       point: { x: projected.x, y: projected.y, z: projected.z },
       kind: "perpendicular" as const,
@@ -215,7 +232,12 @@ export function resolveSnapPoint(
     ...(workPlane ? perpendicularCandidates(model, workPlane.point) : []),
   ];
 
-  let best: { candidate: SnapPoint; distance: number } | null = null;
+  let best: {
+    candidate: SnapPoint;
+    distance: number;
+    screen: { x: number; y: number };
+  } | null = null;
+
   for (const candidate of candidates) {
     const screen = screenPosition(candidate.point, camera, element);
     if (!screen) continue;
@@ -224,10 +246,23 @@ export function resolveSnapPoint(
       pointer.clientX - screen.x,
       pointer.clientY - screen.y,
     );
+
     if (distance <= tolerancePx && (!best || distance < best.distance)) {
-      best = { candidate, distance };
+      best = { candidate, distance, screen };
     }
   }
 
-  return best?.candidate ?? workPlane;
+  if (best) {
+    emitSnapCandidate({
+      active: true,
+      clientX: best.screen.x,
+      clientY: best.screen.y,
+      kind: best.candidate.kind,
+      label: best.candidate.label,
+    });
+    return best.candidate;
+  }
+
+  emitSnapCandidate({ active: false });
+  return workPlane;
 }
