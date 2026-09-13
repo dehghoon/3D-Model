@@ -15,7 +15,6 @@ import {
   getPublishedSelection,
   publishSelection,
 } from "../lib/editor/selection-store";
-import { isTapGesture } from "../lib/visualization/mobile-picking";
 
 interface Props {
   model: StructuralModel;
@@ -26,30 +25,11 @@ interface TransformCommitDetail {
   delta?: Vec3;
 }
 
-interface PointerStart {
-  x: number;
-  y: number;
-  pointerId: number;
-  pointerType: string;
-}
-
 function isUtilityButton(target: EventTarget | null, label: string): boolean {
   if (!(target instanceof Element)) return false;
   const button = target.closest<HTMLButtonElement>(".architectQuickActions button");
   if (!button || button.disabled) return false;
   return button.querySelector("strong")?.textContent?.trim() === label;
-}
-
-function isViewportTarget(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest(".thatOpenViewport"));
-}
-
-function deltaBetween(base: Vec3, target: Vec3): Vec3 {
-  return {
-    x: target.x - base.x,
-    y: target.y - base.y,
-    z: target.z - base.z,
-  };
 }
 
 function hasDisplacement(delta: Vec3): boolean {
@@ -61,8 +41,6 @@ export default function CopyInteractionBridgeV01({
   onModelChange,
 }: Props) {
   useEffect(() => {
-    let pointerStart: PointerStart | null = null;
-
     const commitTransform = (delta: Vec3): boolean => {
       const selection = getPublishedSelection();
       const interaction = getInteractionState();
@@ -167,77 +145,12 @@ export default function CopyInteractionBridgeV01({
       }
     };
 
-    const onPointerDownCapture = (event: PointerEvent) => {
-      if (!isViewportTarget(event.target) || !event.isPrimary) return;
-      pointerStart = {
-        x: event.clientX,
-        y: event.clientY,
-        pointerId: event.pointerId,
-        pointerType: event.pointerType,
-      };
-    };
-
-    const onPointerUpCapture = (event: PointerEvent) => {
-      const start = pointerStart;
-      pointerStart = null;
-
-      if (
-        !start ||
-        start.pointerId !== event.pointerId ||
-        !isViewportTarget(event.target)
-      ) {
-        return;
-      }
-
-      const interaction = getInteractionState();
-      if (
-        interaction.mode !== "copy-target" ||
-        !interaction.base ||
-        !interaction.preview
-      ) {
-        return;
-      }
-
-      if (
-        !isTapGesture(
-          start.x,
-          start.y,
-          event.clientX,
-          event.clientY,
-          start.pointerType,
-        )
-      ) {
-        return;
-      }
-
-      const delta = deltaBetween(
-        interaction.base.point,
-        interaction.preview.point,
-      );
-
-      if (!commitTransform(delta)) return;
-
-      finishCopyInteraction();
-      event.preventDefault();
-      event.stopPropagation();
-    };
-
-    const onPointerCancelCapture = () => {
-      pointerStart = null;
-    };
-
     window.addEventListener("linkoteq:copy-commit", onTransformCommit);
     document.addEventListener("click", onDocumentClickCapture, true);
-    document.addEventListener("pointerdown", onPointerDownCapture, true);
-    document.addEventListener("pointerup", onPointerUpCapture, true);
-    document.addEventListener("pointercancel", onPointerCancelCapture, true);
 
     return () => {
       window.removeEventListener("linkoteq:copy-commit", onTransformCommit);
       document.removeEventListener("click", onDocumentClickCapture, true);
-      document.removeEventListener("pointerdown", onPointerDownCapture, true);
-      document.removeEventListener("pointerup", onPointerUpCapture, true);
-      document.removeEventListener("pointercancel", onPointerCancelCapture, true);
     };
   }, [model, onModelChange]);
 
