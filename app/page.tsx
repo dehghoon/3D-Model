@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import ContextualHelperController from "../components/ContextualHelperController";
+import SnapCandidateOverlayV01 from "../components/SnapCandidateOverlayV01";
 
 const StructuralEditor = dynamic(
   () => import("../components/StructuralEditorShellV2"),
@@ -13,6 +14,7 @@ export default function Page() {
     <main className="modelEditorArea sapDesktopShell">
       <ContextualHelperController />
       <StructuralEditor />
+      <SnapCandidateOverlayV01 />
     </main>
   );
 }
