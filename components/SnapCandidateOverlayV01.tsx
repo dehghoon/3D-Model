@@ -52,7 +52,7 @@ export default function SnapCandidateOverlayV01() {
         height: 18,
         transform: "translate(-50%, -50%)",
         pointerEvents: "none",
-       zIndex: 2000,
+       zIndex: 40,
       }}
     >
       <span
