@@ -36,6 +36,32 @@ function dim(section: Section, keys: string[], model: StructuralModel): number |
   return null;
 }
 
+function normalizedFamily(section: Section): string {
+  return section.family.trim().toUpperCase().replace(/[_\\s]+/g, "-");
+}
+
+function isWideFlangeSection(section: Section): boolean {
+  const family = normalizedFamily(section);
+
+  if (["W", "WF", "I", "HP", "M", "S"].includes(family)) return true;
+
+  if (
+    [
+      "W-SHAPE",
+      "W-SHAPES",
+      "WIDE-FLANGE",
+      "WIDE-FLANGE-SHAPE",
+      "WIDE-FLANGE-SHAPES",
+      "WIDEFLANGE",
+    ].includes(family)
+  ) {
+    return true;
+  }
+
+  const designation = section.designation?.trim().toUpperCase().replace(/\\s+/g, "") ?? "";
+  return /^W\\d/.test(designation) && !/^WT\\d/.test(designation);
+}
+
 function solidRectShape(height: number, width: number): THREE.Shape | null {
   if (height <= 0 || width <= 0) return null;
   const x = width / 2;
@@ -153,7 +179,7 @@ function pipeShape(d: number, t: number): THREE.Shape | null {
 }
 
 function profile(section: Section, model: StructuralModel): THREE.Shape | null {
-  const family = section.family.trim().toUpperCase();
+  const family = normalizedFamily(section);
   const shapeName =
     typeof section.geometry?.shape === "string"
       ? section.geometry.shape.trim().toLowerCase()
@@ -169,11 +195,11 @@ function profile(section: Section, model: StructuralModel): THREE.Shape | null {
     return depth && width ? solidRectShape(depth, width) : null;
   }
 
-  if (["W", "WF", "I", "HP", "M", "S"].includes(family)) {
-    const d = dim(section, ["d", "depth", "height"], model);
-    const bf = dim(section, ["bf", "flangeWidth", "width"], model);
-    const tw = dim(section, ["tw", "webThickness"], model);
-    const tf = dim(section, ["tf", "flangeThickness"], model);
+  if (isWideFlangeSection(section)) {
+    const d = dim(section, ["d", "D", "depth", "height"], model);
+    const bf = dim(section, ["bf", "B", "flangeWidth", "width"], model);
+    const tw = dim(section, ["tw", "W", "webThickness"], model);
+    const tf = dim(section, ["tf", "T", "flangeThickness"], model);
     return d && bf && tw && tf ? iShape(d, bf, tw, tf) : null;
   }
 
@@ -200,7 +226,7 @@ function profile(section: Section, model: StructuralModel): THREE.Shape | null {
     return d && b && tw && tf ? teeShape(d, b, tw, tf) : null;
   }
 
-  if (["HSS", "RHS", "SHS", "BOX", "HS SQ", "HS RE", "HA SQ", "HA RE"].includes(family)) {
+  if (["HSS", "RHS", "SHS", "BOX", "HS-SQ", "HS-RE", "HA-SQ", "HA-RE"].includes(family)) {
     const h = dim(section, ["D", "H", "h", "height", "d", "depth"], model);
     const b = dim(section, ["B", "b", "width", "bf"], model);
     const t = dim(
@@ -211,7 +237,7 @@ function profile(section: Section, model: StructuralModel): THREE.Shape | null {
     return h && b && t ? boxShape(h, b, t) : null;
   }
 
-  if (["PIPE", "CHS", "HS RO", "HA RO"].includes(family)) {
+  if (["PIPE", "CHS", "HS-RO", "HA-RO"].includes(family)) {
     const d = dim(section, ["D", "d", "diameter", "OD", "depth"], model);
     const t = dim(
       section,
