@@ -13,6 +13,8 @@ export default function SnapCandidateOverlayV01() {
   const [marker, setMarker] = useState<SnapMarkerState | null>(null);
 
   useEffect(() => {
+    const clearMarker = () => setMarker(null);
+
     const handleSnapCandidate = (event: Event): void => {
       const detail = (event as CustomEvent<SnapCandidateEventDetail>).detail;
 
@@ -21,7 +23,7 @@ export default function SnapCandidateOverlayV01() {
         typeof detail.clientX !== "number" ||
         typeof detail.clientY !== "number"
       ) {
-        setMarker(null);
+        clearMarker();
         return;
       }
 
@@ -33,8 +35,15 @@ export default function SnapCandidateOverlayV01() {
     };
 
     window.addEventListener("linkoteq:snap-candidate", handleSnapCandidate);
+    window.addEventListener("linkoteq:view-cycle", clearMarker);
+    window.addEventListener("linkoteq:view-select", clearMarker);
+    window.addEventListener("blur", clearMarker);
+
     return () => {
       window.removeEventListener("linkoteq:snap-candidate", handleSnapCandidate);
+      window.removeEventListener("linkoteq:view-cycle", clearMarker);
+      window.removeEventListener("linkoteq:view-select", clearMarker);
+      window.removeEventListener("blur", clearMarker);
     };
   }, []);
 
@@ -52,7 +61,7 @@ export default function SnapCandidateOverlayV01() {
         height: 18,
         transform: "translate(-50%, -50%)",
         pointerEvents: "none",
-       zIndex: 40,
+        zIndex: 40,
       }}
     >
       <span
