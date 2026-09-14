@@ -3,12 +3,13 @@
 import { ChangeEvent, useRef, useState } from "react";
 import type { StructuralModel } from "@linkoteq/structural-core";
 
+import CopyInteractionBridgeV01 from "./CopyInteractionBridgeV01";
 import ElementProperties from "./ElementProperties";
 import LoadManager from "./LoadManager";
 import ModelToolsV05 from "./ModelToolsV05";
 import NodeCreatorV05 from "./NodeCreatorV05";
 import SelectedNodeSupportV05 from "./SelectedNodeSupportV05";
-import ThatOpenViewportV01 from "./ThatOpenViewportV01";
+import ThatOpenViewportV02 from "./ThatOpenViewportV01";
 import { assertCanonicalV05, migrateProjectToV05 } from "../lib/core-v05";
 import { createStarterModelV05 } from "../lib/default-model-v05";
 import { deleteSelection } from "../lib/editor/commands";
@@ -285,6 +286,8 @@ export default function StructuralEditorV07() {
           </details>
         </aside>
       </main>
+
+      <CopyInteractionBridgeV01 model={model} onModelChange={applyModelChange} />
 
       <ElementProperties
         model={model}
