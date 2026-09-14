@@ -9,12 +9,21 @@ import {
   type CoreSceneBuild,
 } from "./core-scene";
 import { buildBoundaryConditionSymbols } from "./boundary-condition-symbols";
+import {
+  applyDisplayOptionsToScene,
+  buildDisplayOptionOverlays,
+  disposeDisplayOptionOverlays,
+} from "./display-options-scene";
+import { subscribeDisplayOptions } from "./display-options-store";
 import { buildRealMemberGeometry } from "./section-profile-geometry-v2";
 import {
   buildStructuralGuides,
   disposeStructuralGuides,
 } from "./structural-guides";
 export type { CoreSceneBuild };
+
+const DISPLAY_UNSUBSCRIBE_KEY = "linkoteqDisplayOptionsUnsubscribe";
+const DISPLAY_OVERLAY_ROOT = "core-display-overlays";
 
 function selectionKey(selection: Exclude<EditorSelection, null>): string {
   return `${selection.type}:${selection.id}`;
@@ -25,7 +34,6 @@ function replaceMemberDisplayGeometry(
   model: StructuralModel,
 ): void {
   const nodes = new Map(model.nodes.map((node) => [node.id, node]));
-
   for (const member of model.members) {
     const startNode = nodes.get(member.startNodeId);
     const endNode = nodes.get(member.endNodeId);
@@ -92,10 +100,9 @@ function prioritizeNodePickables(build: CoreSceneBuild): void {
     if (selection?.type === "surface") return 2;
     return 3;
   };
-
   build.pickables = build.pickables
     .map((object, index) => ({ object, index }))
-    .sort((a, b) => ranf²a.object) - rank(b.object) || a.index - b.index)
+    .sort((a, b) => rank(a.object) - rank(b.object) || a.index - b.index)
     .map(({ object }) => object);
 }
 
@@ -122,9 +129,40 @@ export function buildCoreScene(
   prioritizeNodePickables(build);
   build.root.add(buildStructuralGuides(model));
   build.root.add(buildBoundaryConditionSymbols(model));
+  build.root.add(buildDisplayOptionOverlays(model));
+  applyDisplayOptionsToScene(build.root);
+
+  const unsubscribe = subscribeDisplayOptions(() => {
+    applyDisplayOptionsToScene(build.root);
+  });
+  build.root.userData[DISPLAY_UNSUBSCRIBE_KEY] = unsubscribe;
+
   return build;
 }
 export function disposeCoreScene(root: THREE.Object3D): void {
+  const unsubscribe = root.userData[DISPLAY_UNSUBSCRIBE_KEY];
+  if (typeof unsubscribe === "function") unsubscribe();
+  delete root.userData[DISPLAY_UNSUBSCRIBE_KEY];
+
+  const displayOverlays = root.getObjectByName(DISPLAY_OVERLAY_ROOT);
+  if (displayOverlays) {
+    disposeDisplayOptionOverlays(displayOverlays);
+    root.remove(displayOverlays);
+  }
+  const boundarySymbols = root.getObjectByName(
+    "core-boundary-condition-symbols",
+  );
+  if (boundarySymbols) {
+    disposeBoundaryConditionSymbols(boundarySymbols);
+    root.remove(boundarySymbols);
+  }
+
+  const guides = root.getObjectByName("linkoteq-structural-guides");
+  if (guides) {
+    disposeStructuralGuides(guides);
+    root.remove(guides);
+  }
+
   disposeBaseCoreScene(root);
 }
 
