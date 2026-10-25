@@ -38,7 +38,9 @@ function CoordinateForm({
   mode: "absolute" | "relative";
   setMode: (mode: "absolute" | "relative") => void;
 }) {
-  const [values, setValues] = useState(() => mode === "relative" ? {x:"0",y:"0",z:"0"} : { x: "", y: "", z: "" });
+  const [values, setValues] = useState(() =>
+    mode === "relative" ? { x: "0", y: "0", z: "0" } : { x: "", y: "", z: "" },
+  );
   const [error, setError] = useState("");
   return (
     <form
@@ -98,11 +100,19 @@ function CoordinateForm({
   );
 }
 
-export default function PointInputPanel({ model }: { model: StructuralModel }) {
+export default function PointInputPanel({
+  model,
+  simple = false,
+}: {
+  model: StructuralModel;
+  simple?: boolean;
+}) {
   const tool = usePointToolState();
   const draw = useMemberDrawState();
   const transform = useInteractionState();
-  const [entryMode, setEntryMode] = useState<"absolute" | "relative">("absolute");
+  const [entryMode, setEntryMode] = useState<"absolute" | "relative">(
+    "absolute",
+  );
   const [endLevel, setEndLevel] = useState("");
   const [levelError, setLevelError] = useState("");
   const isSurface = tool.tool === "wall" || tool.tool === "slab";
@@ -138,7 +148,9 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
       ? "1 · Choose base point"
       : "2 · Choose target point"
     : isSurface
-      ? `${tool.points.length + 1} · Choose boundary point`
+      ? simple && tool.points.length >= 3
+        ? "3 · Review the boundary, then Finish"
+        : `${tool.points.length + 1} · Choose boundary point`
       : draw.start
         ? "2 · Choose end point"
         : "1 · Choose start point";
@@ -197,14 +209,17 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
           {transforming ? "Base" : "Previous point"}: ({format(base)})
         </p>
       ) : null}
-      <CoordinateForm
-        key={`${tool.tool}:${step}:${base ? `${base.x}:${base.y}:${base.z}` : "none"}:${base ? entryMode : "absolute"}`}
-        base={base}
-        mode={base ? entryMode : "absolute"}
-        setMode={setEntryMode}
-        onPoint={submit}
-      />
-      {tool.tool === "column" && draw.start ? (
+      <details open={!simple}>
+        <summary>Coordinates and offsets (optional)</summary>
+        <CoordinateForm
+          key={`${tool.tool}:${step}:${base ? `${base.x}:${base.y}:${base.z}` : "none"}:${base ? entryMode : "absolute"}`}
+          base={base}
+          mode={base ? entryMode : "absolute"}
+          setMode={setEntryMode}
+          onPoint={submit}
+        />
+      </details>
+      {tool.tool === "column" && draw.start && !simple ? (
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -249,7 +264,13 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
             <button
               type="button"
               disabled={!tool.points.length}
-              onClick={() => setSurfacePoints(tool.points.slice(0, -1))}
+              onClick={() =>
+                setSurfacePoints(
+                  tool.points.length === 4 && simple
+                    ? tool.points.slice(0, 1)
+                    : tool.points.slice(0, -1),
+                )
+              }
             >
               Undo point
             </button>
@@ -270,7 +291,8 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
       </p>
       {transforming ? (
         <p>
-          Move keeps shared connections. Copy duplicates geometry only; loads and supports stay with originals. Press Esc to cancel.
+          Move keeps shared connections. Copy duplicates geometry only; loads
+          and supports stay with originals. Press Esc to cancel.
         </p>
       ) : null}
     </aside>

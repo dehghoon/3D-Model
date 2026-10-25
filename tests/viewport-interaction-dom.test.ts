@@ -62,9 +62,10 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
     const harness = await import(pathToFileURL(output).href);
     const host = dom.window.document.getElementById("root")!;
     let mounted = harness.mount(host);
+    harness.act(() => [...host.querySelectorAll<HTMLButtonElement>("button")].find(b=>b.textContent?.trim()==="Advanced Mode")!.click());
     const click = (label: string, utility = false) => harness.act(() => {
-      const buttons = [...host.querySelectorAll<HTMLButtonElement>(utility ? ".architectQuickActions button" : ".architectToolstrip button")];
-      const button = buttons.find(item => utility ? item.querySelector("strong")?.textContent?.trim() === label : item.querySelector("span:last-child")?.textContent?.trim() === label);
+      const buttons = [...host.querySelectorAll<HTMLButtonElement>(".architectToolstrip button")];
+      const button = buttons.find(item => utility ? item.textContent?.trim() === label : item.querySelector("span:last-child")?.textContent?.trim() === label);
       assert.ok(button, `Missing ${label} button`);
       button.click();
     });
@@ -191,3 +192,4 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
     }
   } finally { await rm(temp, { recursive: true, force: true }); }
 });
+
