@@ -17,7 +17,7 @@ The active route resolves through StructuralEditorShellV2 -> StructuralEditorShe
 
 ## Verification
 - All 119 tests pass, including existing grid/level, selection, node/member/surface, transform, boundary-condition, import/export, and Core integration checks.
-- Full `npm run typecheck` passes with all tests included; no test exclusions or bypasses.
+- Full `npm run typecheck` passes with all tests included; no test exclusions or bypasses. Track the standard `next-env.d.ts` so a fresh checkout can load Next/styled-jsx declarations before its first build. CI exposed this missing initialization file after all 119 tests passed.
 - Local production Next.js build passes.
 - New DOM integration test mounts the real React modeling tools, viewport and transform bridge. It sends canvas pointer events through the real snap resolver into canonical writeback. It covers column/beam/brace creation, ordered slab/wall completion, drag rejection, Copy/Move, failed transform retention, Escape, and preservation of the editor on renderer failure. Only the graphics runtime and unrelated library dialogs are test doubles. This is not a real WebGL rendering test.
 - Six additional geometry regression cases verify canonical identity/reference preservation and front-view free-point picking.
@@ -25,7 +25,7 @@ The active route resolves through StructuralEditorShellV2 -> StructuralEditorShe
 - Test-only dependencies: jsdom, its types, and esbuild. Production dependency pins are unchanged. A normal install prepares the exact pinned Core package successfully; no hand-written declaration workaround is required.
 
 ## Browser observation and remaining limits
-The existing Vercel preview was opened through the cloud browser. Console evidence showed WebGL disabled and `Error creating WebGL context`; before the error-handling repair this crashed the entire page. This browser cannot verify real 3D rendering or GPU picking. Its limitation does not establish that the user's browser has the same failure.
+The existing Vercel preview was opened through the cloud browser. Console evidence showed WebGL disabled and `Error creating WebGL context`; before the error-handling repair this crashed the entire page. The updated preview was reloaded and its accessibility tree confirmed the editor, Save project control, and explanatory WebGL message remain visible. This browser cannot verify real 3D rendering or GPU picking. Its limitation does not establish that the user's browser has the same failure.
 
 Group transforms remain unsupported. Shared-node movement preserves existing connected-topology semantics. Work-plane elevation follows selected geometry; this repair does not add an explicit construction-plane/floor UI. Delete/reference policies and engineering analysis behavior are not redesigned.
 
