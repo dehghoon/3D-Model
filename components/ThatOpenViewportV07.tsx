@@ -137,6 +137,7 @@ export default function ThatOpenViewportV07({
 
   const interaction = useInteractionState();
   const memberDraw = useMemberDrawState();
+  const [runtimeError, setRuntimeError] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [toolMode, setToolMode] = useState<"select" | "view">("select");
   const [marquee, setMarquee] = useState<SelectionWindow | null>(null);
@@ -151,7 +152,13 @@ export default function ThatOpenViewportV07({
     const container = containerRef.current;
     if (!container) return;
 
-    const runtime = createThatOpenRuntime(container);
+    let runtime: ThatOpenRuntime;
+    try {
+      runtime = createThatOpenRuntime(container);
+    } catch {
+      setRuntimeError(true);
+      return;
+    }
     runtimeRef.current = runtime;
     runtime.camera.controls.enabled = false;
     const canvas = runtime.renderer.three.domElement;
@@ -456,6 +463,15 @@ export default function ThatOpenViewportV07({
       }}
       aria-label="That Open structural viewport"
     >
+      {runtimeError ? (
+        <div role="alert" style={{ position: "absolute", inset: 24, zIndex: 70,
+          padding: 20, background: "#fff", color: "#0f172a" }}>
+          <strong>3D view could not start</strong>
+          <p>WebGL is unavailable or the graphics renderer could not initialize.
+            Enable hardware acceleration or try another browser, then reload.
+            You can still save your model.</p>
+        </div>
+      ) : null}
       <div
         className="viewportViewTools"
         aria-label="View orientation"

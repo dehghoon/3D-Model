@@ -15,11 +15,12 @@ function fixture(): StructuralModel {
     ],
     members: [],
     surfaces: [],
+    diaphragms: [],
     materials: [],
     sections: [],
     supports: [],
     supportSprings: [],
-    enforcedDisplacements: [],
+    enforcedNodeDisplacements: [],
     loadSources: [],
     loadCases: [],
     loads: [],
@@ -27,7 +28,7 @@ function fixture(): StructuralModel {
     analysisRuns: [],
     analysisResults: [],
     designRuns: [],
-    designResults: [],
+    memberDesignResults: [],
     reports: [],
   };
 }
@@ -86,3 +87,4 @@ test("editor rejects non-v0.5 models", () => {
     /CORE_V05_REQUIRED:0.4/,
   );
 });
+

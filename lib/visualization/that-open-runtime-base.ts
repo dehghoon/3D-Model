@@ -43,32 +43,37 @@ function frame(runtime: ThatOpenRuntime) {
 
 export function createThatOpenRuntime(container: HTMLDivElement): ThatOpenRuntime {
   const components = new OBC.Components();
-  const worlds = components.get(OBC.Worlds);
-  const world =
-    worlds.create<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBC.SimpleRenderer>();
-  world.scene = new OBC.SimpleScene(components);
-  world.scene.setup();
-  world.scene.three.background = new THREE.Color(0xf8fafc);
-  world.renderer = new OBC.SimpleRenderer(components, container);
-  world.camera = new OBC.OrthoPerspectiveCamera(components);
-  components.init();
-  world.camera.updateAspect();
-  const caster = components.get(OBC.Raycasters).get(world);
-  world.renderer.three.domElement.style.touchAction = "none";
+  try {
+    const worlds = components.get(OBC.Worlds);
+    const world =
+      worlds.create<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBC.SimpleRenderer>();
+    world.scene = new OBC.SimpleScene(components);
+    world.scene.setup();
+    world.scene.three.background = new THREE.Color(0xf8fafc);
+    world.renderer = new OBC.SimpleRenderer(components, container);
+    world.camera = new OBC.OrthoPerspectiveCamera(components);
+    components.init();
+    world.camera.updateAspect();
+    const caster = components.get(OBC.Raycasters).get(world);
+    world.renderer.three.domElement.style.touchAction = "none";
 
-  return {
-    components,
-    scene: world.scene.three,
-    camera: world.camera,
-    caster,
-    renderer: world.renderer,
-    build: null,
-    transient: null,
-    fitted: false,
-    viewMode: "3d",
-    axisIndex: 0,
-    levelIndex: 0,
-  };
+    return {
+      components,
+      scene: world.scene.three,
+      camera: world.camera,
+      caster,
+      renderer: world.renderer,
+      build: null,
+      transient: null,
+      fitted: false,
+      viewMode: "3d",
+      axisIndex: 0,
+      levelIndex: 0,
+    };
+  } catch (error) {
+    components.dispose();
+    throw error;
+  }
 }
 
 export function rebuildThatOpenScene(
@@ -337,3 +342,4 @@ export function disposeThatOpenRuntime(runtime: ThatOpenRuntime): void {
   }
   runtime.components.dispose();
 }
+

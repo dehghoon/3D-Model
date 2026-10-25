@@ -31,8 +31,8 @@ function fixture(): StructuralModel {
     ],
     surfaces: [],
     diaphragms: [],
-    materials: [{ id: "MAT1", type: "steel", name: "Steel", properties: {} }],
-    sections: [{ id: "S1", family: "W", materialType: "steel", geometry: {}, properties: {} }],
+    materials: [{ id: "MAT1", type: "steel", name: "Steel", analysis: { E: { value: 200000, unit: "MPa" }, G: { value: 77000, unit: "MPa" }, nu: 0.3, rho: { value: 7850, unit: "kg/m3" } } }],
+    sections: [{ id: "S1", family: "W",  geometry: {}, analysis: { A: { value: 1000, unit: "mm2" }, Iy: { value: 1000000, unit: "mm4" }, Iz: { value: 2000000, unit: "mm4" }, J: { value: 10000, unit: "mm4" } } }],
     supports: [],
     loadSources: [],
     loadCases: [],
@@ -73,7 +73,7 @@ test("copySelection does not duplicate loads or supports", () => {
     {
       id: "SUP1",
       nodeId: "N1",
-      restraints: { ux: true, uy: true, uz: true, rx: false, ry: false, rz: false },
+      restraints: { DX: true, DY: true, DZ: true, RX: false, RY: false, RZ: false },
     },
   ];
   model.loadCases = [{ id: "LC1", name: "Dead", category: "dead" }];
@@ -81,12 +81,10 @@ test("copySelection does not duplicate loads or supports", () => {
     {
       id: "LOAD1",
       type: "nodal",
-      targetId: "N1",
-      targetType: "node",
+      nodeId: "N1",
+      coordinateSystem: "global",
       loadCaseId: "LC1",
-      direction: { x: 0, y: 0, z: -1 },
-      magnitude: 1,
-      unit: "kN",
+      components: { FZ: { value: -1, unit: "kN" } },
     },
   ];
 
@@ -109,3 +107,4 @@ test("copySelection rejects zero translation", () => {
     /COPY_DELTA_ZERO/,
   );
 });
+

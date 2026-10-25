@@ -32,15 +32,15 @@ function fixture(): StructuralModel {
     surfaces: [],
     diaphragms: [],
     materials: [
-      { id: "MAT1", type: "steel", name: "Steel", properties: {} },
+      { id: "MAT1", type: "steel", name: "Steel", analysis: { E: { value: 200000, unit: "MPa" }, G: { value: 77000, unit: "MPa" }, nu: 0.3, rho: { value: 7850, unit: "kg/m3" } } },
     ],
     sections: [
       {
         id: "S1",
         family: "W",
-        materialType: "steel",
+        
         geometry: {},
-        properties: {},
+        analysis: { A: { value: 1000, unit: "mm2" }, Iy: { value: 1000000, unit: "mm4" }, Iz: { value: 2000000, unit: "mm4" }, J: { value: 10000, unit: "mm4" } },
       },
     ],
     supports: [],
@@ -92,3 +92,4 @@ test("moveSelection rejects zero displacement", () => {
     /MOVE_DELTA_ZERO/,
   );
 });
+

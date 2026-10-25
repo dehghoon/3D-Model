@@ -45,7 +45,7 @@ test("realistic legacy v0.2 fixture migrates every required collection", () => {
   assert.equal(model.sections[0].analysis.A.unit, "mm2");
   assert.equal(model.sections[0].analysis.Iy.unit, "mm4");
   assert.equal(model.sections[0].analysis.J.value, 185000);
-  assert.equal(model.loadSources?.[0].id, "LS-SWOW");
+  assert.equal(model.loadSources?.[0].id, "LS-SNOW");
   assert.equal(model.loadSources?.[0].codeEdition, "NBCC 2020");
   assert.equal(model.loadCases[1].sourceId, "LS-SNOW");
   assert.equal(model.loadCombinations[0].factors["LC-S"], 1.5);
@@ -201,3 +201,4 @@ test("platform boundary does not import PyNite", () => {
   const boundary = readFileSync("lib/analysis-boundary.ts", "utf8");
   assert.doesNotMatch(boundary, /from\s+["'`]@?pynite(?:\/|["'`])/i);
 });
+

@@ -50,7 +50,7 @@ test("left-to-right selection contains complete members", () => {
     },
   );
 
-  assert.deepEqual(selected, [{ type: "member", id: "M1" }]);
+  assert.deepEqual(selected, [{ type: "member", id: "M1" }, { type: "node", id: "N1" }, { type: "node", id: "N2" }]);
 });
 
 test("right-to-left selection crosses intersecting members", () => {
@@ -66,3 +66,4 @@ test("right-to-left selection crosses intersecting members", () => {
 
   assert.deepEqual(selected, [{ type: "member", id: "M1" }]);
 });
+

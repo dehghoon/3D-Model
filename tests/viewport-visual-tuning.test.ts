@@ -11,7 +11,7 @@ test("Display options are collapsible", () => {
   const src = source("components/ViewportDisplayOptionsV05.tsx");
   assert.match(src, /<details/);
   assert.match(src, /<summary/);
-  assert.match(src, /open=\{false\}/);
+  assert.doesNotMatch(src, /<details[^>]*\sopen(?:\s|>|=\{true\})/);
 });
 
 test("Boundary condition symbols use tuned visual sizes and release offset", () => {
@@ -19,8 +19,8 @@ test("Boundary condition symbols use tuned visual sizes and release offset", () 
   assert.match(src, /size \* 1.18/);
   assert.match(src, /releaseSize = size \* 1.16/);
   assert.match(src, /releaseOffset = Math\.min\(size \* 0.72, length \* 0.18\)/);
-  assert.match(src, /start\.clone\(\)\.ad\(/u;
-  assert.match(src, /end\.clone\(\)\.ad\(/u;
+  assert.match(src, /start\.clone\(\)\.add\(/u);
+  assert.match(src, /end\.clone\(\)\.add\(/u);
 });
 
 test("Node visual scale is smaller while labels are larger and clearer", () => {
@@ -31,3 +31,4 @@ test("Node visual scale is smaller while labels are larger and clearer", () => {
   assert.match(src, /700 48px Arial/);
   assert.match(src, /sprite.scale.set\(scale \* 3.4, scale \* 1.14, 1\)/);
 });
+

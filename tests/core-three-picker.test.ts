@@ -9,14 +9,15 @@ function source(path: string): string {
 
 test("direct Core picker prioritizes nodes before other elements", () => {
   const picker = source("lib/visualization/core-three-picker.ts");
-  assert.match(picker, /new THREE\\.Raycaster\\(\\)/);
-  assert.match(picker, /getObjectSelection\\(object\\)\\?.type === "node"/);
-  assert.match(picker, /const node = pickFromItems\\(raycaster, nodes\\)/);
-  assert.match(picker, /if \\(node\\) return node/);
+  assert.match(picker, /new THREE\.Raycaster\(\)/);
+  assert.match(picker, /getObjectSelection\(object\)\?.type === "node"/);
+  assert.match(picker, /const node = pickFromItems\(raycaster, nodes\)/);
+  assert.match(picker, /if \(node\) return node/);
 });
 
 test("That Open runtime delegates Core picking to direct Three.js raycaster", () => {
   const runtime = source("lib/visualization/that-open-runtime-base.ts");
-  assert.match(runtime, /import { pickCoreThree } from "\\.\\/core-three-picker"/);
-  assert.match(runtime, /return pickCoreThree\\(runtime, event\\)/);
+  assert.match(runtime, /import { pickCoreThree } from "\.\/core-three-picker"/);
+  assert.match(runtime, /return pickCoreThree\(runtime, event\)/);
 });
+

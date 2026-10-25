@@ -39,8 +39,7 @@ test("creates and updates canonical global geometry", () => {
   model = grid.model;
 
   const node = createCanonicalNodeV05(model, {
-    position: { x: 1, y: 2, z: 3.5 },
-    levelId: level.entity.id,
+    x: 1, y: 2, z: 3.5,
   });
   model = node.model;
 
@@ -67,3 +66,4 @@ test("rejects invalid geometry without mutating the model", () => {
   );
   assert.equal(model.grids.length, 0);
 });
+
