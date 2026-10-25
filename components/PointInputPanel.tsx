@@ -270,8 +270,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
       </p>
       {transforming ? (
         <p>
-          Move keeps shared connections; Copy keeps originals. Press Esc to
-          cancel.
+          Move keeps shared connections. Copy duplicates geometry only; loads and supports stay with originals. Press Esc to cancel.
         </p>
       ) : null}
     </aside>

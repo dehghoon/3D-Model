@@ -6,6 +6,7 @@ import type { StructuralModel } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../lib/editor/selection";
 import {
   getPublishedSelections,
+  usePublishedSelections,
   publishSelections,
 } from "../lib/editor/selection-store";
 import {
@@ -146,7 +147,7 @@ export default function ThatOpenViewportV07({
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [toolMode, setToolMode] = useState<"select" | "view">("select");
   const [marquee, setMarquee] = useState<SelectionWindow | null>(null);
-  const [selectionCount, setSelectionCount] = useState(0);
+  const selectionCount = usePublishedSelections().length;
 
   modelRef.current = model;
   selectionRef.current = selection;
@@ -180,7 +181,6 @@ export default function ThatOpenViewportV07({
       }
 
       syncSelectionHighlight(runtime, modelRef.current, unique);
-      setSelectionCount(unique.length);
     };
 
     const resolveSnap = (event: PointerEvent) =>
@@ -423,7 +423,6 @@ export default function ThatOpenViewportV07({
 
     rebuildThatOpenScene(runtime, model, selection);
     syncSelectionHighlight(runtime, model, getPublishedSelections());
-    setSelectionCount(getPublishedSelections().length);
     if (getModelingPointTool()) renderModelingPreview(runtime);
     else renderTransformPreview(runtime);
   }, [model, selection]);

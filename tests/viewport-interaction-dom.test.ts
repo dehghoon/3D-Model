@@ -179,6 +179,8 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
       mounted = harness.mount(host);
       assert.match(host.querySelector('[role="alert"]')!.textContent!, /WebGL/);
       assert.ok(host.querySelector(".architectToolstrip"), "Renderer failure must preserve the editor");
+      harness.act(()=>harness.publishSelections([{type:"member",id:mounted.model().members[0].id},{type:"member",id:mounted.model().members[1].id}]));
+      assert.match(host.querySelector(".viewportMultiSelect")!.textContent!,/2 selected/);
     } finally {
       mounted.unmount();
       dom.window.close();
