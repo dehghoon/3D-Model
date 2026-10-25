@@ -3,6 +3,8 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import type { StructuralModel } from "@linkoteq/structural-core";
 
+import SimpleBuildingWorkspace from "./SimpleBuildingWorkspace";
+import type { SimpleBuildingSettings } from "../lib/editor/simple-building";
 import PointInputPanel from "./PointInputPanel";
 import CopyInteractionBridgeV01 from "./CopyInteractionBridgeV01";
 import ElementProperties from "./ElementProperties";
@@ -63,8 +65,21 @@ function downloadModel(model: StructuralModel): void {
   URL.revokeObjectURL(url);
 }
 
-export default function StructuralEditorV07() {
+export default function StructuralEditorV07({
+  mode = "advanced",
+}: {
+  mode?: "simple" | "advanced";
+}) {
   const [model, setModel] = useState<StructuralModel>(() => createStarterModelV05());
+  const [simpleSettings, setSimpleSettings] = useState<SimpleBuildingSettings>({
+    levelId: "",
+    endLevelId: "",
+  });
+  const [simpleView, setSimpleView] = useState<"plan" | "3d">("plan");
+  const [past, setPast] = useState<StructuralModel[]>([]);
+  const [future, setFuture] = useState<StructuralModel[]>([]);
+  const modelRef = useRef(model);
+  modelRef.current = model;
   const [selection, setSelection] = useState<EditorSelection>(null);
   const selections = usePublishedSelections();
   const [propertiesOpen, setPropertiesOpen] = useState(false);
@@ -80,8 +95,12 @@ export default function StructuralEditorV07() {
     window.addEventListener("linkoteq:modeling-command", close);
     window.addEventListener("linkoteq:utility-command", close);
     window.addEventListener("linkoteq:view-select", close);
-    return () => { window.removeEventListener("linkoteq:properties-open", open);
-      window.removeEventListener("linkoteq:modeling-command", close); window.removeEventListener("linkoteq:utility-command", close); window.removeEventListener("linkoteq:view-select", close); };
+    return () => {
+      window.removeEventListener("linkoteq:properties-open", open);
+      window.removeEventListener("linkoteq:modeling-command", close);
+      window.removeEventListener("linkoteq:utility-command", close);
+      window.removeEventListener("linkoteq:view-select", close);
+    };
   }, []);
 
   function setCanonicalSelection(next: EditorSelection): void {
@@ -120,6 +139,8 @@ export default function StructuralEditorV07() {
     const parsed = JSON.parse(await file.text()) as unknown;
     const migrated = migrateProjectToV05(parsed);
     assertCanonicalV05(migrated.model);
+    setPast([]);
+    setFuture([]);
     setModel(migrated.model as StructuralModel);
     publishSelections([]);
     setSelection(null);
@@ -134,6 +155,14 @@ export default function StructuralEditorV07() {
   function applyModelChange(next: StructuralModel, status: string): void {
     try {
       assertCanonicalV05(next);
+      if (next === modelRef.current) {
+        setMessage(status);
+        return;
+      }
+      const previous = modelRef.current;
+      setPast((items) => [...items.slice(-49), previous]);
+      setFuture([]);
+      modelRef.current = next;
       setModel(next);
       reconcileSelections(next);
       setMessage(status);
@@ -157,7 +186,7 @@ export default function StructuralEditorV07() {
         next = deleteSelection(next, target).model;
       }
       assertCanonicalV05(next);
-      setModel(next);
+      applyModelChange(next, "Selection deleted.");
       clearCanonicalSelection();
       setMessage(
         `${effective.length} selected element${effective.length === 1 ? "" : "s"} deleted.`,
@@ -210,6 +239,8 @@ export default function StructuralEditorV07() {
           <button
             onClick={() => {
               window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
+              setPast([]);
+              setFuture([]);
               setModel(emptyModel());
               clearCanonicalSelection();
               setMessage("New Core v0.5 project created.");
@@ -249,6 +280,7 @@ export default function StructuralEditorV07() {
         <aside className="toolbar">
           <ModelToolsV05
             model={model}
+            simple={mode === "simple" ? simpleSettings : undefined}
             selectedNodeId={selectedNode?.id}
             onModelChange={applyModelChange}
           />
@@ -284,12 +316,52 @@ export default function StructuralEditorV07() {
           onContextMenu={(event) => event.preventDefault()}
           style={{ position: "relative" }}
         >
-          <PointInputPanel model={model} />
-          <ThatOpenViewportV01
-            model={model}
-            selection={selection}
-            onSelect={setCanonicalSelection}
-          />
+          {mode === "simple" ? (
+            <SimpleBuildingWorkspace
+              model={model}
+              settings={simpleSettings}
+              onSettingsChange={setSimpleSettings}
+              view={simpleView}
+              onViewChange={setSimpleView}
+              onSelect={setCanonicalSelection}
+              canUndo={Boolean(past.length)}
+              canRedo={Boolean(future.length)}
+              onUndo={() => {
+                const previous = past.at(-1);
+                if (!previous) return;
+                window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
+                setPast(past.slice(0, -1));
+                setFuture([model, ...future]);
+                setModel(previous);
+                reconcileSelections(previous);
+                setMessage("Change undone.");
+              }}
+              onRedo={() => {
+                const next = future[0];
+                if (!next) return;
+                window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
+                setPast([...past, model]);
+                setFuture(future.slice(1));
+                setModel(next);
+                reconcileSelections(next);
+                setMessage("Change restored.");
+              }}
+            />
+          ) : null}
+          <PointInputPanel model={model} simple={mode === "simple"} />
+          <div
+            className={
+              mode === "simple" && simpleView === "plan"
+                ? "simpleHiddenViewport"
+                : "simpleViewport3d"
+            }
+          >
+            <ThatOpenViewportV01
+              model={model}
+              selection={selection}
+              onSelect={setCanonicalSelection}
+            />
+          </div>
         </section>
 
         <aside className="inspector">
@@ -302,7 +374,10 @@ export default function StructuralEditorV07() {
         </aside>
       </main>
 
-      <CopyInteractionBridgeV01 model={model} onModelChange={applyModelChange} />
+      <CopyInteractionBridgeV01
+        model={model}
+        onModelChange={applyModelChange}
+      />
 
       <ElementProperties
         model={model}
@@ -321,10 +396,7 @@ export default function StructuralEditorV07() {
         selectedMembers={selectedMembers}
         selectedNodes={selectedNodes}
         onModelChange={(next, status) => {
-          assertCanonicalV05(next);
-          setModel(next);
-          reconcileSelections(next);
-          if (status) setMessage(status);
+          applyModelChange(next, status || "Loads updated.");
         }}
         onBeginTargetSelection={() =>
           setMessage("Select one or more model targets for load assignment.")

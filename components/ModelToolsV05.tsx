@@ -38,9 +38,16 @@ import {
 } from "../lib/editor/member-draw-events";
 import { assertCanonicalV05 } from "../lib/core-v05";
 
+import {
+  buildingLevels,
+  simpleBoundary,
+  type SimpleBuildingSettings,
+} from "../lib/editor/simple-building";
+
 type Tool = "select" | "beam" | "column" | "brace" | "wall" | "slab";
 interface Props {
   model: StructuralModel;
+  simple?: SimpleBuildingSettings;
   selectedNodeId?: string;
   onModelChange: (model: StructuralModel, status: string) => void;
 }
@@ -65,6 +72,7 @@ function isUninitializedModel(model: StructuralModel) {
 }
 export default function ModelToolsV05({
   model,
+  simple,
   selectedNodeId,
   onModelChange,
 }: Props) {
@@ -181,6 +189,56 @@ export default function ModelToolsV05({
     try {
       if (!Object.values(snap.point).every(Number.isFinite))
         throw new Error("Coordinates must be finite.");
+      if (simple) {
+        const { level, end } = buildingLevels(modelRef.current, simple);
+        if (!level) throw new Error("Add a working floor first using Levels.");
+        if (Math.abs(snap.point.z - level.elevation) > 1e-8)
+          throw new Error(
+            "Choose a point on the working floor, or use Advanced for other elevations.",
+          );
+        if (active.tool === "column") {
+          if (!end) throw new Error("Add or choose a higher end floor first.");
+          const result = createMemberFromSnapPoints(modelRef.current, {
+            type: "column",
+            materialId: materialId || defaultMaterialId,
+            sectionId: sectionId || defaultSectionId,
+            start: snap,
+            end: { ...snap, point: { ...snap.point, z: end.elevation } },
+          });
+          commit(
+            result.model,
+            `Created column ${result.memberId} from ${level.name} to ${end.name}. Pick another column position.`,
+          );
+          return;
+        }
+        if (active.tool === "wall" || active.tool === "slab") {
+          if (!active.points.length) {
+            setSurfacePoints([snap]);
+            return;
+          }
+          if (active.points.length > 1)
+            throw new Error(
+              "Review the boundary and Finish, or Undo point to redraw.",
+            );
+          const points = simpleBoundary(
+            active.tool,
+            active.points[0].point,
+            snap.point,
+            end?.elevation,
+          );
+          setSurfacePoints(
+            points.map((point) => ({
+              point,
+              kind: "work-plane",
+              label: "Building boundary",
+            })),
+          );
+          setPointToolMessage(
+            `Boundary preview ready. Finish ${active.tool} to create it, or Undo point to redraw.`,
+          );
+          return;
+        }
+      }
       if (active.tool === "wall" || active.tool === "slab") {
         if (
           active.points.some(
