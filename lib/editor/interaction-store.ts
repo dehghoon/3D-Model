@@ -50,7 +50,7 @@ function startTransformInteraction(
       selection: null,
       base: null,
       preview: null,
-      message: `${label}: select an object first.`,
+      message: `Select an object before ${label}.`,
     });
     return;
   }

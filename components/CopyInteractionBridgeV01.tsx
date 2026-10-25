@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
+import { assertCanonicalV05 } from "../lib/core-v05";
 import { copySelection } from "../lib/editor/copy-command";
 import { deleteSelection } from "../lib/editor/commands";
 import {
@@ -13,6 +14,7 @@ import {
 import { moveSelection } from "../lib/editor/move-command";
 import {
   getPublishedSelection,
+  getPublishedSelections,
   publishSelection,
 } from "../lib/editor/selection-store";
 
@@ -42,8 +44,9 @@ export default function CopyInteractionBridgeV01({
 }: Props) {
   useEffect(() => {
     const commitTransform = (delta: Vec3): boolean => {
-      const selection = getPublishedSelection();
       const interaction = getInteractionState();
+      const selection = interaction.selection;
+      if (interaction.mode !== "copy-target") return false;
 
       if (!selection) {
         onModelChange(model, "Select an object before using Move or Copy.");
@@ -58,6 +61,7 @@ export default function CopyInteractionBridgeV01({
       try {
         if (interaction.operation === "move") {
           const result = moveSelection(model, selection, delta);
+          assertCanonicalV05(result.model);
           publishSelection(result.selection);
           onModelChange(
             result.model,
@@ -65,6 +69,7 @@ export default function CopyInteractionBridgeV01({
           );
         } else {
           const result = copySelection(model, selection, delta);
+          assertCanonicalV05(result.model);
           publishSelection(result.selection);
           onModelChange(
             result.model,
@@ -90,10 +95,17 @@ export default function CopyInteractionBridgeV01({
 
     const onDocumentClickCapture = (event: MouseEvent) => {
       const selection = getPublishedSelection();
+      if (["Copy", "Move", "Delete", "Select", "View"].some(
+        (label) => isUtilityButton(event.target, label),
+      )) window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
 
       if (isUtilityButton(event.target, "Copy")) {
         event.preventDefault();
         event.stopPropagation();
+        if (getPublishedSelections().length > 1) {
+          onModelChange(model, "Copy currently supports one object at a time. Select one object.");
+          return;
+        }
         startCopyInteraction(selection);
         if (!selection) onModelChange(model, "Select an object before Copy.");
         return;
@@ -102,6 +114,10 @@ export default function CopyInteractionBridgeV01({
       if (isUtilityButton(event.target, "Move")) {
         event.preventDefault();
         event.stopPropagation();
+        if (getPublishedSelections().length > 1) {
+          onModelChange(model, "Move currently supports one object at a time. Select one object.");
+          return;
+        }
         startMoveInteraction(selection);
         if (!selection) onModelChange(model, "Select an object before Move.");
         return;
@@ -141,6 +157,7 @@ export default function CopyInteractionBridgeV01({
       if (isUtilityButton(event.target, "View")) {
         event.preventDefault();
         event.stopPropagation();
+        finishCopyInteraction();
         window.dispatchEvent(new Event("linkoteq:view-cycle"));
       }
     };

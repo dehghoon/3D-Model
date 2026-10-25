@@ -89,7 +89,18 @@ function workPlanePoint(
   raycaster.setFromCamera(ndc, camera);
 
   const elevation = selectedElevation(model, selection);
-  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -elevation);
+  // Elevation views need a vertical construction plane: a horizontal plane
+  // is parallel to their rays and cannot yield a point.
+  const normal = new THREE.Vector3(0, 1, 0);
+  if (Math.abs(raycaster.ray.direction.y) < 1e-6) {
+    camera.getWorldDirection(normal);
+  }
+  const anchor = selection?.type === "node"
+    ? model.nodes.find((node) => node.id === selection.id)?.position
+    : undefined;
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+    normal, toThree(anchor ?? { x: 0, y: 0, z: elevation }),
+  );
   const intersection = new THREE.Vector3();
   if (!raycaster.ray.intersectPlane(plane, intersection)) return null;
 
@@ -115,7 +126,7 @@ function memberPoints(model: StructuralModel): Array<{
   });
 }
 
-function uniqueCandidates(model: StructuralModel): SnapPoint[] {
+function uniqueCandidates(model: StructuralModel, elevation: number): SnapPoint[] {
   const settings = getSnapSettings();
   const candidates = new Map<string, SnapPoint>();
 
@@ -185,7 +196,7 @@ function uniqueCandidates(model: StructuralModel): SnapPoint[] {
     for (const vertical of verticals) {
       for (const horizontal of horizontals) {
         add({
-          point: { x: vertical.x, y: horizontal.y, z: 0 },
+          point: { x: vertical.x, y: horizontal.y, z: elevation },
           kind: "grid",
           label: `Grid ${vertical.label}/${horizontal.label}`,
         });
@@ -228,7 +239,7 @@ export function resolveSnapPoint(
 ): SnapPoint | null {
   const workPlane = workPlanePoint(pointer, model, selection, camera, element);
   const candidates = [
-    ...uniqueCandidates(model),
+    ...uniqueCandidates(model, selectedElevation(model, selection)),
     ...(workPlane ? perpendicularCandidates(model, workPlane.point) : []),
   ];
 

@@ -10,12 +10,13 @@ import {
 } from "../lib/editor/selection-store";
 import {
   cancelInteraction,
-  finishCopyInteraction,
   getInteractionState,
   setCopyBase,
   setCopyPreview,
   useInteractionState,
 } from "../lib/editor/interaction-store";
+import { useMemberDrawState } from "../lib/editor/member-draw-store";
+import { MEMBER_DRAW_PICK_EVENT, getModelingPointTool } from "../lib/editor/member-draw-events";
 import { isTapGesture } from "../lib/visualization/mobile-picking";
 import {
   selectMembersInWindow,
@@ -135,6 +136,7 @@ export default function ThatOpenViewportV07({
   const toolModeRef = useRef<"select" | "view">("select");
 
   const interaction = useInteractionState();
+  const memberDraw = useMemberDrawState();
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [toolMode, setToolMode] = useState<"select" | "view">("select");
   const [marquee, setMarquee] = useState<SelectionWindow | null>(null);
@@ -173,7 +175,7 @@ export default function ThatOpenViewportV07({
       snapThatOpen(runtime, event, modelRef.current, selectionRef.current);
 
     const pointerDown = (event: PointerEvent) => {
-      if (!event.isPrimary) return;
+      if (!event.isPrimary || event.button !== 0) return;
       start = {
         x: event.clientX,
         y: event.clientY,
@@ -184,6 +186,11 @@ export default function ThatOpenViewportV07({
 
     const pointerMove = (event: PointerEvent) => {
       const state = getInteractionState();
+
+      if (getModelingPointTool()) {
+        resolveSnap(event);
+        return;
+      }
 
       if (state.mode === "copy-target") {
         setCopyPreview(resolveSnap(event));
@@ -219,6 +226,18 @@ export default function ThatOpenViewportV07({
       if (!origin || origin.pointerId !== event.pointerId) return;
 
       const state = getInteractionState();
+      const drawing = Boolean(getModelingPointTool());
+      if ((drawing || state.mode !== "select") && !isTapGesture(
+        origin.x, origin.y, event.clientX, event.clientY, origin.pointerType,
+      )) return;
+
+      if (drawing) {
+        const point = resolveSnap(event);
+        if (point) window.dispatchEvent(new CustomEvent(MEMBER_DRAW_PICK_EVENT, {
+          detail: point,
+        }));
+        return;
+      }
 
       if (state.mode === "copy-base") {
         const point = resolveSnap(event);
@@ -248,8 +267,7 @@ export default function ThatOpenViewportV07({
             detail: { delta },
           }),
         );
-        finishCopyInteraction();
-        clearTransformPreview(runtime);
+        if (getInteractionState().mode === "select") clearTransformPreview(runtime);
         return;
       }
 
@@ -400,7 +418,7 @@ export default function ThatOpenViewportV07({
     if (!runtime) return;
 
     const shouldEnableCamera =
-      interaction.mode === "select" && toolMode === "view";
+      interaction.mode === "select" && !memberDraw.active && toolMode === "view";
 
     toolModeRef.current = toolMode;
     runtime.camera.controls.enabled = shouldEnableCamera;
@@ -411,6 +429,7 @@ export default function ThatOpenViewportV07({
       clearTransformPreview(runtime);
     }
   }, [
+    memberDraw.active,
     interaction.mode,
     interaction.base,
     interaction.preview,

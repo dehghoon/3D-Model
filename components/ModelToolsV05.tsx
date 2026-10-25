@@ -28,6 +28,9 @@ import {
   useMemberDrawState,
 } from "../lib/editor/member-draw-store";
 import { createMemberFromSnapPoints } from "../lib/editor/member-draw-controller";
+import { cancelInteraction } from "../lib/editor/interaction-store";
+import { createNodeFromGlobalCoordinates } from "../lib/editor-modeling-v05";
+import { MEMBER_DRAW_PICK_EVENT, setModelingPointTool } from "../lib/editor/member-draw-events";
 import type { SnapPoint } from "../lib/editor/interaction-store";
 
 type Tool = "select" | "beam" | "column" | "brace" | "wall" | "slab";
@@ -146,6 +149,9 @@ export default function ModelToolsV05({
   );
 
   function chooseTool(next: Tool) {
+    cancelInteraction();
+    window.dispatchEvent(new Event("linkoteq:view-select"));
+    setModelingPointTool(next === "select" ? null : next);
     setTool(next);
     setPickedNodeIds([]);
 
@@ -170,6 +176,7 @@ export default function ModelToolsV05({
 
     if (!resolvedMaterialId || !resolvedSectionId) {
       cancelMemberDraw();
+      setModelingPointTool(null);
       setStatus(
         "Choose approved canonical material and section records before drawing a member.",
       );
@@ -202,37 +209,7 @@ export default function ModelToolsV05({
     if (!snap) return;
 
     if (isMemberTool) {
-      const draw = getMemberDrawState();
-      if (!draw.active || !draw.type) return;
-
-      if (!draw.start) {
-        setMemberDrawStart(snap);
-        setStatus(`${draw.type}: pick second point.`);
-        return;
-      }
-
-      try {
-        const result = createMemberFromSnapPoints(model, {
-          type: draw.type,
-          materialId: draw.materialId,
-          sectionId: draw.sectionId,
-          start: draw.start,
-          end: snap,
-        });
-
-        onModelChange(
-          result.model,
-          `Created ${draw.type} ${result.memberId} from canonical snapped node references.`,
-        );
-        continueMemberDraw(snap, result.memberId);
-        setStatus(
-          `Created ${draw.type} ${result.memberId}. Continue from ${snap.label} or choose Select.`,
-        );
-      } catch (error) {
-        setStatus(
-          error instanceof Error ? error.message : "Member creation failed.",
-        );
-      }
+      acceptMemberPoint(snap);
       return;
     }
 
@@ -251,6 +228,82 @@ export default function ModelToolsV05({
     isSurfaceTool,
     onModelChange,
   ]);
+
+  function acceptMemberPoint(snap: SnapPoint): void {
+    const draw = getMemberDrawState();
+    if (!draw.active || !draw.type) return;
+
+    if (!draw.start) {
+      setMemberDrawStart(snap);
+      setStatus(`${draw.type}: pick second point.`);
+      return;
+    }
+
+    try {
+      const result = createMemberFromSnapPoints(model, {
+        type: draw.type,
+        materialId: draw.materialId,
+        sectionId: draw.sectionId,
+        start: draw.start,
+        end: snap,
+      });
+
+      onModelChange(
+        result.model,
+        `Created ${draw.type} ${result.memberId} from canonical snapped node references.`,
+      );
+      continueMemberDraw(snap, result.memberId);
+      setStatus(
+        `Created ${draw.type} ${result.memberId}. Continue from ${snap.label} or choose Select.`,
+      );
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Member creation failed.",
+      );
+    }
+  }
+
+  useEffect(() => {
+    const pick = (event: Event) => {
+      const snap = (event as CustomEvent<SnapPoint>).detail;
+      if (!snap) return;
+      if (isMemberTool) acceptMemberPoint(snap);
+      if (isSurfaceTool) {
+        const existing = model.nodes.find((node) =>
+          Math.hypot(node.position.x - snap.point.x, node.position.y - snap.point.y,
+            node.position.z - snap.point.z) <= 1e-8,
+        );
+        const result = existing ? { model, node: existing }
+          : createNodeFromGlobalCoordinates(model, snap.point);
+        setPickedNodeIds((current) => current.includes(result.node.id)
+          ? current : [...current, result.node.id]);
+        if (!existing) onModelChange(result.model, `Created boundary node ${result.node.id}.`);
+      }
+    };
+    window.addEventListener(MEMBER_DRAW_PICK_EVENT, pick);
+    return () => window.removeEventListener(MEMBER_DRAW_PICK_EVENT, pick);
+  }, [model, isMemberTool, isSurfaceTool, onModelChange]);
+
+  useEffect(() => {
+    const cancel = () => {
+      cancelInteraction();
+      cancelMemberDraw();
+      setModelingPointTool(null);
+      setTool("select");
+      setPickedNodeIds([]);
+      ignoredSelectionRef.current = null;
+      setStatus("Selection mode.");
+    };
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") cancel();
+    };
+    window.addEventListener("linkoteq:modeling-cancel", cancel);
+    window.addEventListener("keydown", key);
+    return () => {
+      window.removeEventListener("linkoteq:modeling-cancel", cancel);
+      window.removeEventListener("keydown", key);
+    };
+  }, []);
 
   function finishSurface() {
     if (!isSurfaceTool || pickedNodeIds.length < 3) {

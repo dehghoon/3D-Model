@@ -104,6 +104,7 @@ export default function StructuralEditorV07() {
   }
 
   async function importProject(file: File): Promise<void> {
+    window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
     const parsed = JSON.parse(await file.text()) as unknown;
     const migrated = migrateProjectToV05(parsed);
     assertCanonicalV05(migrated.model);
@@ -196,6 +197,7 @@ export default function StructuralEditorV07() {
         <div className="topActions">
           <button
             onClick={() => {
+              window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
               setModel(emptyModel());
               clearCanonicalSelection();
               setMessage("New Core v0.5 project created.");

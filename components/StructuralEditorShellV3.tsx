@@ -61,6 +61,13 @@ export default function StructuralEditorShellV3() {
   const [activeModelTool, setActiveModelTool] = useState<ModelingTool | null>(null);
   const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("View");
 
+  function finishSurface(): void {
+    const button = Array.from(document.querySelectorAll<HTMLButtonElement>(
+      ".engineeringEditorStage .toolbar button",
+    )).find((item) => item.textContent?.trim().startsWith(`Finish ${activeModelTool}`));
+    button?.click();
+  }
+
   function runModelTool(tool: ModelingTool): void {
     if (clickEditorButton(tool)) {
       setActiveModelTool(tool);
@@ -153,13 +160,18 @@ export default function StructuralEditorShellV3() {
             <span>{tool}</span>
           </button>
         ))}
+        {activeModelTool === "Slab" || activeModelTool === "Wall" ? (
+          <button type="button" onClick={finishSurface}>Finish {activeModelTool}</button>
+        ) : null}
       </nav>
 
       <div className="architectContextbar">
         <span className="architectContextTitle">3D Workspace</span>
         <span className="architectContextHint">
           {activeModelTool
-            ? `Add: ${activeModelTool}`
+            ? activeModelTool === "Slab" || activeModelTool === "Wall"
+              ? `Add: ${activeModelTool} · Pick boundary points in order, then Finish`
+              : `Add: ${activeModelTool}`
             : activeUtilityTool === "View"
               ? "That Open navigation active"
               : "That Open selection and snap tools"}
