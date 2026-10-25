@@ -8,6 +8,7 @@ import {
   getPublishedSelections,
   publishSelections,
 } from "../lib/editor/selection-store";
+import { UTILITY_COMMAND_EVENT } from "../lib/editor/member-draw-events";
 import ThatOpenViewportV07 from "./ThatOpenViewportV07";
 
 interface Props {
@@ -187,12 +188,13 @@ export default function ThatOpenViewportV08(props: Props) {
     if (!target) return;
 
     props.onSelect(target);
-    queueMicrotask(() => publishSelections(selections));
+    queueMicrotask(() => { publishSelections(selections); window.dispatchEvent(new Event("linkoteq:properties-open")); });
     setContextMenu(null);
   };
 
   const runEditorCommand = (label: "Move" | "Copy" | "Delete selected") => {
-    clickEditorButton(label);
+    if(label === "Delete selected") clickEditorButton(label);
+    else window.dispatchEvent(new CustomEvent(UTILITY_COMMAND_EVENT, { detail: label }));
     setContextMenu(null);
   };
 
@@ -298,3 +300,4 @@ export default function ThatOpenViewportV08(props: Props) {
     </div>
   );
 }
+

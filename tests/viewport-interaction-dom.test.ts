@@ -16,9 +16,12 @@ test("canvas taps create members and surfaces; copy/move commit once; WebGL fail
       entryPoints: ["tests/helpers/modeling-interaction-harness.tsx"], outfile: output,
       bundle: true, platform: "node", format: "esm", jsx: "automatic", packages: "external",
       plugins: [{ name: "renderer-test-double", setup(builder) {
+        builder.onResolve({ filter: /\/StructuralEditorV05$/ }, () => ({ path: "editor", namespace: "test" }));
         builder.onResolve({ filter: /\/that-open-runtime$/ }, () => ({ path: "runtime", namespace: "test" }));
         builder.onResolve({ filter: /\/(CiscSectionSelectorV05|LevelGridEditorV05)$/ }, () => ({ path: "dialog", namespace: "test" }));
-        builder.onLoad({ filter: /.*/, namespace: "test" }, ({ path: id }) => id === "dialog"
+        builder.onLoad({ filter: /.*/, namespace: "test" }, ({ path: id }) => id === "editor"
+          ? { resolveDir: process.cwd(), contents: 'export { EditorHarness as default } from "./tests/helpers/modeling-interaction-harness";' }
+          : id === "dialog"
           ? { contents: "export default function Dialog() { return null; }" }
           : { resolveDir: process.cwd(), contents: `
 import * as THREE from "three";
@@ -35,9 +38,10 @@ export function createThatOpenRuntime(container) {
 export function snapThatOpen(runtime, event, model, selection) {
  return resolveSnapPoint(event, model, selection, runtime.camera.three, runtime.renderer.three.domElement, 13);
 }
-export const pickThatOpen = async () => null;
-export const rebuildThatOpenScene = () => {};
+export const pickThatOpen = async (runtime,event) => ({type:"member",id:runtime.model.members[event.clientX < 400 ? 0 : 1].id});
+export const rebuildThatOpenScene = (runtime,model) => {runtime.model=model;};
 export const renderTransformPreview = () => {};
+export const renderModelingPreview = () => {};
 export const clearTransformPreview = () => {};
 export const setThatOpenView = () => {};
 export const stepThatOpenAxis = () => {};
@@ -47,7 +51,7 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
 ` });
       } }],
     });
-    const dom = new JSDOM("<body><div id='root'></div></body>", { url: "http://localhost" });
+    const dom = new JSDOM("<body><div id='root'></div></body>", { url: "http://localhost", pretendToBeVisual: true });
     const original = new Map<string, PropertyDescriptor | undefined>();
     for (const [key, value] of Object.entries({ window: dom.window, document: dom.window.document,
       navigator: dom.window.navigator, Element: dom.window.Element, CustomEvent: dom.window.CustomEvent,
@@ -59,8 +63,8 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
     const host = dom.window.document.getElementById("root")!;
     let mounted = harness.mount(host);
     const click = (label: string, utility = false) => harness.act(() => {
-      const buttons = [...host.querySelectorAll<HTMLButtonElement>(utility ? ".architectQuickActions button" : ".toolGrid button")];
-      const button = buttons.find(item => item.textContent?.trim() === label);
+      const buttons = [...host.querySelectorAll<HTMLButtonElement>(utility ? ".architectQuickActions button" : ".architectToolstrip button")];
+      const button = buttons.find(item => utility ? item.querySelector("strong")?.textContent?.trim() === label : item.querySelector("span:last-child")?.textContent?.trim() === label);
       assert.ok(button, `Missing ${label} button`);
       button.click();
     });
@@ -72,6 +76,21 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
         canvas.dispatchEvent(event);
       }
     });
+    const inputPoint = (values: [string,string,string], relative = false) => {
+      const panel = host.querySelector('[aria-label="Point input"]')!;
+      harness.act(() => {
+        const select = panel.querySelector("select")!;
+        select.value = relative ? "relative" : "absolute";
+        select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+      });
+      harness.act(() => {
+        [...panel.querySelectorAll<HTMLInputElement>(".pointCoordinateFields input")].forEach((input,index) => {
+          Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,"value")!.set!.call(input,values[index]);
+          input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+        });
+      });
+      harness.act(() => panel.querySelector<HTMLButtonElement>('form button[type="submit"]')!.click());
+    };
     try {
       for (const tool of ["Column", "Beam", "Brace"]) {
         const before = mounted.model().members.length;
@@ -92,6 +111,50 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
         harness.act(() => [...host.querySelectorAll<HTMLButtonElement>("button")].find(item => item.textContent?.trim().startsWith(`Finish ${tool}`))!.click());
         assert.equal(mounted.model().surfaces.length, before + 1);
       }
+      click("Column");
+      const beforeLevel = mounted.model().members.length;
+      inputPoint(["30","30","0"]);
+      const endLevel = mounted.model().levels.find((level: {elevation:number}) => level.elevation !== 0)!;
+      const levelSelect = [...host.querySelectorAll("label")].find(item => item.textContent?.startsWith("Column end level"))!.querySelector("select")!;
+      harness.act(() => {levelSelect.value=endLevel.id;levelSelect.dispatchEvent(new dom.window.Event("change",{bubbles:true}));});
+      harness.act(() => [...host.querySelectorAll<HTMLButtonElement>("button")].find(item => item.textContent==="Use end level")!.click());
+      assert.equal(mounted.model().members.length,beforeLevel+1);
+      const levelMember = mounted.model().members.at(-1)!;
+      assert.deepEqual(mounted.model().nodes.find((node:{id:string})=>node.id===levelMember.endNodeId).position,{x:30,y:30,z:endLevel.elevation});
+      click("Beam"); inputPoint(["40","10","3"]); inputPoint(["5","0","0"],true);
+      const beam = mounted.model().members.at(-1)!;
+      assert.deepEqual(mounted.model().nodes.find((node:{id:string})=>node.id===beam.endNodeId).position,{x:45,y:10,z:3});
+      click("Slab");
+      const beforeSurfaceNodes = mounted.model().nodes.length;
+      inputPoint(["50","50","3"]); inputPoint(["4","0","0"],true); inputPoint(["0","4","0"],true); inputPoint(["-4","0","0"],true);
+      assert.equal(mounted.model().nodes.length,beforeSurfaceNodes,"Pending boundaries must not create orphan nodes");
+      assert.equal(harness.getPointToolState().points.length,4);
+      harness.act(()=>[...host.querySelectorAll<HTMLButtonElement>(".architectToolstrip button")].find(item=>item.textContent==="Finish Slab")!.click());
+      assert.equal(mounted.model().nodes.length,beforeSurfaceNodes+4);
+      click("Wall"); inputPoint(["70","70","0"]);
+      const beforeCancel = mounted.model().nodes.length;
+      harness.act(()=>host.querySelector<HTMLButtonElement>('[aria-label="Cancel active tool"]')!.click());
+      assert.equal(harness.getPointToolState().tool,null);
+      assert.equal(mounted.model().nodes.length,beforeCancel);
+      // The visible multiple-selection toggle must accumulate canvas selections.
+      const multipleButton=host.querySelector<HTMLButtonElement>(".viewportMultiSelect")!;
+      harness.act(()=>multipleButton.click());
+      await harness.act(async()=>tap(280,260));
+      await harness.act(async()=>tap(520,260));
+      assert.equal(harness.getPublishedSelections().length,2);
+      assert.equal(multipleButton.getAttribute("aria-pressed"),"true");
+      // Full shell -> group command -> numeric base/target -> shared-node mapping.
+      const source = structuredClone(mounted.model());
+      const selected = [...mounted.initial.members.map((member:{id:string})=>({type:"member",id:member.id})),{type:"node",id:mounted.initial.nodes[1].id}];
+      harness.act(()=>harness.publishSelections(selected));
+      click("Copy",true); inputPoint(["0","0","0"]); inputPoint(["10","0","0"],true);
+      assert.equal(mounted.model().nodes.length,source.nodes.length+mounted.initial.nodes.length);
+      assert.equal(mounted.model().members.length,source.members.length+mounted.initial.members.length);
+      assert.equal(harness.getPublishedSelections().length,selected.length);
+      assert.deepEqual(mounted.model().nodes.slice(0,source.nodes.length),source.nodes);
+      const clones=structuredClone(mounted.model().nodes.slice(source.nodes.length));
+      click("Move",true); inputPoint(["0","0","0"]); inputPoint(["0","0","2"]);
+      for(const node of clones) assert.deepEqual(mounted.model().nodes.find((item:{id:string})=>item.id===node.id).position,{...node.position,z:node.position.z+2});
       click("Select", true);
       harness.act(() => harness.publishSelection({ type: "member", id: mounted.model().members.at(-1).id }));
       const originalCount = mounted.model().members.length;
@@ -115,7 +178,7 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
       dom.window.document.body.dataset.failWebgl = "true";
       mounted = harness.mount(host);
       assert.match(host.querySelector('[role="alert"]')!.textContent!, /WebGL/);
-      assert.ok(host.querySelector(".toolGrid"), "Renderer failure must preserve the editor");
+      assert.ok(host.querySelector(".architectToolstrip"), "Renderer failure must preserve the editor");
     } finally {
       mounted.unmount();
       dom.window.close();

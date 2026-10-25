@@ -22,7 +22,7 @@ function findNodeAtPoint(model: StructuralModel, point: Vec3): string | null {
   );
 }
 
-function ensureNodeAtPoint(
+export function ensureNodeAtPoint(
   model: StructuralModel,
   point: Vec3,
 ): { model: StructuralModel; nodeId: string } {
@@ -30,7 +30,9 @@ function ensureNodeAtPoint(
   if (existing) return { model, nodeId: existing };
 
   const created = createNodeFromGlobalCoordinates(model, point);
-  return { model: created.model, nodeId: created.node.id };
+  const levelId = model.levels.find(level => Math.abs(level.elevation - point.z) <= POSITION_TOLERANCE)?.id;
+  const next = levelId ? { ...created.model, nodes: created.model.nodes.map(node => node.id === created.node.id ? { ...node, levelId } : node) } : created.model;
+  return { model: next, nodeId: created.node.id };
 }
 
 export function createMemberFromSnapPoints(
@@ -64,3 +66,4 @@ export function createMemberFromSnapPoints(
 
   return { model: created.model, memberId: created.member.id };
 }
+

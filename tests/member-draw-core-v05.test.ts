@@ -26,7 +26,8 @@ test("member tools use the shared draw state and preserve surface creation", () 
   assert.match(tools, /beginMemberDraw/);
   assert.match(tools, /createMemberFromSnapPoints/);
   assert.match(tools, /continueMemberDraw/);
-  assert.match(tools, /createSurfaceFromCanonicalRefs/);
+  assert.match(tools, /createSurfaceFromPoints/);
+  assert.match(source("lib/editor/surface-draw-controller.ts"), /createSurfaceFromCanonicalRefs/);
   assert.match(tools, /selectedNodeId/);
   assert.doesNotMatch(tools, /selectedNoideId/);
   assert.doesNotMatch(tools, /levelId\s*:\s*\{\}/);
@@ -41,3 +42,4 @@ test("member draw state is separate from selection state", () => {
   assert.doesNotMatch(drawStore, /selection-store/);
   assert.doesNotMatch(drawStore, /publishSelection/);
 });
+

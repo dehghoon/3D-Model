@@ -16,6 +16,7 @@ import "./grid-modal.css";
 import "./grid-offset-editor.css";
 import "./editor-selection-ux.css";
 import "./engineering-properties-v05.css";
+import "./point-input.css";
 
 export const metadata = {
   title: "LinkoTeq 3D Structural Model",
@@ -29,3 +30,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

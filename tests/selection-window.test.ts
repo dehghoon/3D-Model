@@ -67,3 +67,13 @@ test("right-to-left selection crosses intersecting members", () => {
   assert.deepEqual(selected, [{ type: "member", id: "M1" }]);
 });
 
+
+test("window selection includes complete surfaces and crossing windows inside a surface", async () => {
+  const {selectSurfacesInWindow}=await import("../lib/visualization/selection-window");
+  const shape={...model(),nodes:[{id:"A",position:{x:-2,y:0,z:-2}},{id:"B",position:{x:2,y:0,z:-2}},
+    {id:"C",position:{x:2,y:0,z:2}},{id:"D",position:{x:-2,y:0,z:2}}],
+    surfaces:[{id:"W1",type:"wall" as const,boundaryNodeIds:["A","B","C","D"]}]};
+  assert.deepEqual(selectSurfacesInWindow(shape,camera(),rect,{start:{x:20,y:20},end:{x:80,y:80}}),[{type:"surface",id:"W1"}]);
+  assert.deepEqual(selectSurfacesInWindow(shape,camera(),rect,{start:{x:52,y:48},end:{x:48,y:52}}),[{type:"surface",id:"W1"}]);
+  assert.deepEqual(selectSurfacesInWindow(shape,camera(),rect,{start:{x:48,y:48},end:{x:52,y:52}}),[]);
+});

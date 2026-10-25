@@ -1,32 +1,27 @@
-# Viewport modeling interaction repair
+# Point entry and group modeling workflows
 
-## Scope and current status
-Repository: dehghoon/3D-Model. Branch: fix/viewport-modeling-point-picking. PR: #2. Core remains v0.5. No engine, solver, Core contract or hosting configuration changes.
+Repository: dehghoon/3D-Model. Branch: fix/viewport-modeling-point-picking. PR #2. Canonical Core remains v0.5.
 
-The active route resolves through StructuralEditorShellV2 -> StructuralEditorShellV3 -> StructuralEditorV05 -> StructuralEditorV07 -> ThatOpenViewportV01 -> ThatOpenViewportV03 -> ThatOpenViewportV08 -> ThatOpenViewportV07.
+## User-visible behavior
+- Beam, column and brace accept model clicks, absolute global XYZ coordinates, or relative ΔX/ΔY/ΔZ from the start point. First points can also be entered as coordinates.
+- Columns additionally accept an end level after choosing the base point. This preserves base X/Y and uses the selected level elevation as global Z. Clicking a second point, absolute coordinates, and relative offsets remain available.
+- Slab and wall activation immediately opens a visible point panel with ordered boundary coordinates, an in-scene marker/edge preview, Undo point, Finish and Cancel. Coordinates and offsets can be mixed with clicks. Points remain UI-only until successful completion; cancellation does not leave orphan nodes. Distinct, non-collinear, planar, non-crossing boundaries are validated before canonical writeback.
+- Move/Copy capture the full selected group, ask for a base point and then a target, and accept clicks or coordinates; target offsets are measured from the base. Shared nodes are transformed/cloned exactly once. Copy leaves source geometry unchanged and reuses canonical material/section identities. Failed operations retain the target step and do not partially change the model.
+- Multiple selection is available with Ctrl/Cmd/Shift-click, a persistent Multiple selection toggle, or window selection. Windows include nodes, members and surfaces. Quick actions are available in Simple and Advanced modes. Properties open on request rather than covering the point workflow automatically.
+- Status, stage, selection count and coordinate units are visible. Relative-entry preference is retained for successive points. Pending geometry and the full group transform receive previews. Escape, Cancel, New and Open clear pending command state.
+- Renderer initialization failure preserves the editor and numeric point controls. Real WebGL rendering is still required for visible 3D graphics and canvas picking.
 
-## Interaction changes
-- Forward tapped snap points to the modeling tools before ordinary selection; resolve hover candidates while drawing.
-- Beam, column and brace reuse the canonical node/member creation controller. Slab and wall accept ordered snapped boundary points, reuse existing nodes or create canonical nodes, and expose Finish in Simple Mode.
-- Tool switches cancel conflicting draw/transform state. Escape and project New/Open reset pending modeling state. Non-primary-button clicks and drags do not become drawing/placement taps.
-- Copy/Move use the selection captured at activation and finish only after validated successful writeback. Failed writeback retains the target step.
-- Reject multiple transform selections explicitly instead of modifying only the last selection. Group Copy/Move are not implemented.
-- Front/side orthographic rays parallel to the horizontal work plane use a vertical construction plane. Grid candidates follow selected elevation.
-- Fix the starter model's `diaphhragms` typo to canonical `diaphragms`.
-- Catch renderer initialization errors inside the viewport. Keep the rest of the editor mounted with a readable WebGL/graphics message and allow model saving. Dispose partially initialized runtime components on initialization failure.
+## Implementation boundaries
+The shell and context menu use explicit modeling/utility commands rather than searching hidden toolbar buttons. `ModelToolsV05` consumes the same picked-point event for clicks and numeric entry. `PointInputPanel` is mounted inside the actual editor viewport. Separate UI stores hold transient point/command state; canonical geometry is written only through existing Core-compatible helpers.
+
+`transformGroup` validates the entire group, maps each unique source node once, assigns collision-free copy IDs, preserves copied surface openings, and rejects movement that collapses any connected member. Move retains existing shared-node topology, including effects on unselected incident elements. Copy is geometry-only: it does not duplicate loads, supports or diaphragms. Copied surface support-member links are mapped only when those members are copied; otherwise a warning requests reassignment. No engineering engine, Core contract or solver adapter is modified.
 
 ## Verification
-- All 119 tests pass, including existing grid/level, selection, node/member/surface, transform, boundary-condition, import/export, and Core integration checks.
-- Full `npm run typecheck` passes with all tests included; no test exclusions or bypasses. Track the standard `next-env.d.ts` so a fresh checkout can load Next/styled-jsx declarations before its first build. CI exposed this missing initialization file after all 119 tests passed.
-- Local production Next.js build passes.
-- New DOM integration test mounts the real React modeling tools, viewport and transform bridge. It sends canvas pointer events through the real snap resolver into canonical writeback. It covers column/beam/brace creation, ordered slab/wall completion, drag rejection, Copy/Move, failed transform retention, Escape, and preservation of the editor on renderer failure. Only the graphics runtime and unrelated library dialogs are test doubles. This is not a real WebGL rendering test.
-- Six additional geometry regression cases verify canonical identity/reference preservation and front-view free-point picking.
-- Test repairs correct malformed regex/syntax, legacy v0.2 fixture fields in v0.5 tests, a misspelled fixture source ID, the NDC center expectation, the current unified section panel, whitespace-sensitive source assertions, and window selection expectations that omitted selected nodes. No failing tests were removed or skipped.
-- Test-only dependencies: jsdom, its types, and esbuild. Production dependency pins are unchanged. A normal install prepares the exact pinned Core package successfully; no hand-written declaration workaround is required.
+- 128 tests pass locally, including all existing checks, geometry/group regressions, and the expanded DOM integration scenario.
+- Full `npm run typecheck` and production Next.js build pass locally.
+- DOM integration mounts the real public shell, modeling tools, point input panel, viewport interaction code and transform bridge. It covers tool activation; clicked member and surface creation; numeric first/end points; column end-level selection; relative beam coordinates; staged numeric slab completion/cancellation; the multiple-selection toggle; numeric group Copy/Move; shared-node identity; drag rejection; failure retention; Escape; and renderer failure. Only the graphics runtime and unrelated catalog dialogs are test doubles. Its picker double exercises selection routing, not GPU raycasting.
+- Pure tests cover mixed node/member/surface group transforms, immutability, unique IDs, shared-node deduplication, surface openings, collapse prevention, coordinate validation, and invalid surface boundaries.
+- The standard next-env.d.ts remains tracked so CI typechecking works before a first build. No tests are excluded or skipped.
 
-## Browser observation and remaining limits
-The existing Vercel preview was opened through the cloud browser. Console evidence showed WebGL disabled and `Error creating WebGL context`; before the error-handling repair this crashed the entire page. The updated preview was reloaded and its accessibility tree confirmed the editor, Save project control, and explanatory WebGL message remain visible. This browser cannot verify real 3D rendering or GPU picking. Its limitation does not establish that the user's browser has the same failure.
-
-Group transforms remain unsupported. Shared-node movement preserves existing connected-topology semantics. Work-plane elevation follows selected geometry; this repair does not add an explicit construction-plane/floor UI. Delete/reference policies and engineering analysis behavior are not redesigned.
-
-Changes are for review in PR #2. Production merge/deployment and real WebGL interaction verification are not claimed. CI and preview state must be checked against the final commit.
+## Release scope
+This work updates PR #2 and its preview. Production merge is not claimed. CI and Vercel status must be checked for the final commit. The cloud browser previously had WebGL disabled; numeric and status workflows can be checked there, but real GPU rendering and pointer picking must be distinguished from those checks. Solver-dependent production acceptance remains outside this geometry/UI change.

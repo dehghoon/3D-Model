@@ -1,14 +1,8 @@
 "use client";
-
-import { useEffect, useMemo, useRef, useState } from "react";
-import type {
-  MemberType,
-  StructuralModel,
-  SurfaceType,
-} from "@linkoteq/structural-core";
+import { useEffect, useRef, useState } from "react";
+import type { MemberType, StructuralModel } from "@linkoteq/structural-core";
 import CiscSectionSelectorV05 from "./CiscSectionSelectorV05";
 import LevelGridEditorV05 from "./LevelGridEditorV05";
-import { createSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
 import {
   createDefaultPortalFrame,
   DEFAULT_CISC_DESIGNATION,
@@ -25,22 +19,31 @@ import {
   getMemberDrawState,
   setMemberDrawStart,
   updateMemberDrawReferences,
-  useMemberDrawState,
 } from "../lib/editor/member-draw-store";
 import { createMemberFromSnapPoints } from "../lib/editor/member-draw-controller";
-import { cancelInteraction } from "../lib/editor/interaction-store";
-import { createNodeFromGlobalCoordinates } from "../lib/editor-modeling-v05";
-import { MEMBER_DRAW_PICK_EVENT, setModelingPointTool } from "../lib/editor/member-draw-events";
-import type { SnapPoint } from "../lib/editor/interaction-store";
+import { createSurfaceFromPoints } from "../lib/editor/surface-draw-controller";
+import {
+  cancelInteraction,
+  type SnapPoint,
+} from "../lib/editor/interaction-store";
+import {
+  MEMBER_DRAW_PICK_EVENT,
+  MODELING_COMMAND_EVENT,
+  SURFACE_FINISH_EVENT,
+  getPointToolState,
+  setModelingPointTool,
+  setSurfacePoints,
+  setPointToolMessage,
+  usePointToolState,
+} from "../lib/editor/member-draw-events";
+import { assertCanonicalV05 } from "../lib/core-v05";
 
 type Tool = "select" | "beam" | "column" | "brace" | "wall" | "slab";
-
 interface Props {
   model: StructuralModel;
   selectedNodeId?: string;
   onModelChange: (model: StructuralModel, status: string) => void;
 }
-
 const TOOLS: Array<{ id: Tool; label: string }> = [
   { id: "select", label: "Select" },
   { id: "beam", label: "Beam" },
@@ -49,73 +52,59 @@ const TOOLS: Array<{ id: Tool; label: string }> = [
   { id: "wall", label: "Wall" },
   { id: "slab", label: "Slab" },
 ];
-
-function isUninitializedModel(model: StructuralModel): boolean {
+function isUninitializedModel(model: StructuralModel) {
   return (
-    model.nodes.length === 0 &&
-    model.members.length === 0 &&
-    model.surfaces.length === 0 &&
-    model.materials.length === 0 &&
-    model.sections.length === 0 &&
-    model.levels.length === 0 &&
-    model.grids.length === 0
+    !model.nodes.length &&
+    !model.members.length &&
+    !model.surfaces.length &&
+    !model.materials.length &&
+    !model.sections.length &&
+    !model.levels.length &&
+    !model.grids.length
   );
 }
-
-function nodeSnap(model: StructuralModel, nodeId: string): SnapPoint | null {
-  const node = model.nodes.find((item) => item.id === nodeId);
-  if (!node) return null;
-
-  return {
-    point: { ...node.position },
-    kind: "node",
-    label: `Node ${node.id}`,
-  };
-}
-
 export default function ModelToolsV05({
   model,
   selectedNodeId,
   onModelChange,
 }: Props) {
-  const [tool, setTool] = useState<Tool>("select");
-  const [pickedNodeIds, setPickedNodeIds] = useState<string[]>([]);
+  const pointState = usePointToolState();
+  const tool = pointState.tool ?? "select";
   const [materialId, setMaterialId] = useState("");
   const [sectionId, setSectionId] = useState("");
   const [status, setStatus] = useState("Select a modeling tool.");
-  const initializingDefaultRef = useRef(false);
+  const modelRef = useRef(model);
   const ignoredSelectionRef = useRef<string | null>(null);
-  const drawState = useMemberDrawState();
-
-  const isMemberTool =
-    tool === "beam" || tool === "column" || tool === "brace";
+  const initializingDefaultRef = useRef(false);
+  const handlersRef = useRef<{
+    choose: (tool: Tool) => void;
+    pick: (point: SnapPoint) => void;
+    finish: () => void;
+  } | null>(null);
+  modelRef.current = model;
+  const isMemberTool = tool === "beam" || tool === "column" || tool === "brace";
   const isSurfaceTool = tool === "wall" || tool === "slab";
   const defaultMaterialId = getDefaultMaterialId(model);
   const defaultSectionId = getDefaultSectionId(model);
-
   useEffect(() => {
     if (!isUninitializedModel(model)) {
       initializingDefaultRef.current = false;
       return;
     }
     if (initializingDefaultRef.current) return;
-
     initializingDefaultRef.current = true;
     loadApprovedCiscSections()
       .then(({ sections }) => {
-        const defaultSection =
+        if (!isUninitializedModel(modelRef.current)) return;
+        const section =
           sections.find(
             (item) =>
               item.designation.toUpperCase() === DEFAULT_CISC_DESIGNATION,
           ) ?? sections[0];
-
-        if (!defaultSection) {
-          throw new Error("CISC_DEFAULT_SECTION_NOT_FOUND");
-        }
-
+        if (!section) throw new Error("CISC_DEFAULT_SECTION_NOT_FOUND");
         onModelChange(
-          createDefaultPortalFrame(defaultSection),
-          `Default portal frame restored with ${defaultSection.designation} from approved CISC dataset ${defaultSection.dataset_version}.`,
+          createDefaultPortalFrame(section),
+          `Default portal frame restored with ${section.designation}.`,
         );
       })
       .catch((error: unknown) => {
@@ -123,242 +112,198 @@ export default function ModelToolsV05({
         setStatus(
           error instanceof Error
             ? error.message
-            : "Approved CISC dataset could not be loaded.",
+            : "Section catalog unavailable.",
         );
       });
   }, [model, onModelChange]);
-
   useEffect(() => {
-    setMaterialId((current) => current || defaultMaterialId);
-  }, [defaultMaterialId]);
-
+    setMaterialId((current) =>
+      model.materials.some((item) => item.id === current)
+        ? current
+        : defaultMaterialId,
+    );
+  }, [model.materials, defaultMaterialId]);
   useEffect(() => {
-    setSectionId((current) => current || defaultSectionId);
-  }, [defaultSectionId]);
-
+    setSectionId((current) =>
+      model.sections.some((item) => item.id === current)
+        ? current
+        : defaultSectionId,
+    );
+  }, [model.sections, defaultSectionId]);
   useEffect(() => {
     updateMemberDrawReferences(
       materialId || defaultMaterialId,
       sectionId || defaultSectionId,
     );
   }, [materialId, sectionId, defaultMaterialId, defaultSectionId]);
-
-  const pickedLabel = useMemo(
-    () => (pickedNodeIds.length ? pickedNodeIds.join(" -> ") : "None"),
-    [pickedNodeIds],
-  );
-
-  function chooseTool(next: Tool) {
+  function cancel() {
     cancelInteraction();
+    cancelMemberDraw();
+    setModelingPointTool(null);
+    ignoredSelectionRef.current = null;
+  }
+  function commit(next: StructuralModel, message: string) {
+    assertCanonicalV05(next);
+    modelRef.current = next;
+    onModelChange(next, message);
+    setStatus(message);
+    setPointToolMessage(message);
+  }
+  function chooseTool(next: Tool) {
+    cancel();
     window.dispatchEvent(new Event("linkoteq:view-select"));
-    setModelingPointTool(next === "select" ? null : next);
-    setTool(next);
-    setPickedNodeIds([]);
-
-    if (next === "select") {
-      ignoredSelectionRef.current = null;
-      cancelMemberDraw();
-      setStatus("Selection mode.");
-      return;
-    }
-
-    if (next === "wall" || next === "slab") {
-      ignoredSelectionRef.current = selectedNodeId ?? null;
-      cancelMemberDraw();
-      setStatus(
-        `${next === "wall" ? "Wall" : "Slab"} tool: select boundary nodes in order, then finish.`,
-      );
-      return;
-    }
-
+    if (next === "select") return;
     const resolvedMaterialId = materialId || defaultMaterialId;
     const resolvedSectionId = sectionId || defaultSectionId;
-
-    if (!resolvedMaterialId || !resolvedSectionId) {
-      cancelMemberDraw();
-      setModelingPointTool(null);
-      setStatus(
-        "Choose approved canonical material and section records before drawing a member.",
+    if (
+      next !== "wall" &&
+      next !== "slab" &&
+      (!resolvedMaterialId || !resolvedSectionId)
+    ) {
+      setStatus("Choose an approved material and section before drawing.");
+      setPointToolMessage(
+        "Choose an approved material and section before drawing.",
       );
       return;
     }
-
-    if (!materialId) setMaterialId(resolvedMaterialId);
-    if (!sectionId) setSectionId(resolvedSectionId);
-
     ignoredSelectionRef.current = selectedNodeId ?? null;
-    beginMemberDraw({
-      type: next as MemberType,
-      materialId: resolvedMaterialId,
-      sectionId: resolvedSectionId,
-    });
-    setStatus(
-      `${next[0].toUpperCase()}${next.slice(1)} draw: pick first point.`,
-    );
+    setModelingPointTool(next);
+    if (next !== "wall" && next !== "slab")
+      beginMemberDraw({
+        type: next as MemberType,
+        materialId: resolvedMaterialId,
+        sectionId: resolvedSectionId,
+      });
   }
-
-  useEffect(() => {
-    if (!selectedNodeId || tool === "select") return;
-
-    if (selectedNodeId === ignoredSelectionRef.current) {
-      return;
-    }
-    ignoredSelectionRef.current = selectedNodeId;
-
-    const snap = nodeSnap(model, selectedNodeId);
-    if (!snap) return;
-
-    if (isMemberTool) {
-      acceptMemberPoint(snap);
-      return;
-    }
-
-    if (isSurfaceTool) {
-      setPickedNodeIds((current) =>
-        current.includes(selectedNodeId)
-          ? current
-          : [...current, selectedNodeId],
-      );
-    }
-  }, [
-    selectedNodeId,
-    tool,
-    model,
-    isMemberTool,
-    isSurfaceTool,
-    onModelChange,
-  ]);
-
-  function acceptMemberPoint(snap: SnapPoint): void {
-    const draw = getMemberDrawState();
-    if (!draw.active || !draw.type) return;
-
-    if (!draw.start) {
-      setMemberDrawStart(snap);
-      setStatus(`${draw.type}: pick second point.`);
-      return;
-    }
-
+  function acceptPoint(snap: SnapPoint) {
+    const active = getPointToolState();
+    if (!active.tool) return;
     try {
-      const result = createMemberFromSnapPoints(model, {
+      if (!Object.values(snap.point).every(Number.isFinite))
+        throw new Error("Coordinates must be finite.");
+      if (active.tool === "wall" || active.tool === "slab") {
+        if (
+          active.points.some(
+            (item) =>
+              Math.hypot(
+                item.point.x - snap.point.x,
+                item.point.y - snap.point.y,
+                item.point.z - snap.point.z,
+              ) < 1e-8,
+          )
+        )
+          throw new Error(
+            "This boundary point is already selected. Choose another point or Finish.",
+          );
+        setSurfacePoints([...active.points, snap]);
+        return;
+      }
+      const draw = getMemberDrawState();
+      if (!draw.active || !draw.type) return;
+      if (!draw.start) {
+        setMemberDrawStart(snap);
+        setPointToolMessage(
+          "Start point set. Pick second point, enter coordinates/offsets, or choose an end level for a column.",
+        );
+        return;
+      }
+      const result = createMemberFromSnapPoints(modelRef.current, {
         type: draw.type,
         materialId: draw.materialId,
         sectionId: draw.sectionId,
         start: draw.start,
         end: snap,
       });
-
-      onModelChange(
+      commit(
         result.model,
-        `Created ${draw.type} ${result.memberId} from canonical snapped node references.`,
+        `Created ${draw.type} ${result.memberId}. Continue from the last point or Cancel.`,
       );
       continueMemberDraw(snap, result.memberId);
-      setStatus(
-        `Created ${draw.type} ${result.memberId}. Continue from ${snap.label} or choose Select.`,
-      );
     } catch (error) {
-      setStatus(
-        error instanceof Error ? error.message : "Member creation failed.",
+      setPointToolMessage(
+        error instanceof Error
+          ? error.message === "MEMBER_DRAW_POINTS_MUST_BE_DISTINCT"
+            ? "End point must differ from the start point."
+            : error.message
+          : "Point could not be used.",
       );
     }
   }
-
-  useEffect(() => {
-    const pick = (event: Event) => {
-      const snap = (event as CustomEvent<SnapPoint>).detail;
-      if (!snap) return;
-      if (isMemberTool) acceptMemberPoint(snap);
-      if (isSurfaceTool) {
-        const existing = model.nodes.find((node) =>
-          Math.hypot(node.position.x - snap.point.x, node.position.y - snap.point.y,
-            node.position.z - snap.point.z) <= 1e-8,
-        );
-        const result = existing ? { model, node: existing }
-          : createNodeFromGlobalCoordinates(model, snap.point);
-        setPickedNodeIds((current) => current.includes(result.node.id)
-          ? current : [...current, result.node.id]);
-        if (!existing) onModelChange(result.model, `Created boundary node ${result.node.id}.`);
-      }
-    };
-    window.addEventListener(MEMBER_DRAW_PICK_EVENT, pick);
-    return () => window.removeEventListener(MEMBER_DRAW_PICK_EVENT, pick);
-  }, [model, isMemberTool, isSurfaceTool, onModelChange]);
-
-  useEffect(() => {
-    const cancel = () => {
-      cancelInteraction();
-      cancelMemberDraw();
-      setModelingPointTool(null);
-      setTool("select");
-      setPickedNodeIds([]);
-      ignoredSelectionRef.current = null;
-      setStatus("Selection mode.");
-    };
-    const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") cancel();
-    };
-    window.addEventListener("linkoteq:modeling-cancel", cancel);
-    window.addEventListener("keydown", key);
-    return () => {
-      window.removeEventListener("linkoteq:modeling-cancel", cancel);
-      window.removeEventListener("keydown", key);
-    };
-  }, []);
-
   function finishSurface() {
-    if (!isSurfaceTool || pickedNodeIds.length < 3) {
-      setStatus("Select at least three distinct boundary nodes.");
-      return;
-    }
-
+    const active = getPointToolState();
+    if (active.tool !== "wall" && active.tool !== "slab") return;
     try {
-      const firstNode = model.nodes.find(
-        (node) => node.id === pickedNodeIds[0],
+      const result = createSurfaceFromPoints(
+        modelRef.current,
+        active.tool,
+        active.points.map((item) => item.point),
       );
-      const sameLevel = Boolean(
-        firstNode?.levelId &&
-          pickedNodeIds.every(
-            (id) =>
-              model.nodes.find((node) => node.id === id)?.levelId ===
-              firstNode.levelId,
-          ),
+      commit(result.model, `Created ${active.tool} ${result.surface.id}.`);
+      setSurfacePoints([]);
+      setPointToolMessage(
+        `Created ${active.tool} ${result.surface.id}. Pick points for another surface or Cancel.`,
       );
-
-      const result =
-        sameLevel && firstNode?.levelId
-          ? createSurfaceFromCanonicalRefs(model, {
-              type: tool as SurfaceType,
-              boundaryNodeIds: pickedNodeIds,
-              levelId: firstNode.levelId,
-            })
-          : createSurfaceFromCanonicalRefs(model, {
-              type: tool as SurfaceType,
-              boundaryNodeIds: pickedNodeIds,
-            });
-
-      onModelChange(
-        result.model,
-        `Created ${result.surface.type} ${result.surface.id} from viewport boundary picks.`,
-      );
-      setPickedNodeIds([]);
-      setStatus(`Created ${result.surface.type} ${result.surface.id}.`);
     } catch (error) {
-      setStatus(
+      setPointToolMessage(
         error instanceof Error ? error.message : "Surface creation failed.",
       );
     }
   }
-
+  handlersRef.current = {
+    choose: chooseTool,
+    pick: acceptPoint,
+    finish: finishSurface,
+  };
+  useEffect(() => {
+    const choose = (event: Event) => {
+      const next = (event as CustomEvent<Tool>).detail;
+      if (TOOLS.some((item) => item.id === next))
+        handlersRef.current?.choose(next);
+    };
+    const pick = (event: Event) => {
+      const point = (event as CustomEvent<SnapPoint>).detail;
+      if (point?.point) handlersRef.current?.pick(point);
+    };
+    const finish = () => handlersRef.current?.finish();
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") cancel();
+    };
+    window.addEventListener(MODELING_COMMAND_EVENT, choose);
+    window.addEventListener(MEMBER_DRAW_PICK_EVENT, pick);
+    window.addEventListener(SURFACE_FINISH_EVENT, finish);
+    window.addEventListener("linkoteq:modeling-cancel", cancel);
+    window.addEventListener("keydown", key);
+    return () => {
+      window.removeEventListener(MODELING_COMMAND_EVENT, choose);
+      window.removeEventListener(MEMBER_DRAW_PICK_EVENT, pick);
+      window.removeEventListener(SURFACE_FINISH_EVENT, finish);
+      window.removeEventListener("linkoteq:modeling-cancel", cancel);
+      window.removeEventListener("keydown", key);
+      cancelMemberDraw();
+      setModelingPointTool(null);
+    };
+  }, []);
+  // Existing-node selection remains a compatibility path; canvas picks use the explicit point event.
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    if (selectedNodeId === ignoredSelectionRef.current) {
+      return;
+    }
+    ignoredSelectionRef.current = selectedNodeId;
+    const node = modelRef.current.nodes.find(
+      (item) => item.id === selectedNodeId,
+    );
+    if (node)
+      handlersRef.current?.pick({
+        point: { ...node.position },
+        kind: "node",
+        label: `Node ${node.id}`,
+      });
+  }, [selectedNodeId]);
   return (
     <>
-      <CiscSectionSelectorV05
-        model={model}
-        onModelChange={onModelChange}
-      />
-      <LevelGridEditorV05
-        model={model}
-        onModelChange={onModelChange}
-      />
+      <CiscSectionSelectorV05 model={model} onModelChange={onModelChange} />
+      <LevelGridEditorV05 model={model} onModelChange={onModelChange} />
 
       <section className="panelBlock">
         <h3>Model Tools</h3>
@@ -410,20 +355,26 @@ export default function ModelToolsV05({
 
         {tool !== "select" ? (
           <>
-            <p className="selectionText">
-              {isMemberTool ? drawState.message : status}
-            </p>
+            <p className="selectionText">{pointState.message || status}</p>
 
             {isSurfaceTool ? (
               <>
-                <p className="selectionText">Picked: {pickedLabel}</p>
+                <p className="selectionText">
+                  Picked:{" "}
+                  {pointState.points
+                    .map(
+                      (point) =>
+                        `(${point.point.x}, ${point.point.y}, ${point.point.z})`,
+                    )
+                    .join(" → ") || "None"}
+                </p>
                 <button
                   className="primaryWide"
                   onClick={finishSurface}
-                  disabled={pickedNodeIds.length < 3}
+                  disabled={pointState.points.length < 3}
                 >
                   Finish {tool === "wall" ? "Wall" : "Slab"} (
-                  {pickedNodeIds.length})
+                  {pointState.points.length})
                 </button>
               </>
             ) : null}

@@ -2,6 +2,8 @@ import * as OBC from "@thatopen/components";
 import * as THREE from "three";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../editor/selection";
+import { getMemberDrawState } from "../editor/member-draw-store";
+import { getPointToolState } from "../editor/member-draw-events";
 import { getInteractionState } from "../editor/interaction-store";
 import { buildCoreScene, disposeCoreScene, type CoreSceneBuild } from "./core-scene-v2";
 import { buildCopyPreview, disposeCopyPreview } from "./copy-preview";
@@ -239,6 +241,8 @@ export function snapThatOpen(
   selection: EditorSelection,
 ) {
   const state = getInteractionState();
+  const tool = getPointToolState();
+  const origin = state.base?.point ?? (tool.tool === "wall" || tool.tool === "slab" ? tool.points.at(-1)?.point : getMemberDrawState().start?.point);
   return resolveSnapPoint(
     { clientX: event.clientX, clientY: event.clientY },
     model,
@@ -246,6 +250,7 @@ export function snapThatOpen(
     runtime.camera.three,
     runtime.renderer.three.domElement,
     event.pointerType === "touch" ? 30 : 13,
+    origin,
   );
 }
 
@@ -285,12 +290,10 @@ export function renderTransformPreview(runtime: ThatOpenRuntime): void {
     Math.abs(delta.x) + Math.abs(delta.y) + Math.abs(delta.z) >
     1e-10
   ) {
-    const ghost = buildCopyPreview(
-      runtime.build.root,
-      state.selection,
-      delta,
-    );
-    if (ghost) group.add(ghost);
+    for (const selection of state.selections) {
+      const ghost = buildCopyPreview(runtime.build.root, selection, delta);
+      if (ghost) group.add(ghost);
+    }
   }
 
   const line = new THREE.Line(
@@ -343,3 +346,29 @@ export function disposeThatOpenRuntime(runtime: ThatOpenRuntime): void {
   runtime.components.dispose();
 }
 
+
+/** UI preview only: pending points never enter the canonical model until commit. */
+export function renderModelingPreview(runtime: ThatOpenRuntime, hover?: Vec3): void {
+  clearTransformPreview(runtime);
+  const tool = getPointToolState();
+  const draw = getMemberDrawState();
+  const points = tool.tool === "wall" || tool.tool === "slab"
+    ? tool.points.map(item => item.point) : draw.start ? [draw.start.point] : [];
+  if (!tool.tool || !points.length) return;
+  const group = new THREE.Group();
+  const toThree = (point: Vec3) => new THREE.Vector3(point.x, point.z, point.y);
+  for (const point of points) {
+    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0xf97316, depthTest: false }));
+    marker.position.copy(toThree(point)); marker.renderOrder = 100; group.add(marker);
+  }
+  const boundary = hover ? [...points, hover] : points;
+  if (boundary.length > 1) {
+    const vectors = boundary.map(toThree);
+    if ((tool.tool === "wall" || tool.tool === "slab") && vectors.length > 2) vectors.push(vectors[0]);
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(vectors),
+      new THREE.LineBasicMaterial({ color: 0xf97316, depthTest: false }));
+    line.renderOrder = 100; group.add(line);
+  }
+  runtime.scene.add(group); runtime.transient = group;
+}

@@ -15,8 +15,8 @@ import {
   setCopyPreview,
   useInteractionState,
 } from "../lib/editor/interaction-store";
+import { MEMBER_DRAW_PICK_EVENT, getModelingPointTool, usePointToolState } from "../lib/editor/member-draw-events";
 import { useMemberDrawState } from "../lib/editor/member-draw-store";
-import { MEMBER_DRAW_PICK_EVENT, getModelingPointTool } from "../lib/editor/member-draw-events";
 import { isTapGesture } from "../lib/visualization/mobile-picking";
 import {
   selectMembersInWindow,
@@ -30,6 +30,7 @@ import {
   pickThatOpen,
   rebuildThatOpenScene,
   renderTransformPreview,
+  renderModelingPreview,
   setThatOpenView,
   snapThatOpen,
   stepThatOpenAxis,
@@ -136,7 +137,11 @@ export default function ThatOpenViewportV07({
   const toolModeRef = useRef<"select" | "view">("select");
 
   const interaction = useInteractionState();
-  const memberDraw = useMemberDrawState();
+  const pointTool = usePointToolState();
+  const draw = useMemberDrawState();
+  const [additive, setAdditive] = useState(false);
+  const additiveRef = useRef(false);
+  additiveRef.current = additive;
   const [runtimeError, setRuntimeError] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [toolMode, setToolMode] = useState<"select" | "view">("select");
@@ -170,8 +175,8 @@ export default function ThatOpenViewportV07({
       if (onMultiSelectRef.current) {
         onMultiSelectRef.current(unique);
       } else {
-        publishSelections(unique);
         onSelectRef.current(unique.at(-1) ?? null);
+        publishSelections(unique);
       }
 
       syncSelectionHighlight(runtime, modelRef.current, unique);
@@ -183,6 +188,7 @@ export default function ThatOpenViewportV07({
 
     const pointerDown = (event: PointerEvent) => {
       if (!event.isPrimary || event.button !== 0) return;
+      canvas.setPointerCapture?.(event.pointerId);
       start = {
         x: event.clientX,
         y: event.clientY,
@@ -195,7 +201,8 @@ export default function ThatOpenViewportV07({
       const state = getInteractionState();
 
       if (getModelingPointTool()) {
-        resolveSnap(event);
+        const snap = resolveSnap(event);
+        renderModelingPreview(runtime, snap?.point);
         return;
       }
 
@@ -305,7 +312,7 @@ export default function ThatOpenViewportV07({
           windowSelection,
         );
 
-        const combined = event.shiftKey
+        const combined = event.shiftKey || additiveRef.current
           ? [...getPublishedSelections(), ...selected]
           : selected;
 
@@ -327,7 +334,7 @@ export default function ThatOpenViewportV07({
       }
 
       const picked = await pickThatOpen(runtime, event);
-      const toggle = event.ctrlKey || event.metaKey;
+      const toggle = event.ctrlKey || event.metaKey || event.shiftKey || additiveRef.current;
 
       if (toggle) {
         if (!picked) {
@@ -417,7 +424,8 @@ export default function ThatOpenViewportV07({
     rebuildThatOpenScene(runtime, model, selection);
     syncSelectionHighlight(runtime, model, getPublishedSelections());
     setSelectionCount(getPublishedSelections().length);
-    renderTransformPreview(runtime);
+    if (getModelingPointTool()) renderModelingPreview(runtime);
+    else renderTransformPreview(runtime);
   }, [model, selection]);
 
   useEffect(() => {
@@ -425,18 +433,22 @@ export default function ThatOpenViewportV07({
     if (!runtime) return;
 
     const shouldEnableCamera =
-      interaction.mode === "select" && !memberDraw.active && toolMode === "view";
+      interaction.mode === "select" && !pointTool.tool && toolMode === "view";
 
     toolModeRef.current = toolMode;
     runtime.camera.controls.enabled = shouldEnableCamera;
 
-    if (interaction.mode === "copy-target") {
+    if (pointTool.tool) {
+      renderModelingPreview(runtime);
+    } else if (interaction.mode === "copy-target") {
       renderTransformPreview(runtime);
     } else {
       clearTransformPreview(runtime);
     }
   }, [
-    memberDraw.active,
+    pointTool.tool,
+    pointTool.points,
+    draw.start,
     interaction.mode,
     interaction.base,
     interaction.preview,
@@ -463,6 +475,11 @@ export default function ThatOpenViewportV07({
       }}
       aria-label="That Open structural viewport"
     >
+      {!pointTool.tool && interaction.mode === "select" ? <button type="button"
+        className={`viewportMultiSelect ${additive ? "active" : ""}`} aria-pressed={additive}
+        onClick={() => setAdditive(current => !current)}>
+        {additive ? "Multiple selection ON" : "Multiple selection"} · {selectionCount} selected
+      </button> : null}
       {runtimeError ? (
         <div role="alert" style={{ position: "absolute", inset: 24, zIndex: 70,
           padding: 20, background: "#fff", color: "#0f172a" }}>
@@ -570,8 +587,8 @@ export default function ThatOpenViewportV07({
               : "contained"
           }`}
           style={{
-            left: Math.min(marquee.start.x, marquee.end.x),
-            top: Math.min(marquee.start.y, marquee.end.y),
+            left: Math.min(marquee.start.x, marquee.end.x) - (containerRef.current?.getBoundingClientRect().left ?? 0),
+            top: Math.min(marquee.start.y, marquee.end.y) - (containerRef.current?.getBoundingClientRect().top ?? 0),
             width: Math.abs(marquee.end.x - marquee.start.x),
             height: Math.abs(marquee.end.y - marquee.start.y),
           }}
