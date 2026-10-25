@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
+
+import { MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
+import { useInteractionState } from "../lib/editor/interaction-store";
+import { usePublishedSelections } from "../lib/editor/selection-store";
 
 type WorkspaceMode = "simple" | "advanced";
 type ModelingTool = "Column" | "Beam" | "Brace" | "Slab" | "Wall";
@@ -10,18 +14,6 @@ type UtilityTool = "Select" | "View" | "Move" | "Copy" | "Delete";
 
 const modelingTools: ModelingTool[] = ["Column", "Beam", "Brace", "Slab", "Wall"];
 const utilityTools: UtilityTool[] = ["Select", "View", "Move", "Copy", "Delete"];
-
-function clickEditorButton(label: string): boolean {
-  const button = Array.from(
-    document.querySelectorAll<HTMLButtonElement>(
-      ".engineeringEditorStage .toolbar button",
-    ),
-  ).find((item) => item.textContent?.trim() === label);
-
-  if (!button || button.disabled) return false;
-  button.click();
-  return true;
-}
 
 function clickProjectAction(label: "New" | "Open" | "Save"): void {
   const button = Array.from(
@@ -58,30 +50,30 @@ function utilityDescription(tool: UtilityTool): string {
 
 export default function StructuralEditorShellV3() {
   const [mode, setMode] = useState<WorkspaceMode>("simple");
-  const [activeModelTool, setActiveModelTool] = useState<ModelingTool | null>(null);
+  const pointState = usePointToolState();
+  const interaction = useInteractionState();
+  const selections = usePublishedSelections();
+  const activeModelTool = pointState.tool ? `${pointState.tool[0].toUpperCase()}${pointState.tool.slice(1)}` as ModelingTool : null;
   const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("View");
 
+  useEffect(() => {
+    const active = (event: Event) => setActiveUtilityTool((event as CustomEvent<UtilityTool>).detail);
+    const select = () => setActiveUtilityTool("Select");
+    window.addEventListener("linkoteq:utility-active", active);
+    window.addEventListener("linkoteq:view-select", select);
+    return () => { window.removeEventListener("linkoteq:utility-active", active); window.removeEventListener("linkoteq:view-select", select); };
+  }, []);
+  function finishSurface(): void { window.dispatchEvent(new Event(SURFACE_FINISH_EVENT)); }
   function runModelTool(tool: ModelingTool): void {
-    if (clickEditorButton(tool)) {
-      setActiveModelTool(tool);
-      setActiveUtilityTool("Select");
-    }
+    window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT, { detail: tool.toLowerCase() }));
   }
-
   function runUtilityTool(tool: UtilityTool): void {
+    window.dispatchEvent(new CustomEvent(UTILITY_COMMAND_EVENT, { detail: tool }));
     setActiveUtilityTool(tool);
-    setActiveModelTool(null);
-
-    if (tool === "Select") {
-      window.dispatchEvent(new Event("linkoteq:view-select"));
-    }
-    if (tool === "View") {
-      window.dispatchEvent(new Event("linkoteq:view-cycle"));
-    }
   }
 
   return (
-    <div className={`architectEditorShell mode-${mode}`}>
+    <div className={`architectEditorShell mode-${mode} ${activeModelTool || interaction.mode !== "select" ? "has-active-point-tool" : ""}`}>
       <header className="architectTopbar">
         <div className="architectBrand">
           <span className="architectBrandMark" aria-hidden="true">
@@ -153,16 +145,23 @@ export default function StructuralEditorShellV3() {
             <span>{tool}</span>
           </button>
         ))}
+        {activeModelTool === "Slab" || activeModelTool === "Wall" ? (
+          <button type="button" onClick={finishSurface}>Finish {activeModelTool}</button>
+        ) : null}
+        {mode === "advanced" ? utilityTools.map(tool => <button key={tool} type="button" onClick={() => runUtilityTool(tool)}>{tool}</button>) : null}
+        {selections.length ? <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:properties-open"))}>Properties ({selections.length})</button> : null}
       </nav>
 
       <div className="architectContextbar">
         <span className="architectContextTitle">3D Workspace</span>
         <span className="architectContextHint">
           {activeModelTool
-            ? `Add: ${activeModelTool}`
+            ? activeModelTool === "Slab" || activeModelTool === "Wall"
+              ? `Add: ${activeModelTool} · Pick boundary points in order, then Finish`
+              : `Add: ${activeModelTool}`
             : activeUtilityTool === "View"
-              ? "That Open navigation active"
-              : "That Open selection and snap tools"}
+              ? "Orbit / pan / zoom"
+              : interaction.message}
         </span>
         <div className="architectViewPills" aria-label="View status">
           <span>That Open</span>
@@ -178,7 +177,7 @@ export default function StructuralEditorShellV3() {
                 <span className="architectEyebrow">MODEL</span>
                 <h2>Setup &amp; Tools</h2>
               </div>
-              <span className="architectPanelBadge">Simple</span>
+              <span className="architectPanelBadge">{mode === "simple" ? "Simple" : "Advanced"}</span>
             </div>
             <div className="architectQuickActions">
               <button type="button" onClick={openGrid}>
@@ -204,10 +203,7 @@ export default function StructuralEditorShellV3() {
                   key={tool}
                   type="button"
                   className={activeUtilityTool === tool ? "active" : ""}
-                  onPointerDown={() => {
-                    setActiveUtilityTool(tool);
-                    setActiveModelTool(null);
-                  }}
+                  data-utility-command={tool}
                   onClick={() => runUtilityTool(tool)}
                 >
                   <span className="architectQuickIcon" aria-hidden="true">
@@ -232,7 +228,7 @@ export default function StructuralEditorShellV3() {
           </div>
           <div className="architectStatusbar" role="status" aria-live="polite">
             <span>
-              <strong>Utility:</strong> {activeUtilityTool}
+              <strong>Utility:</strong> {interaction.operation ?? activeUtilityTool} · {selections.length} selected
             </span>
             <span className="architectStatusDivider" aria-hidden="true">
               |

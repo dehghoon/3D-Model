@@ -25,7 +25,7 @@ test("rectangular concrete and wood sections use the centralized profile rendere
 
   assert.match(renderer, /RC-RECT/);
   assert.match(renderer, /WOOD-RECT/);
-  assert.match(renderer, /solidRectShape/);
+  assert.match(renderer, /rectangleShape/);
   assert.match(renderer, /shapeName\s*===\s*"rectangular"/);
 });
 
@@ -54,3 +54,4 @@ test("non-extruded selected members use selection-store highlighting", () => {
   assert.match(display, /LineBasicMaterial/);
   assert.match(display, /selectedMemberIds\.has\(member\.id\)/);
 });
+

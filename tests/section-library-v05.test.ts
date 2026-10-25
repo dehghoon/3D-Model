@@ -14,7 +14,7 @@ test("Section quick tool is present and wired to the active canonical library pa
   assert.match(quickTools, /label="Section"/);
   assert.match(quickTools, /Open canonical section library/);
   assert.match(quickTools, /linkoteq:section-panel-open/);
-  assert.match(wrapper, /SectionQuickPanelV07/);
+  assert.match(wrapper, /UnifiedSectionQuickPanelV08/);
 });
 
 test("CISC catalog uses the approved API and does not hardcode engineering records", () => {
@@ -68,3 +68,4 @@ test("Section library keeps AISC reference-only and preserves canonical editing"
   assert.match(panel, />Assign</);
   assert.match(panel, /Default Section/);
 });
+

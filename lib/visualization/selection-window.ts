@@ -143,6 +143,36 @@ export function selectNodesInWindow(
   });
 }
 
+export function selectSurfacesInWindow(
+  model: StructuralModel, camera: THREE.Camera, canvasRect: DOMRect, window: SelectionWindow,
+): Array<Exclude<EditorSelection, null>> {
+  const rectangle = rectOf(window);
+  const nodes = new Map(model.nodes.map(node => [node.id, node]));
+  const crossing = window.end.x < window.start.x;
+  return (model.surfaces ?? []).flatMap(surface => {
+    const points = surface.boundaryNodeIds.map(id => {
+      const node = nodes.get(id); return node ? project(node.position, camera, canvasRect) : null;
+    });
+    if (points.length < 3 || points.some(point => !point)) return [];
+    const polygon = points as Array<NonNullable<typeof points[number]>>;
+    let selected = polygon.every(point => inside(point, rectangle));
+    if (crossing) {
+      selected = polygon.some((point,index) => segmentIntersectsRect(point, polygon[(index+1)%polygon.length], rectangle));
+      if (!selected) {
+        // A crossing window entirely inside a filled surface also intersects it.
+        const x = (window.start.x + window.end.x)/2, y = (window.start.y+window.end.y)/2;
+        let contains = false;
+        for (let i=0,j=polygon.length-1;i<polygon.length;j=i++) {
+          const a=polygon[i], b=polygon[j];
+          if ((a.y>y)!==(b.y>y) && x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x) contains=!contains;
+        }
+        selected=contains;
+      }
+    }
+    return selected ? [{type:"surface" as const,id:surface.id}] : [];
+  });
+}
+
 // Backward-compatible name retained because V07 already consumes this helper.
 // It now returns all selectable point/member elements in the window.
 export function selectMembersInWindow(
@@ -154,7 +184,9 @@ export function selectMembersInWindow(
   return [
     ...selectMemberSelectionsInWindow(model, camera, canvasRect, window),
     ...selectNodesInWindow(model, camera, canvasRect, window),
+    ...selectSurfacesInWindow(model, camera, canvasRect, window),
   ];
 }
 
 export const selectElementsInWindow = selectMembersInWindow;
+

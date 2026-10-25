@@ -77,6 +77,7 @@ function workPlanePoint(
   selection: EditorSelection,
   camera: THREE.Camera,
   element: HTMLElement,
+  origin?: Vec3,
 ): SnapPoint | null {
   const rect = element.getBoundingClientRect();
   if (!rect.width || !rect.height) return null;
@@ -88,8 +89,19 @@ function workPlanePoint(
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(ndc, camera);
 
-  const elevation = selectedElevation(model, selection);
-  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -elevation);
+  const elevation = origin?.z ?? selectedElevation(model, selection);
+  // Elevation views need a vertical construction plane: a horizontal plane
+  // is parallel to their rays and cannot yield a point.
+  const normal = new THREE.Vector3(0, 1, 0);
+  if (Math.abs(raycaster.ray.direction.y) < 1e-6) {
+    camera.getWorldDirection(normal);
+  }
+  const anchor = selection?.type === "node"
+    ? model.nodes.find((node) => node.id === selection.id)?.position
+    : undefined;
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+    normal, toThree(origin ?? anchor ?? { x: 0, y: 0, z: elevation }),
+  );
   const intersection = new THREE.Vector3();
   if (!raycaster.ray.intersectPlane(plane, intersection)) return null;
 
@@ -115,7 +127,7 @@ function memberPoints(model: StructuralModel): Array<{
   });
 }
 
-function uniqueCandidates(model: StructuralModel): SnapPoint[] {
+function uniqueCandidates(model: StructuralModel, elevation: number): SnapPoint[] {
   const settings = getSnapSettings();
   const candidates = new Map<string, SnapPoint>();
 
@@ -185,7 +197,7 @@ function uniqueCandidates(model: StructuralModel): SnapPoint[] {
     for (const vertical of verticals) {
       for (const horizontal of horizontals) {
         add({
-          point: { x: vertical.x, y: horizontal.y, z: 0 },
+          point: { x: vertical.x, y: horizontal.y, z: elevation },
           kind: "grid",
           label: `Grid ${vertical.label}/${horizontal.label}`,
         });
@@ -225,10 +237,11 @@ export function resolveSnapPoint(
   camera: THREE.Camera,
   element: HTMLElement,
   tolerancePx: number,
+  origin?: Vec3,
 ): SnapPoint | null {
-  const workPlane = workPlanePoint(pointer, model, selection, camera, element);
+  const workPlane = workPlanePoint(pointer, model, selection, camera, element, origin);
   const candidates = [
-    ...uniqueCandidates(model),
+    ...uniqueCandidates(model, origin?.z ?? selectedElevation(model, selection)),
     ...(workPlane ? perpendicularCandidates(model, workPlane.point) : []),
   ];
 

@@ -36,7 +36,7 @@ test("member draw ignores the selection that existed before tool activation", ()
     /if \(selectedNodeId === ignoredSelectionRef\.current\) \{[\s\S]*return;/,
   );
   assert.match(tools, /setMemberDrawStart\(snap\);/);
-  assert.match(tools, /pick second point/);
+  assert.match(tools, /pick second point/i);
 });
 
 test("column remains a canonical member tool", () => {
@@ -51,3 +51,4 @@ test("column remains a canonical member tool", () => {
   assert.match(controller, /startNodeId:/);
   assert.match(controller, /endNodeId:/);
 });
+

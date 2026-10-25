@@ -9,7 +9,8 @@ export type InteractionMode = "select" | "copy-base" | "copy-target";
 
 export interface SnapPoint {
   point: Vec3;
-  kind: "node" | "endpoint" | "midpoint" | "perpendicular" | "grid" | "work-plane";
+  kind:
+    "node" | "endpoint" | "midpoint" | "perpendicular" | "grid" | "work-plane";
   label: string;
 }
 
@@ -17,6 +18,7 @@ export interface InteractionState {
   mode: InteractionMode;
   operation: TransformOperation | null;
   selection: EditorSelection;
+  selections: Exclude<EditorSelection, null>[];
   base: SnapPoint | null;
   preview: SnapPoint | null;
   message: string;
@@ -26,6 +28,7 @@ let state: InteractionState = {
   mode: "select",
   operation: null,
   selection: null,
+  selections: [],
   base: null,
   preview: null,
   message: "Select an object.",
@@ -40,17 +43,22 @@ function emit(next: InteractionState): void {
 
 function startTransformInteraction(
   operation: TransformOperation,
-  selection: EditorSelection,
+  input: EditorSelection | Exclude<EditorSelection, null>[],
 ): void {
+  const selections = (Array.isArray(input) ? input : input ? [input] : []).map(
+    (item) => ({ ...item }),
+  );
+  const selection = selections.at(-1) ?? null;
   const label = operation === "copy" ? "Copy" : "Move";
   if (!selection) {
     emit({
       mode: "select",
       operation: null,
       selection: null,
+      selections: [],
       base: null,
       preview: null,
-      message: `${label}: select an object first.`,
+      message: `Select an object before ${label}.`,
     });
     return;
   }
@@ -59,9 +67,10 @@ function startTransformInteraction(
     mode: "copy-base",
     operation,
     selection,
+    selections,
     base: null,
     preview: null,
-    message: `${label}: pick a base point.`,
+    message: `${label}: ${selections.length} selected. Pick a base point or enter coordinates.`,
   });
 }
 
@@ -69,11 +78,15 @@ export function getInteractionState(): InteractionState {
   return state;
 }
 
-export function startCopyInteraction(selection: EditorSelection): void {
+export function startCopyInteraction(
+  selection: EditorSelection | Exclude<EditorSelection, null>[],
+): void {
   startTransformInteraction("copy", selection);
 }
 
-export function startMoveInteraction(selection: EditorSelection): void {
+export function startMoveInteraction(
+  selection: EditorSelection | Exclude<EditorSelection, null>[],
+): void {
   startTransformInteraction("move", selection);
 }
 
@@ -93,12 +106,17 @@ export function setCopyPreview(preview: SnapPoint | null): void {
   emit({ ...state, preview });
 }
 
+export function setTransformMessage(message: string): void {
+  emit({ ...state, message });
+}
+
 export function finishCopyInteraction(): void {
   const label = state.operation === "move" ? "Move" : "Copy";
   emit({
     mode: "select",
     operation: null,
     selection: null,
+    selections: [],
     base: null,
     preview: null,
     message: `${label} complete. Select an object.`,
@@ -110,6 +128,7 @@ export function cancelInteraction(): void {
     mode: "select",
     operation: null,
     selection: null,
+    selections: [],
     base: null,
     preview: null,
     message: "Select an object.",

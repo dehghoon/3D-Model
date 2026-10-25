@@ -9,7 +9,7 @@ function matchesSelection(object: THREE.Object3D, selection: Exclude<EditorSelec
   return value?.type === selection.type && value.id === selection.id;
 }
 
-function clonePreviewMesh(source: THREE.Mesh): THREE.Mesh | null {
+function clonePreviewMesh(source: THREE.Mesh | THREE.Line): THREE.Mesh | THREE.Line | null {
   const sourceMaterials = Array.isArray(source.material) ? source.material : [source.material];
   if (!sourceMaterials.length) return null;
 
@@ -30,10 +30,9 @@ function clonePreviewMesh(source: THREE.Mesh): THREE.Mesh | null {
     return clone;
   });
 
-  const mesh = new THREE.Mesh(
-    source.geometry.clone(),
-    Array.isArray(source.material) ? materials : materials[0],
-  );
+  const material = Array.isArray(source.material) ? materials : materials[0];
+  const mesh = source instanceof THREE.Mesh ? new THREE.Mesh(source.geometry.clone(), material)
+    : new THREE.Line(source.geometry.clone(), material);
   mesh.matrixAutoUpdate = false;
   mesh.matrix.copy(source.matrixWorld);
   mesh.renderOrder = 90;
@@ -52,7 +51,7 @@ export function buildCopyPreview(
   preview.name = "linkoteq-copy-preview";
 
   sceneRoot.traverse((object) => {
-    if (!(object instanceof THREE.Mesh) || !matchesSelection(object, selection)) return;
+    if ((!(object instanceof THREE.Mesh) && !(object instanceof THREE.Line)) || !matchesSelection(object, selection)) return;
     const mesh = clonePreviewMesh(object);
     if (mesh) preview.add(mesh);
   });
@@ -65,9 +64,10 @@ export function buildCopyPreview(
 
 export function disposeCopyPreview(root: THREE.Object3D): void {
   root.traverse((object) => {
-    if (!(object instanceof THREE.Mesh)) return;
+    if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.Line)) return;
     object.geometry.dispose();
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     materials.forEach((material) => material.dispose());
   });
 }
+

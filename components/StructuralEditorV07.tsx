@@ -1,8 +1,9 @@
 "use client";
 
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import type { StructuralModel } from "@linkoteq/structural-core";
 
+import PointInputPanel from "./PointInputPanel";
 import CopyInteractionBridgeV01 from "./CopyInteractionBridgeV01";
 import ElementProperties from "./ElementProperties";
 import LoadManager from "./LoadManager";
@@ -72,6 +73,17 @@ export default function StructuralEditorV07() {
   );
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const open = () => setPropertiesOpen(true);
+    const close = () => setPropertiesOpen(false);
+    window.addEventListener("linkoteq:properties-open", open);
+    window.addEventListener("linkoteq:modeling-command", close);
+    window.addEventListener("linkoteq:utility-command", close);
+    window.addEventListener("linkoteq:view-select", close);
+    return () => { window.removeEventListener("linkoteq:properties-open", open);
+      window.removeEventListener("linkoteq:modeling-command", close); window.removeEventListener("linkoteq:utility-command", close); window.removeEventListener("linkoteq:view-select", close); };
+  }, []);
+
   function setCanonicalSelection(next: EditorSelection): void {
     if (!next) {
       const cleared = clearSelection();
@@ -84,7 +96,7 @@ export default function StructuralEditorV07() {
     const canonical = createSelection(next.type, next.id);
     setSelection(canonical);
     publishSelection(canonical);
-    setPropertiesOpen(true);
+    setPropertiesOpen(false);
   }
 
   function clearCanonicalSelection(): void {
@@ -104,6 +116,7 @@ export default function StructuralEditorV07() {
   }
 
   async function importProject(file: File): Promise<void> {
+    window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
     const parsed = JSON.parse(await file.text()) as unknown;
     const migrated = migrateProjectToV05(parsed);
     assertCanonicalV05(migrated.model);
@@ -196,6 +209,7 @@ export default function StructuralEditorV07() {
         <div className="topActions">
           <button
             onClick={() => {
+              window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
               setModel(emptyModel());
               clearCanonicalSelection();
               setMessage("New Core v0.5 project created.");
@@ -270,6 +284,7 @@ export default function StructuralEditorV07() {
           onContextMenu={(event) => event.preventDefault()}
           style={{ position: "relative" }}
         >
+          <PointInputPanel model={model} />
           <ThatOpenViewportV01
             model={model}
             selection={selection}

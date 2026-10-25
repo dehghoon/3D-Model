@@ -2,6 +2,8 @@ import * as OBC from "@thatopen/components";
 import * as THREE from "three";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../editor/selection";
+import { getMemberDrawState } from "../editor/member-draw-store";
+import { getPointToolState } from "../editor/member-draw-events";
 import { getInteractionState } from "../editor/interaction-store";
 import { buildCoreScene, disposeCoreScene, type CoreSceneBuild } from "./core-scene-v2";
 import { buildCopyPreview, disposeCopyPreview } from "./copy-preview";
@@ -43,32 +45,37 @@ function frame(runtime: ThatOpenRuntime) {
 
 export function createThatOpenRuntime(container: HTMLDivElement): ThatOpenRuntime {
   const components = new OBC.Components();
-  const worlds = components.get(OBC.Worlds);
-  const world =
-    worlds.create<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBC.SimpleRenderer>();
-  world.scene = new OBC.SimpleScene(components);
-  world.scene.setup();
-  world.scene.three.background = new THREE.Color(0xf8fafc);
-  world.renderer = new OBC.SimpleRenderer(components, container);
-  world.camera = new OBC.OrthoPerspectiveCamera(components);
-  components.init();
-  world.camera.updateAspect();
-  const caster = components.get(OBC.Raycasters).get(world);
-  world.renderer.three.domElement.style.touchAction = "none";
+  try {
+    const worlds = components.get(OBC.Worlds);
+    const world =
+      worlds.create<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBC.SimpleRenderer>();
+    world.scene = new OBC.SimpleScene(components);
+    world.scene.setup();
+    world.scene.three.background = new THREE.Color(0xf8fafc);
+    world.renderer = new OBC.SimpleRenderer(components, container);
+    world.camera = new OBC.OrthoPerspectiveCamera(components);
+    components.init();
+    world.camera.updateAspect();
+    const caster = components.get(OBC.Raycasters).get(world);
+    world.renderer.three.domElement.style.touchAction = "none";
 
-  return {
-    components,
-    scene: world.scene.three,
-    camera: world.camera,
-    caster,
-    renderer: world.renderer,
-    build: null,
-    transient: null,
-    fitted: false,
-    viewMode: "3d",
-    axisIndex: 0,
-    levelIndex: 0,
-  };
+    return {
+      components,
+      scene: world.scene.three,
+      camera: world.camera,
+      caster,
+      renderer: world.renderer,
+      build: null,
+      transient: null,
+      fitted: false,
+      viewMode: "3d",
+      axisIndex: 0,
+      levelIndex: 0,
+    };
+  } catch (error) {
+    components.dispose();
+    throw error;
+  }
 }
 
 export function rebuildThatOpenScene(
@@ -234,6 +241,8 @@ export function snapThatOpen(
   selection: EditorSelection,
 ) {
   const state = getInteractionState();
+  const tool = getPointToolState();
+  const origin = state.base?.point ?? (tool.tool === "wall" || tool.tool === "slab" ? tool.points.at(-1)?.point : getMemberDrawState().start?.point);
   return resolveSnapPoint(
     { clientX: event.clientX, clientY: event.clientY },
     model,
@@ -241,6 +250,7 @@ export function snapThatOpen(
     runtime.camera.three,
     runtime.renderer.three.domElement,
     event.pointerType === "touch" ? 30 : 13,
+    origin,
   );
 }
 
@@ -280,12 +290,10 @@ export function renderTransformPreview(runtime: ThatOpenRuntime): void {
     Math.abs(delta.x) + Math.abs(delta.y) + Math.abs(delta.z) >
     1e-10
   ) {
-    const ghost = buildCopyPreview(
-      runtime.build.root,
-      state.selection,
-      delta,
-    );
-    if (ghost) group.add(ghost);
+    for (const selection of state.selections) {
+      const ghost = buildCopyPreview(runtime.build.root, selection, delta);
+      if (ghost) group.add(ghost);
+    }
   }
 
   const line = new THREE.Line(
@@ -336,4 +344,31 @@ export function disposeThatOpenRuntime(runtime: ThatOpenRuntime): void {
     disposeCoreScene(runtime.build.root);
   }
   runtime.components.dispose();
+}
+
+
+/** UI preview only: pending points never enter the canonical model until commit. */
+export function renderModelingPreview(runtime: ThatOpenRuntime, hover?: Vec3): void {
+  clearTransformPreview(runtime);
+  const tool = getPointToolState();
+  const draw = getMemberDrawState();
+  const points = tool.tool === "wall" || tool.tool === "slab"
+    ? tool.points.map(item => item.point) : draw.start ? [draw.start.point] : [];
+  if (!tool.tool || !points.length) return;
+  const group = new THREE.Group();
+  const toThree = (point: Vec3) => new THREE.Vector3(point.x, point.z, point.y);
+  for (const point of points) {
+    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0xf97316, depthTest: false }));
+    marker.position.copy(toThree(point)); marker.renderOrder = 100; group.add(marker);
+  }
+  const boundary = hover ? [...points, hover] : points;
+  if (boundary.length > 1) {
+    const vectors = boundary.map(toThree);
+    if ((tool.tool === "wall" || tool.tool === "slab") && vectors.length > 2) vectors.push(vectors[0]);
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(vectors),
+      new THREE.LineBasicMaterial({ color: 0xf97316, depthTest: false }));
+    line.renderOrder = 100; group.add(line);
+  }
+  runtime.scene.add(group); runtime.transient = group;
 }

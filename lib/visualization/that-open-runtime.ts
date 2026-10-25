@@ -9,6 +9,7 @@ export {
   pickThatOpen,
   rebuildThatOpenScene,
   renderTransformPreview,
+  renderModelingPreview,
   snapThatOpen,
 } from "./that-open-runtime-base";
 
@@ -326,3 +327,4 @@ export function stepThatOpenLevel(
     label: `${level.name} · ${level.elevation}`,
   });
 }
+

@@ -11,7 +11,8 @@ import {
 test("pointer coordinates map to normalized device coordinates", () => {
   const point = pointerToNdc(150, 100, { left: 50, top: 50, width: 200, height: 100 });
   assert.equal(point.x, 0);
-  assert.equal(point.y, -1);
+  assert.equal(point.y, 0);
+  assert.equal(pointerToNdc(150, 150, { left: 50, top: 50, width: 200, height: 100 }).y, -1);
 });
 
 test("mobile tap has a larger gesture tolerance than mouse", () => {
@@ -28,3 +29,4 @@ test("touch picking samples a finger-sized screen neighborhood", () => {
   assert.equal(mouse.length, 1);
   assert.equal(touch[0].distancePx, 0);
 });
+

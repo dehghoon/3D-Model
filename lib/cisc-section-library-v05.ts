@@ -296,7 +296,7 @@ export function createDefaultPortalFrame(record: CiscSectionRecord): StructuralM
       },
     ],
     surfaces: [],
-    diaphhragms: [],
+    diaphragms: [],
     materials: [material],
     sections: [section],
     supports: [],

@@ -12,10 +12,10 @@ test("real section renderer consumes Core geometry with explicit unit conversion
 
   assert.match(renderer, /FACTOR/);
   assert.match(renderer, /geometry\[key\]/);
-  assert.match(renderer, /\["W","WF","I","HP","M","S"\]/);
-  assert.match(renderer, /\["C","MC","CHANNEL"\]/);
-  assert.match(renderer, /\["L","ANGLE"\]/);
-  assert.match(renderer, /\["WT","TEE"\]/);
+  assert.match(renderer, /\["W",\s*"WF",\s*"I",\s*"HP",\s*"M",\s*"S"\]/);
+  assert.match(renderer, /\["C",\s*"MC",\s*"CHANNEL"\]/);
+  assert.match(renderer, /\["L",\s*"ANGLE"\]/);
+  assert.match(renderer, /\["WT",\s*"TEE"\]/);
   assert.match(renderer, /"HS SQ"/);
   assert.match(renderer, /"HA RE"/);
   assert.match(renderer, /"HS RO"/);
@@ -39,3 +39,4 @@ test("active core scene replaces only the visible member geometry", () => {
   assert.match(scene, /visible\.geometry = geometry/);
   assert.doesNotMatch(scene, /hit\.geometry = geometry/);
 });
+

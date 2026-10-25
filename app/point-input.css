@@ -1,0 +1,109 @@
+.pointInputPanel {
+  position: absolute;
+  right: 12px;
+  top: 58px;
+  width: 280px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 105px);
+  overflow: auto;
+  z-index: 85;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #b9c7d8;
+  border-radius: 12px;
+  box-shadow: 0 8px 26px #0f172a20;
+  color: #17283b;
+  pointer-events: auto;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.pointInputPanel p {
+  margin: 8px 0;
+}
+.pointInputHeading,
+.pointInputActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pointInputPanel label {
+  display: block;
+  font-size: 12px;
+}
+.pointInputPanel input,
+.pointInputPanel select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 4px 0 8px;
+  padding: 7px;
+  border: 1px solid #b9c7d8;
+  border-radius: 5px;
+  background: #fff;
+  color: #17283b;
+}
+.pointInputPanel button {
+  cursor: pointer;
+  padding: 7px 10px;
+  border: 1px solid #b9c7d8;
+  border-radius: 5px;
+  background: #edf4fb;
+  color: #17283b;
+  font-size: 12px;
+}
+.pointInputPanel button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.pointCoordinateFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.pointInputPanel form + form {
+  border-top: 1px solid #dce4ed;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.pointInputPanel ol {
+  padding-left: 22px;
+  max-height: 100px;
+  overflow: auto;
+}
+.pointInputPanel [role="alert"] {
+  color: #b42318;
+}
+.viewportMultiSelect {
+  position: absolute;
+  left: 12px;
+  top: 55px;
+  z-index: 55;
+  padding: 7px 10px;
+  border: 1px solid #b9c7d8;
+  border-radius: 6px;
+  background: #fff;
+  color: #17283b;
+  font-size: 12px;
+}
+.viewportMultiSelect.active {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+@media (max-width: 700px) {
+  .pointInputPanel {
+    width: 245px;
+    top: 88px;
+    right: 8px;
+    max-height: calc(100% - 140px);
+  }
+  .viewportMultiSelect {
+    top: 52px;
+  }
+}
+
+@media (max-width: 700px) {
+  .architectEditorShell.has-active-point-tool .architectQuickPanel {
+    display: none;
+  }
+}
