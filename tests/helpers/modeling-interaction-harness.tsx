@@ -32,5 +32,6 @@ export function mount(host:HTMLElement){
   const initial=structuredClone(current);
   const root=createRoot(host);
   act(()=>root.render(<Shell/>));
+  act(()=>[...host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent?.trim()==="Advanced Mode")!.click());
   return {initial,model:()=>current,messages,unmount:()=>act(()=>root.unmount())};
 }

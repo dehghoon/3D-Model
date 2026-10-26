@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
+import SimpleFrameModeler from "./SimpleFrameModeler";
+import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
+import type { StructuralModel } from "@linkoteq/structural-core";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
 
 import { MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
@@ -50,6 +53,17 @@ function utilityDescription(tool: UtilityTool): string {
 
 export default function StructuralEditorShellV3() {
   const [mode, setMode] = useState<WorkspaceMode>("simple");
+  const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
+  function switchMode(next: WorkspaceMode) {
+    window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
+    window.dispatchEvent(new Event("linkoteq:view-select"));
+    setMode(next);
+  }
+  function advancedChange(next: StructuralModel) {
+    const metadata = { ...next.project.metadata };
+    delete metadata.simpleFrame;
+    setModel({ ...next, project: { ...next.project, metadata } });
+  }
   const pointState = usePointToolState();
   const interaction = useInteractionState();
   const selections = usePublishedSelections();
@@ -88,19 +102,19 @@ export default function StructuralEditorShellV3() {
           <button
             type="button"
             className={mode === "simple" ? "active" : ""}
-            onClick={() => setMode("simple")}
+            onClick={() => switchMode("simple")}
           >
             Simple Mode
           </button>
           <button
             type="button"
             className={mode === "advanced" ? "active" : ""}
-            onClick={() => setMode("advanced")}
+            onClick={() => switchMode("advanced")}
           >
             Advanced Mode
           </button>
         </div>
-        <div className="architectTopActions" aria-label="Project actions">
+        {mode === "advanced" ? <div className="architectTopActions" aria-label="Project actions">
           <button
             type="button"
             className="architectIconAction"
@@ -129,8 +143,10 @@ export default function StructuralEditorShellV3() {
             ⇩
           </button>
         </div>
+        : <span className="sfTopBadge">Automatic frame · SI / m</span>}
       </header>
 
+      {mode === "advanced" ? <>
       <nav className="architectToolstrip" aria-label="Add structural elements">
         {modelingTools.map((tool) => (
           <button
@@ -170,14 +186,14 @@ export default function StructuralEditorShellV3() {
       </div>
 
       <div className="architectWorkspaceFrame">
-        {mode === "simple" ? (
+        {mode === "advanced" ? (
           <aside className="architectQuickPanel" aria-label="Setup and quick tools">
             <div className="architectPanelHeading">
               <div>
                 <span className="architectEyebrow">MODEL</span>
                 <h2>Setup &amp; Tools</h2>
               </div>
-              <span className="architectPanelBadge">{mode === "simple" ? "Simple" : "Advanced"}</span>
+              <span className="architectPanelBadge">Advanced</span>
             </div>
             <div className="architectQuickActions">
               <button type="button" onClick={openGrid}>
@@ -223,7 +239,7 @@ export default function StructuralEditorShellV3() {
         <div className="architectViewportColumn">
           <div className="architectViewportStage">
             <div className="engineeringEditorStage">
-              <StructuralEditorV05 />
+              <StructuralEditorV05 model={model} onModelChange={advancedChange} />
             </div>
           </div>
           <div className="architectStatusbar" role="status" aria-live="polite">
@@ -245,6 +261,7 @@ export default function StructuralEditorShellV3() {
           </div>
         </div>
       </div>
+      </> : <SimpleFrameModeler model={model} onChange={setModel} onAdvanced={() => switchMode("advanced")} />}
     </div>
   );
 }
