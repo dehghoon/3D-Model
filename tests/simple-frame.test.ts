@@ -11,6 +11,7 @@ import { assertCanonicalV05 } from "../lib/core-v05";
 test("quick frame creates connected columns at every intersection and beams at each elevated level", () => {
   const m = createSimpleFrame(DEFAULT_FRAME);
   assertCanonicalV05(m);
+  assert.equal(m.project.metadata?.defaultModel,"simple-frame");
   assert.equal(m.nodes.length, 36);
   assert.equal(m.members.filter((x) => x.type === "column").length, 24);
   assert.equal(m.members.filter((x) => x.type === "beam").length, 34);
@@ -69,7 +70,7 @@ test("frame setup metadata round trips as canonical project metadata", () => {
   const saved = JSON.parse(JSON.stringify(model));
   assertCanonicalV05(saved);
   assert.deepEqual(
-    JSON.parse(saved.project.metadata.simpleFrame),
+    JSON.parse(String(saved.project.metadata?.simpleFrame)),
     DEFAULT_FRAME,
   );
 });

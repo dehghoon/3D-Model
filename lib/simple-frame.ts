@@ -100,6 +100,7 @@ export function createSimpleFrame(
       units: "SI",
       metadata: {
         ...template.project.metadata,
+        defaultModel: "simple-frame",
         simpleFrame: JSON.stringify(layout),
       },
     },
