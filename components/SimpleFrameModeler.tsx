@@ -92,10 +92,9 @@ export default function SimpleFrameModeler({
     const template = section
       ? {
           ...model,
-          sections: [
-            ...model.sections.filter((s) => s.id !== section.id),
-            section,
-          ],
+          sections: model.sections.some((s) => s.id === section.id)
+            ? model.sections.map((s) => (s.id === section.id ? section : s))
+            : [...model.sections, section],
         }
       : model;
     update(next, false, template);
@@ -103,10 +102,9 @@ export default function SimpleFrameModeler({
   function materialChange(material: Material) {
     const template = {
       ...model,
-      materials: [
-        ...model.materials.filter((m) => m.id !== material.id),
-        material,
-      ],
+      materials: model.materials.some((m) => m.id === material.id)
+        ? model.materials.map((m) => (m.id === material.id ? material : m))
+        : [...model.materials, material],
     };
     update(
       { ...layout, defaults: { ...layout.defaults, materialId: material.id } },
@@ -176,6 +174,7 @@ export default function SimpleFrameModeler({
       setError("Create a quick frame first to edit dimensions.");
       return;
     }
+    setSelectedId(null);
     setEdit({ axis, index });
     setValue(String(layout[axis][index]));
   }
@@ -456,6 +455,15 @@ export default function SimpleFrameModeler({
                       }
                     }}
                   >
+                    <rect
+                      className="sfMemberBounds"
+                      x={Math.min(start.x, end.x) - 7}
+                      y={Math.min(start.y, end.y) - 7}
+                      width={Math.max(14, Math.abs(end.x - start.x) + 14)}
+                      height={Math.max(14, Math.abs(end.y - start.y) + 14)}
+                      fill="transparent"
+                      pointerEvents="none"
+                    />
                     <title>
                       {member.type} · {section?.designation ?? member.sectionId}
                     </title>

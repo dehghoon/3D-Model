@@ -165,6 +165,17 @@ test("simple dimensions edit canonical geometry, grids/storeys grow, and Advance
     );
     assert.ok(host.querySelector('[aria-label="Member editor"]'));
     choose("Member section", "cisc-w250x49");
+    assert.equal(
+      host.querySelector<HTMLSelectElement>(
+        '[aria-label="Default beam section"]',
+      )!.value,
+      "SEC1",
+    );
+    const columnHit = host.querySelector(
+      '[aria-label^="Edit column"] .sfMemberBounds',
+    )!;
+    assert.ok(Number(columnHit.getAttribute("width")) >= 14);
+    assert.ok(Number(columnHit.getAttribute("height")) >= 14);
     click("Close member editor");
     click("Advanced Mode");
     const model = JSON.parse(host.querySelector("[data-model]")!.textContent!);

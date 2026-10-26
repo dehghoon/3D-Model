@@ -190,10 +190,7 @@ export default function FrameCatalogToolbar({
               label={`Default ${type} section`}
               value={
                 layout.defaults?.[type] ??
-                (type === "brace"
-                  ? ""
-                  : (model.members.find((m) => m.type === type)?.sectionId ??
-                    ""))
+                (type === "brace" ? "" : (model.sections[0]?.id ?? ""))
               }
               catalogs={catalogs}
               model={model}
