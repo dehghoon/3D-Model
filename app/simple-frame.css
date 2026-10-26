@@ -300,8 +300,276 @@
   }
 }
 /* Advanced keeps the former quick-tool workspace; the hidden legacy toolbar still handles commands. */
-.mode-advanced .engineeringEditorStage .workspace { grid-template-columns: minmax(0, 1fr) !important; }
+.mode-advanced .engineeringEditorStage .workspace {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
 .mode-advanced .engineeringEditorStage .toolbar,
-.mode-advanced .engineeringEditorStage .inspector { display: none !important; }
-.mode-advanced .engineeringEditorStage .viewport { grid-column: 1 !important; }
-@media(max-width:760px) { .architectEditorShell.mode-advanced.has-active-point-tool .architectQuickPanel { display:none !important; } }
+.mode-advanced .engineeringEditorStage .inspector {
+  display: none !important;
+}
+.mode-advanced .engineeringEditorStage .viewport {
+  grid-column: 1 !important;
+}
+@media (max-width: 760px) {
+  .architectEditorShell.mode-advanced.has-active-point-tool
+    .architectQuickPanel {
+    display: none !important;
+  }
+}
+.sfCatalogToolbar {
+  flex-shrink: 0;
+  background: #fff;
+  border-bottom: 1px solid #d5e1e8;
+  padding: 12px 24px;
+  max-height: 265px;
+  overflow: auto;
+  color: #163147;
+  font-size: 12px;
+}
+.sfCatalogRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.sfCatalogRow > label,
+.sfCatalogRow > div {
+  flex: 1 0 160px;
+  min-width: 160px;
+  max-width: 240px;
+}
+.sfCatalogToolbar label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+}
+.sfCatalogToolbar select,
+.sfCatalogToolbar input,
+.sfMemberEditor select,
+.sfMemberEditor input,
+.sfBraceControls select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid #ccdbe3;
+  border-radius: 6px;
+  background: #fff;
+  color: #163147;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.sfCatalogField input {
+  margin-bottom: 3px;
+}
+.sfCatalogWarning {
+  display: block;
+  color: #a54814;
+  font-size: 10px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+.sfCatalogToolbar > small {
+  color: #638092;
+  font-size: 10px;
+}
+.sfCatalogToolbar p {
+  margin: 5px 0;
+}
+.sfMaterialForm {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px;
+  background: #fff7e9;
+}
+.sfMaterialForm > span {
+  width: 100%;
+  font-size: 12px;
+}
+.sfMaterialForm label {
+  width: 100px;
+}
+.sfMaterialForm button {
+  padding: 9px;
+  border: 1px solid #c7d9e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #163147;
+}
+.sfBraceControls {
+  border-top: 1px solid #dae4eb;
+  margin-top: 16px;
+}
+.sfBraceControls > div > label {
+  width: 100%;
+  margin: 10px 0;
+}
+.sfBraceControls input {
+  max-width: 80px;
+}
+.sfBraceControls fieldset {
+  border: 1px solid #d5e2e9;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.sfBraceControls legend {
+  font-size: 12px;
+  font-weight: 600;
+}
+.sfBraceControls fieldset label {
+  font-size: 10px;
+  width: 100%;
+  margin: 0;
+}
+.sfBraceControls small,
+.sfBraceControls [role="status"] {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #607c8e;
+}
+.sfBraceControls [role="status"] {
+  background: #fff1d9;
+  padding: 8px;
+}
+.sfGridBubble {
+  pointer-events: none;
+}
+.sfGridBubble line {
+  stroke: #a0b6c4;
+  stroke-dasharray: 3 3;
+  stroke-width: 1;
+}
+.sfGridBubble circle {
+  fill: #fff;
+  stroke: #648b9f;
+  stroke-width: 1;
+}
+.sfGridBubble text {
+  font-size: 11px;
+  fill: #2b5c71;
+  font-weight: 700;
+}
+.sfMember {
+  cursor: pointer;
+  outline: none;
+}
+.sfMemberHit {
+  stroke: transparent;
+  stroke-width: 14;
+  fill: transparent;
+  pointer-events: all;
+}
+.sfMember:hover .sfBeam,
+.sfMember:hover .sfColumn,
+.sfMember:hover .sfBrace,
+.sfMember:focus .sfBeam,
+.sfMember:focus .sfColumn,
+.sfMember:focus .sfBrace,
+.sfMemberSelected .sfBeam,
+.sfMemberSelected .sfColumn,
+.sfMemberSelected .sfBrace {
+  stroke: #ed8b32;
+  stroke-width: 5;
+}
+.sfBrace {
+  stroke: #c07b43;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.sfPlanColumn {
+  fill: #1c6174;
+  stroke: white;
+  stroke-width: 1;
+  pointer-events: none;
+}
+.sfCanvas header > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.sfMemberFilter {
+  font-size: 10px;
+  margin-right: 8px;
+}
+.sfMemberFilter select {
+  padding: 5px;
+  border: 1px solid #c8d8e2;
+  color: #244759;
+  background: white;
+  display: block;
+}
+.sfMemberEditor {
+  position: absolute;
+  top: 100px;
+  right: 18px;
+  width: 270px;
+  max-width: calc(100% - 36px);
+  max-height: calc(100% - 180px);
+  overflow: auto;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #accbd7;
+  border-radius: 10px;
+  box-shadow: 0 6px 22px #21495e26;
+  z-index: 3;
+  box-sizing: border-box;
+  font-size: 11px;
+}
+.sfMemberEditor > div > strong {
+  overflow-wrap: anywhere;
+  display: block;
+  margin-bottom: 8px;
+}
+.sfMemberEditor label {
+  display: block;
+  margin: 10px 0;
+}
+.sfMemberEditor button {
+  padding: 8px;
+  border: 1px solid #c4d7e2;
+  background: #f3f9fc;
+  border-radius: 6px;
+  color: #24546c;
+  margin: 4px 4px 0 0;
+}
+.sfCanvas svg .sfBeam,
+.sfCanvas svg .sfColumn,
+.sfCanvas svg .sfBrace {
+  pointer-events: none;
+}
+@media (max-width: 650px) {
+  .sfCatalogToolbar {
+    padding: 8px 12px;
+    max-height: 250px;
+  }
+  .sfCatalogRow {
+    gap: 10px;
+  }
+  .sfCatalogRow > label,
+  .sfCatalogRow > div {
+    min-width: 165px;
+  }
+  .sfBraceControls fieldset label {
+    width: 100%;
+    margin: 0;
+  }
+  .sfMemberEditor {
+    top: 110px;
+    max-height: 340px;
+  }
+  .sfCanvas header {
+    padding: 12px;
+  }
+  .sfSetup .sfBraceControls > div > label {
+    width: 100%;
+  }
+}

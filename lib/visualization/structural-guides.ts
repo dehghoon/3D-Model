@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { gridDisplayEndpoints } from "./grid-display";
 import type { StructuralModel } from "@linkoteq/structural-core";
 
 interface PlanBounds {
@@ -111,7 +112,8 @@ function buildGridLabels(model: StructuralModel): THREE.Group {
   const group = new THREE.Group();
   group.name = "core-grid-labels";
 
-  for (const grid of model.grids) {
+  for (const reference of model.grids) {
+    const grid = { ...reference, ...gridDisplayEndpoints(reference, model.nodes) };
     const start = makeLabelSprite(grid.label, { bubble: true, scale: 0.62 });
     start.position.set(grid.start.x, 0.08, grid.start.y);
     group.add(start);
@@ -224,3 +226,4 @@ export function disposeStructuralGuides(root: THREE.Object3D): void {
     }
   });
 }
+
