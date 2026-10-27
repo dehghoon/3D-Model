@@ -1,4 +1,4 @@
-import type { Section } from "@linkoteq/structural-core";
+import type { Material, Section } from "@linkoteq/structural-core";
 import {
   ciscRecordToCoreSection,
   isCiscRecordCoreAssignable,
@@ -71,4 +71,45 @@ export function requestedSection(
   return catalogs.sections.find(
     (s) => key(s.designation ?? "") === key(REQUESTED_FRAME_SECTIONS[type]),
   );
+}
+
+export const SIMPLE_SECTION_PREFERENCES = {
+  beam: ["W310x33"],
+  column: ["W250x49"],
+  brace: ["L76x76x6.4"],
+} as const;
+export function simpleDefaultSection(
+  catalogs: FrameCatalogs,
+  type: keyof typeof SIMPLE_SECTION_PREFERENCES,
+): Section | undefined {
+  return catalogs.sections.find((section) =>
+    SIMPLE_SECTION_PREFERENCES[type].some(
+      (name) =>
+        name.toLowerCase() === (section.designation ?? "").toLowerCase(),
+    ),
+  );
+}
+export function completeCatalogMaterials(records: unknown[]): Material[] {
+  return records.filter((value): value is Material => {
+    if (!value || typeof value !== "object") return false;
+    const m = value as Material,
+      a = m.analysis;
+    return (
+      typeof m.id === "string" &&
+      typeof m.name === "string" &&
+      ["steel", "concrete", "wood", "other"].includes(m.type) &&
+      !!a &&
+      [a.E, a.G, a.rho].every(
+        (v) =>
+          v &&
+          Number.isFinite(v.value) &&
+          v.value > 0 &&
+          typeof v.unit === "string" &&
+          !!v.unit,
+      ) &&
+      Number.isFinite(a.nu) &&
+      a.nu > -1 &&
+      a.nu < 0.5
+    );
+  });
 }

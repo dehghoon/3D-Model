@@ -1,13 +1,24 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import FrameCatalogToolbar, { FrameSectionPicker } from "./FrameCatalogToolbar";
 import FrameBraceControls from "./FrameBraceControls";
 import {
   loadFrameCatalogs,
-  requestedSection,
+  simpleDefaultSection,
   type FrameCatalogs,
 } from "../lib/core-frame-catalogs";
 import type { Section, Material } from "@linkoteq/structural-core";
+import FrameDisplayPanel from "./FrameDisplayPanel";
+import {
+  INITIAL_FRAME_VIEW,
+  framePoint,
+  zoomFrame,
+  type FrameView,
+} from "../lib/frame-navigation";
+import {
+  getDisplayOptions,
+  subscribeDisplayOptions,
+} from "../lib/visualization/display-options-store";
 import type { StructuralModel } from "@linkoteq/structural-core";
 import {
   createSimpleFrame,
@@ -44,6 +55,67 @@ export default function SimpleFrameModeler({
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [plan, setPlan] = useState(false);
+  const [navigationTool, setNavigationTool] = useState<
+    "select" | "pan" | "orbit"
+  >("select");
+  const [camera, setCamera] = useState<FrameView>(INITIAL_FRAME_VIEW);
+  const cameraRef = useRef(camera);
+  cameraRef.current = camera;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const gesture = useRef<{
+    x: number;
+    y: number;
+    view: FrameView;
+    yaw: number;
+    tilt: number;
+    kind: "pan" | "orbit" | null;
+  } | null>(null);
+  const suppressClick = useRef(false);
+  const [angles, setAngles] = useState({ yaw: 0.6, tilt: 0.42 });
+  const [showDimensions, setShowDimensions] = useState(true);
+  const [showMembers, setShowMembers] = useState(true);
+  const display = useSyncExternalStore(
+    subscribeDisplayOptions,
+    getDisplayOptions,
+    getDisplayOptions,
+  );
+  function moveCamera(next: FrameView) {
+    cameraRef.current = next;
+    setCamera(next);
+  }
+  function zoomAt(factor: number) {
+    const view = cameraRef.current;
+    moveCamera(
+      zoomFrame(view, factor, {
+        x: view.x + view.width / 2,
+        y: view.y + view.height / 2,
+      }),
+    );
+  }
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const view = cameraRef.current;
+      const point = framePoint(
+        view,
+        svg.getBoundingClientRect(),
+        event.clientX,
+        event.clientY,
+      );
+      moveCamera(
+        zoomFrame(
+          view,
+          Math.exp(Math.max(-1, Math.min(1, event.deltaY * 0.0015))),
+          point,
+        ),
+      );
+    };
+    svg.addEventListener("wheel", wheel, { passive: false });
+    return () => svg.removeEventListener("wheel", wheel);
+  }, []);
+
   const [catalogs, setCatalogs] = useState<FrameCatalogs | null>(null);
   const [catalogError, setCatalogError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -64,20 +136,21 @@ export default function SimpleFrameModeler({
           onChange: change,
         } = current.current;
         if (typeof latest.project.metadata?.simpleFrame !== "string") return;
-        const column = requestedSection(loaded, "column");
-        if (!setup.defaults?.column && column) {
-          const next = {
-            ...setup,
-            defaults: { ...setup.defaults, column: column.id },
-          };
-          const template = {
-            ...latest,
-            sections: [
-              ...latest.sections.filter((s) => s.id !== column.id),
-              column,
-            ],
-          };
-          const nextModel = createSimpleFrame(next, template);
+        const defaults = { ...setup.defaults };
+        const sections = [...latest.sections];
+        let changed = false;
+        for (const type of ["beam", "column", "brace"] as const) {
+          const section = simpleDefaultSection(loaded, type);
+          if (!defaults[type] && section) {
+            defaults[type] = section.id;
+            changed = true;
+            if (!sections.some((s) => s.id === section.id))
+              sections.push(section);
+          }
+        }
+        if (changed) {
+          const next = { ...setup, defaults };
+          const nextModel = createSimpleFrame(next, { ...latest, sections });
           setLayout(next);
           change(nextModel);
         }
@@ -185,7 +258,15 @@ export default function SimpleFrameModeler({
     depth = total(layout.y),
     height = total(layout.heights);
   const raw = (x: number, y: number, z: number) =>
-    plan ? { x, y: -y } : { x: x - y * 0.65, y: (x + y) * 0.3 - z };
+    plan
+      ? { x, y: -y }
+      : {
+          x: x * Math.cos(angles.yaw) - y * Math.sin(angles.yaw),
+          y:
+            (x * Math.sin(angles.yaw) + y * Math.cos(angles.yaw)) *
+              Math.sin(angles.tilt) -
+            z * Math.cos(angles.tilt),
+        };
   const corners = [0, width].flatMap((x) =>
     [0, depth].flatMap((y) => [0, height].map((z) => raw(x, y, z))),
   );
@@ -385,6 +466,34 @@ export default function SimpleFrameModeler({
                 </select>
               </label>
               <button
+                aria-pressed={navigationTool === "select"}
+                onClick={() => setNavigationTool("select")}
+              >
+                Select
+              </button>
+              <button
+                aria-pressed={navigationTool === "pan"}
+                onClick={() => setNavigationTool("pan")}
+              >
+                Pan
+              </button>
+              <button
+                aria-pressed={navigationTool === "orbit"}
+                disabled={plan}
+                onClick={() => setNavigationTool("orbit")}
+              >
+                Orbit
+              </button>
+              <button aria-label="Zoom in" onClick={() => zoomAt(0.8)}>
+                +
+              </button>
+              <button aria-label="Zoom out" onClick={() => zoomAt(1.25)}>
+                −
+              </button>
+              <button onClick={() => moveCamera(INITIAL_FRAME_VIEW)}>
+                Fit
+              </button>
+              <button
                 onClick={() => {
                   const blob = new Blob([JSON.stringify(model, null, 2)], {
                     type: "application/json",
@@ -399,178 +508,312 @@ export default function SimpleFrameModeler({
               >
                 Save
               </button>
-              <button aria-pressed={!plan} onClick={() => setPlan(false)}>
+              <button
+                aria-pressed={!plan}
+                onClick={() => {
+                  setPlan(false);
+                  moveCamera(INITIAL_FRAME_VIEW);
+                }}
+              >
                 3D
               </button>
-              <button aria-pressed={plan} onClick={() => setPlan(true)}>
+              <button
+                aria-pressed={plan}
+                onClick={() => {
+                  setPlan(true);
+                  setNavigationTool("select");
+                  moveCamera(INITIAL_FRAME_VIEW);
+                }}
+              >
                 Plan
               </button>
             </div>
           </header>
+          <FrameDisplayPanel
+            dimensions={showDimensions}
+            onDimensions={setShowDimensions}
+            members={showMembers}
+            onMembers={setShowMembers}
+          />
           <svg
-            viewBox="0 0 820 590"
+            ref={svgRef}
+            viewBox={`${camera.x} ${camera.y} ${camera.width} ${camera.height}`}
+            data-navigation-tool={navigationTool}
+            data-thick-members={display.extrudedSections}
+            onContextMenu={(e) => e.preventDefault()}
+            onPointerDown={(e) => {
+              suppressClick.current = false;
+              const kind =
+                e.button === 1 ||
+                e.button === 2 ||
+                e.shiftKey ||
+                navigationTool === "pan" ||
+                e.pointerType === "touch"
+                  ? "pan"
+                  : navigationTool === "orbit"
+                    ? "orbit"
+                    : null;
+              gesture.current = {
+                x: e.clientX,
+                y: e.clientY,
+                view: cameraRef.current,
+                ...angles,
+                kind,
+              };
+              if (kind) {
+                e.preventDefault();
+                e.currentTarget.setPointerCapture?.(e.pointerId);
+              }
+            }}
+            onPointerMove={(e) => {
+              const start = gesture.current;
+              if (!start) return;
+              const dx = e.clientX - start.x,
+                dy = e.clientY - start.y;
+              if (Math.hypot(dx, dy) < 4) return;
+              suppressClick.current = true;
+              if (start.kind === "pan") {
+                const bounds = e.currentTarget.getBoundingClientRect();
+                const a = framePoint(start.view, bounds, start.x, start.y),
+                  b = framePoint(start.view, bounds, e.clientX, e.clientY);
+                moveCamera({
+                  ...start.view,
+                  x: start.view.x + a.x - b.x,
+                  y: start.view.y + a.y - b.y,
+                });
+              } else if (start.kind === "orbit")
+                setAngles({
+                  yaw: start.yaw + dx * 0.008,
+                  tilt: Math.max(0.1, Math.min(1.3, start.tilt + dy * 0.005)),
+                });
+            }}
+            onPointerUp={(e) => {
+              gesture.current = null;
+              if (e.currentTarget.hasPointerCapture?.(e.pointerId))
+                e.currentTarget.releasePointerCapture(e.pointerId);
+            }}
+            onPointerCancel={() => {
+              gesture.current = null;
+              suppressClick.current = true;
+            }}
+            onClickCapture={(e) => {
+              if (suppressClick.current || navigationTool !== "select") {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedId(null);
+                setEdit(null);
+              }
+            }}
             aria-label="Interactive structural frame: click dimensions to edit"
             role="group"
           >
-            {xs.map((x, i) =>
-              line(p(x, 0, 0), p(x, depth, 0), `gx${i}`, "sfGrid"),
-            )}
-            {ys.map((y, j) =>
-              line(p(0, y, 0), p(width, y, 0), `gy${j}`, "sfGrid"),
-            )}
-            {model.members
-              .filter(
-                (m) =>
-                  (filter === "all" || m.type === filter) &&
-                  (!plan ||
-                    m.type !== "column" ||
-                    m.levelId === model.levels.at(-1)?.id),
-              )
-              .map((member) => {
-                const a = model.nodes.find((n) => n.id === member.startNodeId)!,
-                  b = model.nodes.find((n) => n.id === member.endNodeId)!;
-                const start = p(a.position.x, a.position.y, a.position.z),
-                  end = p(b.position.x, b.position.y, b.position.z);
-                const section = model.sections.find(
-                  (s) => s.id === member.sectionId,
-                );
-                return (
-                  <g
-                    key={member.id}
-                    className={`sfMember ${selectedId === member.id ? "sfMemberSelected" : ""}`}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Edit ${member.type} ${member.id}`}
-                    onClick={() => {
-                      if (generated) {
-                        setSelectedId(member.id);
-                        setEdit(null);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setSelectedId(member.id);
-                        setEdit(null);
-                      }
-                    }}
-                  >
-                    <rect
-                      className="sfMemberBounds"
-                      x={Math.min(start.x, end.x) - 7}
-                      y={Math.min(start.y, end.y) - 7}
-                      width={Math.max(14, Math.abs(end.x - start.x) + 14)}
-                      height={Math.max(14, Math.abs(end.y - start.y) + 14)}
-                      fill="transparent"
-                      pointerEvents="none"
-                    />
-                    <title>
-                      {member.type} · {section?.designation ?? member.sectionId}
-                    </title>
-                    {plan && member.type === "column" ? (
-                      <>
-                        <circle
-                          cx={end.x}
-                          cy={end.y}
-                          r={10}
-                          className="sfMemberHit"
-                        />
-                        <circle
-                          cx={end.x}
-                          cy={end.y}
-                          r={4}
-                          className="sfPlanColumn"
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <line
-                          x1={start.x}
-                          y1={start.y}
-                          x2={end.x}
-                          y2={end.y}
-                          className="sfMemberHit"
-                        />
-                        {line(
-                          start,
-                          end,
-                          member.id,
-                          member.type === "column"
-                            ? "sfColumn"
-                            : member.type === "brace"
-                              ? "sfBrace"
-                              : "sfBeam",
-                        )}
-                      </>
-                    )}
-                  </g>
-                );
-              })}
-            {xs.flatMap((x, i) =>
-              [true, false].map((near) => {
-                const q = p(x, near ? 0 : depth, 0),
-                  other = p(x, near ? depth : 0, 0);
-                const len = Math.hypot(q.x - other.x, q.y - other.y) || 1;
-                const bubble = {
-                  x: q.x + ((q.x - other.x) / len) * 45,
-                  y: q.y + ((q.y - other.y) / len) * 45,
-                };
-                return (
-                  <g
-                    key={`labelX${i}${near}`}
-                    className="sfGridBubble"
-                    aria-label={`Grid ${i + 1} ${near ? "near" : "far"}`}
-                  >
-                    <line x1={q.x} y1={q.y} x2={bubble.x} y2={bubble.y} />
-                    <circle cx={bubble.x} cy={bubble.y} r={12} />
-                    <text x={bubble.x} y={bubble.y + 4} textAnchor="middle">
-                      {i + 1}
-                    </text>
-                  </g>
-                );
-              }),
-            )}
-            {ys.flatMap((y, j) =>
-              [true, false].map((near) => {
-                const q = p(near ? 0 : width, y, 0),
-                  other = p(near ? width : 0, y, 0);
-                const len = Math.hypot(q.x - other.x, q.y - other.y) || 1;
-                const bubble = {
-                  x: q.x + ((q.x - other.x) / len) * 45,
-                  y: q.y + ((q.y - other.y) / len) * 45,
-                };
-                return (
-                  <g
-                    key={`labelY${j}${near}`}
-                    className="sfGridBubble"
-                    aria-label={`Grid ${String.fromCharCode(65 + j)} ${near ? "near" : "far"}`}
-                  >
-                    <line x1={q.x} y1={q.y} x2={bubble.x} y2={bubble.y} />
-                    <circle cx={bubble.x} cy={bubble.y} r={12} />
-                    <text x={bubble.x} y={bubble.y + 4} textAnchor="middle">
-                      {String.fromCharCode(65 + j)}
-                    </text>
-                  </g>
-                );
-              }),
-            )}
-            {layout.x.map((_, i) =>
-              dimension(
-                "x",
-                i,
-                { x: p(xs[i], 0, 0).x, y: p(xs[i], 0, 0).y + 80 },
-                { x: p(xs[i + 1], 0, 0).x, y: p(xs[i + 1], 0, 0).y + 80 },
-              ),
-            )}
-            {layout.y.map((_, j) =>
-              dimension(
-                "y",
-                j,
-                { x: p(0, ys[j], 0).x - 80, y: p(0, ys[j], 0).y },
-                { x: p(0, ys[j + 1], 0).x - 80, y: p(0, ys[j + 1], 0).y },
-              ),
-            )}
-            {!plan &&
+            {display.grids &&
+              xs.map((x, i) =>
+                line(p(x, 0, 0), p(x, depth, 0), `gx${i}`, "sfGrid"),
+              )}
+            {display.grids &&
+              ys.map((y, j) =>
+                line(p(0, y, 0), p(width, y, 0), `gy${j}`, "sfGrid"),
+              )}
+            {showMembers &&
+              model.members
+                .filter(
+                  (m) =>
+                    (filter === "all" || m.type === filter) &&
+                    (!plan ||
+                      m.type !== "column" ||
+                      m.levelId === model.levels.at(-1)?.id),
+                )
+                .map((member) => {
+                  const a = model.nodes.find(
+                      (n) => n.id === member.startNodeId,
+                    )!,
+                    b = model.nodes.find((n) => n.id === member.endNodeId)!;
+                  const start = p(a.position.x, a.position.y, a.position.z),
+                    end = p(b.position.x, b.position.y, b.position.z);
+                  const section = model.sections.find(
+                    (s) => s.id === member.sectionId,
+                  );
+                  return (
+                    <g
+                      key={member.id}
+                      className={`sfMember ${selectedId === member.id ? "sfMemberSelected" : ""}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Edit ${member.type} ${member.id}`}
+                      onClick={() => {
+                        if (generated) {
+                          setSelectedId(member.id);
+                          setEdit(null);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedId(member.id);
+                          setEdit(null);
+                        }
+                      }}
+                    >
+                      <rect
+                        className="sfMemberBounds"
+                        x={Math.min(start.x, end.x) - 7}
+                        y={Math.min(start.y, end.y) - 7}
+                        width={Math.max(14, Math.abs(end.x - start.x) + 14)}
+                        height={Math.max(14, Math.abs(end.y - start.y) + 14)}
+                        fill="transparent"
+                        pointerEvents="none"
+                      />
+                      {display.memberNumbers ? (
+                        <text
+                          className="sfMemberLabel"
+                          x={(start.x + end.x) / 2}
+                          y={(start.y + end.y) / 2 - 7}
+                          textAnchor="middle"
+                        >
+                          {member.type} ·{" "}
+                          {section?.designation ?? member.sectionId}
+                        </text>
+                      ) : null}
+                      <title>
+                        {member.type} ·{" "}
+                        {section?.designation ?? member.sectionId}
+                      </title>
+                      {plan && member.type === "column" ? (
+                        <>
+                          <circle
+                            cx={end.x}
+                            cy={end.y}
+                            r={10}
+                            className="sfMemberHit"
+                          />
+                          <circle
+                            cx={end.x}
+                            cy={end.y}
+                            r={4}
+                            className="sfPlanColumn"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <line
+                            x1={start.x}
+                            y1={start.y}
+                            x2={end.x}
+                            y2={end.y}
+                            className="sfMemberHit"
+                          />
+                          {line(
+                            start,
+                            end,
+                            member.id,
+                            member.type === "column"
+                              ? "sfColumn"
+                              : member.type === "brace"
+                                ? "sfBrace"
+                                : "sfBeam",
+                          )}
+                        </>
+                      )}
+                    </g>
+                  );
+                })}
+            {(display.nodes || display.nodeNumbers) &&
+              model.nodes
+                .filter((n) => !plan || n.levelId === model.levels.at(-1)?.id)
+                .map((node) => {
+                  const q = p(
+                    node.position.x,
+                    node.position.y,
+                    node.position.z,
+                  );
+                  return (
+                    <g key={node.id} className="sfNodeDisplay">
+                      {display.nodes ? (
+                        <circle cx={q.x} cy={q.y} r={3} />
+                      ) : null}
+                      {display.nodeNumbers ? (
+                        <text x={q.x + 5} y={q.y - 5}>
+                          {node.id}
+                        </text>
+                      ) : null}
+                    </g>
+                  );
+                })}
+            {display.grids &&
+              xs.flatMap((x, i) =>
+                [true, false].map((near) => {
+                  const q = p(x, near ? 0 : depth, 0),
+                    other = p(x, near ? depth : 0, 0);
+                  const len = Math.hypot(q.x - other.x, q.y - other.y) || 1;
+                  const bubble = {
+                    x: q.x + ((q.x - other.x) / len) * 45,
+                    y: q.y + ((q.y - other.y) / len) * 45,
+                  };
+                  return (
+                    <g
+                      key={`labelX${i}${near}`}
+                      className="sfGridBubble"
+                      aria-label={`Grid ${i + 1} ${near ? "near" : "far"}`}
+                    >
+                      <line x1={q.x} y1={q.y} x2={bubble.x} y2={bubble.y} />
+                      <circle cx={bubble.x} cy={bubble.y} r={12} />
+                      <text x={bubble.x} y={bubble.y + 4} textAnchor="middle">
+                        {i + 1}
+                      </text>
+                    </g>
+                  );
+                }),
+              )}
+            {display.grids &&
+              ys.flatMap((y, j) =>
+                [true, false].map((near) => {
+                  const q = p(near ? 0 : width, y, 0),
+                    other = p(near ? width : 0, y, 0);
+                  const len = Math.hypot(q.x - other.x, q.y - other.y) || 1;
+                  const bubble = {
+                    x: q.x + ((q.x - other.x) / len) * 45,
+                    y: q.y + ((q.y - other.y) / len) * 45,
+                  };
+                  return (
+                    <g
+                      key={`labelY${j}${near}`}
+                      className="sfGridBubble"
+                      aria-label={`Grid ${String.fromCharCode(65 + j)} ${near ? "near" : "far"}`}
+                    >
+                      <line x1={q.x} y1={q.y} x2={bubble.x} y2={bubble.y} />
+                      <circle cx={bubble.x} cy={bubble.y} r={12} />
+                      <text x={bubble.x} y={bubble.y + 4} textAnchor="middle">
+                        {String.fromCharCode(65 + j)}
+                      </text>
+                    </g>
+                  );
+                }),
+              )}
+            {showDimensions &&
+              layout.x.map((_, i) =>
+                dimension(
+                  "x",
+                  i,
+                  { x: p(xs[i], 0, 0).x, y: p(xs[i], 0, 0).y + 80 },
+                  { x: p(xs[i + 1], 0, 0).x, y: p(xs[i + 1], 0, 0).y + 80 },
+                ),
+              )}
+            {showDimensions &&
+              layout.y.map((_, j) =>
+                dimension(
+                  "y",
+                  j,
+                  { x: p(0, ys[j], 0).x - 80, y: p(0, ys[j], 0).y },
+                  { x: p(0, ys[j + 1], 0).x - 80, y: p(0, ys[j + 1], 0).y },
+                ),
+              )}
+            {showDimensions &&
+              !plan &&
               layout.heights.map((_, k) =>
                 dimension(
                   "heights",
@@ -706,7 +949,12 @@ export default function SimpleFrameModeler({
             </form>
           ) : (
             <p className="sfCanvasHint">
-              Click a dimension on the model to edit it
+              {navigationTool === "select"
+                ? "Select · Click a member to change its section"
+                : navigationTool === "pan"
+                  ? "Pan · Drag to move the view"
+                  : "Orbit · Drag to rotate the 3D view"}{" "}
+              · Wheel: zoom · Middle/right drag or Shift+drag: pan
             </p>
           )}
           {error ? <p role="alert">{error}</p> : null}

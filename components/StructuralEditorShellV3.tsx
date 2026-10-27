@@ -68,7 +68,7 @@ export default function StructuralEditorShellV3() {
   const interaction = useInteractionState();
   const selections = usePublishedSelections();
   const activeModelTool = pointState.tool ? `${pointState.tool[0].toUpperCase()}${pointState.tool.slice(1)}` as ModelingTool : null;
-  const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("View");
+  const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("Select");
 
   useEffect(() => {
     const active = (event: Event) => setActiveUtilityTool((event as CustomEvent<UtilityTool>).detail);

@@ -119,6 +119,122 @@ test("simple dimensions edit canonical geometry, grids/storeys grow, and Advance
     });
     assert.ok(host.querySelector(".simpleFrameWorkspace"));
     assert.equal(host.querySelector(".architectToolstrip"), null);
+    const svg = host.querySelector("svg")!;
+    svg.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      width: 820,
+      height: 590,
+      right: 820,
+      bottom: 590,
+      toJSON: () => ({}),
+    });
+    assert.equal(svg.getAttribute("data-navigation-tool"), "select");
+    assert.equal(
+      host.querySelector('.sfCatalogRow input[type="search"]'),
+      null,
+      "Horizontal toolbar must be one dropdown row",
+    );
+    assert.equal(
+      host.querySelector(".sfMaterialForm"),
+      null,
+      "No manual material property form",
+    );
+    const initialView = svg.getAttribute("viewBox");
+    h.act(() =>
+      svg.dispatchEvent(
+        new dom.window.WheelEvent("wheel", {
+          deltaY: -150,
+          clientX: 400,
+          clientY: 300,
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    );
+    assert.notEqual(
+      svg.getAttribute("viewBox"),
+      initialView,
+      "Mouse wheel zooms in Select",
+    );
+    const zoomedView = svg.getAttribute("viewBox");
+    h.act(() => {
+      svg.dispatchEvent(
+        new dom.window.MouseEvent("pointerdown", {
+          button: 1,
+          clientX: 400,
+          clientY: 300,
+          bubbles: true,
+        }),
+      );
+      svg.dispatchEvent(
+        new dom.window.MouseEvent("pointermove", {
+          buttons: 4,
+          clientX: 450,
+          clientY: 330,
+          bubbles: true,
+        }),
+      );
+      svg.dispatchEvent(
+        new dom.window.MouseEvent("pointerup", {
+          button: 1,
+          clientX: 450,
+          clientY: 330,
+          bubbles: true,
+        }),
+      );
+    });
+    assert.notEqual(
+      svg.getAttribute("viewBox"),
+      zoomedView,
+      "Middle drag pans in Select",
+    );
+    const dragMember = host.querySelector('[aria-label^="Edit beam"]')!;
+    h.act(() =>
+      dragMember.dispatchEvent(
+        new dom.window.MouseEvent("click", { bubbles: true }),
+      ),
+    );
+    assert.equal(
+      host.querySelector('[aria-label="Member editor"]'),
+      null,
+      "Dragging must not edit a member",
+    );
+    h.act(() =>
+      svg.dispatchEvent(
+        new dom.window.MouseEvent("pointerdown", {
+          button: 0,
+          clientX: 0,
+          clientY: 0,
+          bubbles: true,
+        }),
+      ),
+    );
+    h.act(() =>
+      svg.dispatchEvent(
+        new dom.window.MouseEvent("pointerup", {
+          button: 0,
+          clientX: 0,
+          clientY: 0,
+          bubbles: true,
+        }),
+      ),
+    );
+    click("Fit");
+    assert.equal(svg.getAttribute("viewBox"), initialView);
+    click("Display · ON / OFF");
+    h.act(() =>
+      host.querySelector<HTMLInputElement>('[aria-label="Grids"]')!.click(),
+    );
+    assert.equal(host.querySelector(".sfGridBubble"), null);
+    h.act(() =>
+      host.querySelector<HTMLInputElement>('[aria-label="Grids"]')!.click(),
+    );
+    assert.ok(host.querySelector(".sfGridBubble"));
+    click("Display · ON / OFF");
+
     h.act(() =>
       host
         .querySelector<SVGGElement>('[aria-label="Edit X bay 1: 5 m"]')!
@@ -169,7 +285,7 @@ test("simple dimensions edit canonical geometry, grids/storeys grow, and Advance
       host.querySelector<HTMLSelectElement>(
         '[aria-label="Default beam section"]',
       )!.value,
-      "SEC1",
+      "cisc-w310x33",
     );
     const columnHit = host.querySelector(
       '[aria-label^="Edit column"] .sfMemberBounds',

@@ -7,8 +7,7 @@ import type {
 } from "@linkoteq/structural-core";
 import {
   type FrameCatalogs,
-  REQUESTED_FRAME_SECTIONS,
-  requestedSection,
+  completeCatalogMaterials,
 } from "../lib/core-frame-catalogs";
 import type { FrameLayout } from "../lib/simple-frame";
 export function FrameSectionPicker({
@@ -17,7 +16,9 @@ export function FrameSectionPicker({
   catalogs,
   model,
   onChange,
+  compact = false,
 }: {
+  compact?: boolean;
   label: string;
   value: string;
   catalogs: FrameCatalogs | null;
@@ -39,13 +40,15 @@ export function FrameSectionPicker({
   return (
     <label className="sfCatalogField">
       {label}
-      <input
-        type="search"
-        aria-label={`Search ${label}`}
-        placeholder="Search section…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      {!compact ? (
+        <input
+          type="search"
+          aria-label={`Search ${label}`}
+          placeholder="Search section…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      ) : null}
       <select
         aria-label={label}
         value={value}
@@ -99,9 +102,10 @@ export default function FrameCatalogToolbar({
   const location = catalogs?.locations.find((l) => l.id === locationId);
   const [region, setRegion] = useState("");
   const province = location?.provinceOrTerritory ?? region;
-  const [templateId, setTemplateId] = useState("");
-  const [materialError, setMaterialError] = useState("");
-  const template = catalogs?.materials.find((m) => m.id === templateId);
+  const readyMaterials = completeCatalogMaterials(catalogs?.materials ?? []);
+  const choices = new Map(
+    [...model.materials, ...readyMaterials].map((m) => [m.id, m]),
+  );
   const steel = model.materials.find((m) => m.type === "steel");
   const materialId =
     layout.defaults?.materialId ?? steel?.id ?? model.materials[0]?.id ?? "";
@@ -156,16 +160,10 @@ export default function FrameCatalogToolbar({
           Material
           <select
             aria-label="Default material"
-            value={templateId ? `template:${templateId}` : materialId}
+            value={materialId}
             onChange={(e) => {
-              if (e.target.value.startsWith("template:")) {
-                setTemplateId(e.target.value.slice(9));
-                setMaterialError("");
-              } else {
-                setTemplateId("");
-                const m = model.materials.find((m) => m.id === e.target.value);
-                if (m) onMaterial(m);
-              }
+              const material = choices.get(e.target.value);
+              if (material) onMaterial(material);
             }}
           >
             <optgroup label="Project materials">
@@ -175,10 +173,11 @@ export default function FrameCatalogToolbar({
                 </option>
               ))}
             </optgroup>
-            <optgroup label="Core material reference templates">
+            <optgroup label="Core materials">
               {catalogs?.materials.map((m) => (
-                <option key={m.id} value={`template:${m.id}`}>
+                <option key={m.id} value={m.id} disabled={!choices.has(m.id)}>
                   {m.name} ({m.jurisdiction})
+                  {!choices.has(m.id) ? " · properties unavailable" : ""}
                 </option>
               ))}
             </optgroup>
@@ -187,6 +186,7 @@ export default function FrameCatalogToolbar({
         {(["beam", "column", "brace"] as const).map((type) => (
           <div key={type}>
             <FrameSectionPicker
+              compact
               label={`Default ${type} section`}
               value={
                 layout.defaults?.[type] ??
@@ -204,12 +204,6 @@ export default function FrameCatalogToolbar({
                 )
               }
             />
-            {catalogs && !requestedSection(catalogs, type) ? (
-              <small className="sfCatalogWarning">
-                Requested {REQUESTED_FRAME_SECTIONS[type]} is absent or
-                incomplete. Choose a catalog section.
-              </small>
-            ) : null}
           </div>
         ))}
       </div>
@@ -218,96 +212,9 @@ export default function FrameCatalogToolbar({
           {error} <button onClick={onRetry}>Retry catalogs</button>
         </p>
       ) : !catalogs ? (
-        <p role="status">
-          Loading Core location, material and section catalogs…
-        </p>
-      ) : (
-        <small>
-          Core catalogs · {catalogs.locations.length} Canadian locations ·{" "}
-          {catalogs.datasetVersion}
-        </small>
-      )}
-      {template ? (
-        <form
-          className="sfMaterialForm"
-          onSubmit={(e) => {
-            e.preventDefault();
-            try {
-              const data = new FormData(e.currentTarget);
-              const n = (key: string) => Number(data.get(key));
-              const E = n("E"),
-                G = n("G"),
-                nu = n("nu"),
-                rho = n("rho"),
-                fy = n("fy");
-              if (
-                ![E, G, rho].every((v) => Number.isFinite(v) && v > 0) ||
-                !Number.isFinite(nu) ||
-                nu <= -1 ||
-                nu >= 0.5 ||
-                (template.type === "steel" && (!Number.isFinite(fy) || fy <= 0))
-              )
-                throw new Error("Enter valid project material properties.");
-              const material: Material = {
-                id: `SF-MAT-${template.id}`,
-                type: template.type,
-                name: template.name,
-                analysis: {
-                  E: { value: E, unit: "MPa" },
-                  G: { value: G, unit: "MPa" },
-                  nu,
-                  rho: { value: rho, unit: "kg/m3" },
-                  ...(template.type === "steel"
-                    ? { fy: { value: fy, unit: "MPa" } }
-                    : {}),
-                },
-                ...(template.type === "steel"
-                  ? { steel: { grade: template.grade } }
-                  : {}),
-                metadata: {
-                  coreTemplateId: template.id,
-                  coreCatalogRef: catalogs?.ref,
-                  analysisPropertySource: "User-supplied project properties",
-                },
-              };
-              onMaterial(material);
-              setTemplateId("");
-              setMaterialError("");
-            } catch (err) {
-              setMaterialError((err as Error).message);
-            }
-          }}
-        >
-          <strong>{template.name}</strong>
-          <span>
-            Core lists this grade as a reference template. Enter its project
-            properties to assign it.
-          </span>
-          {[
-            "E",
-            "G",
-            "nu",
-            "rho",
-            ...(template.type === "steel" ? ["fy"] : []),
-          ].map((key) => (
-            <label key={key}>
-              {key}
-              {key === "rho" ? " (kg/m³)" : key === "nu" ? "" : " (MPa)"}
-              <input
-                name={key}
-                aria-label={`Material ${key}`}
-                type="number"
-                step="any"
-                required
-              />
-            </label>
-          ))}
-          <button type="submit">Apply material</button>
-          <button type="button" onClick={() => setTemplateId("")}>
-            Cancel
-          </button>
-          {materialError ? <p role="alert">{materialError}</p> : null}
-        </form>
+        <span className="sfCatalogLoading" role="status">
+          Loading catalogs…
+        </span>
       ) : null}
     </section>
   );

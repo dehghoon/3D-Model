@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import {
   getDisplayOptions,
   setDisplayOption,
@@ -86,12 +86,7 @@ export default function ViewportDisplayOptionsV05() {
     getDisplayOptions,
   );
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      window.dispatchEvent(new Event("linkoteq:view-cycle"));
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
+
 
   return (
     <div>
@@ -167,3 +162,4 @@ export default function ViewportDisplayOptionsV05() {
     </div>
   );
 }
+
