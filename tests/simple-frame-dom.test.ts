@@ -5,6 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import { JSDOM } from "jsdom";
+import { verifiedLegacySteel350W } from "../lib/cisc-section-library-v05";
 test("simple dimensions edit canonical geometry, grids/storeys grow, and Advanced shares the exact model", async () => {
   const temp = await mkdtemp(path.resolve("tests/.simple-"));
   const output = path.join(temp, "ui.mjs");
@@ -75,6 +76,7 @@ test("simple dimensions edit canonical geometry, grids/storeys grow, and Advance
                   },
                 ],
                 materials: [
+                  {...verifiedLegacySteel350W(),id:'test-core-350W',name:'Steel 350W (complete catalog fixture)',jurisdiction:'CA'},
                   {
                     id: "CA-CSA-G40-21-300W",
                     name: "CSA G40.21 300W",
@@ -265,6 +267,10 @@ test("simple dimensions edit canonical geometry, grids/storeys grow, and Advance
         select.value = value;
         select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
       });
+    const materialOptions=host.querySelector<HTMLSelectElement>('[aria-label="Default material"]')!;
+    assert.ok([...materialOptions.options].find(o=>o.value==='CA-CSA-G40-21-300W')!.disabled);
+    choose('Default material','test-core-350W');
+    assert.equal(host.querySelector('.sfMaterialForm'),null);
     choose("Province / territory", "Ontario");
     choose("Project location", "CA/Ontario/Toronto");
     setInput(host.querySelector('[aria-label="Braced bays X"]')!, "1");
@@ -296,6 +302,8 @@ test("simple dimensions edit canonical geometry, grids/storeys grow, and Advance
     click("Advanced Mode");
     const model = JSON.parse(host.querySelector("[data-model]")!.textContent!);
     assert.equal(model.levels.length, 4);
+    assert.equal(model.materials.find((m:any)=>m.id==='test-core-350W').analysis.E.value,200000);
+    assert.ok(model.members.every((m:any)=>m.materialId==='test-core-350W'));
     assert.equal(model.project.metadata.locationId, "CA/Ontario/Toronto");
     assert.equal(
       model.members.filter((m: any) => m.type === "brace").length,
