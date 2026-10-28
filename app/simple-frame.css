@@ -674,3 +674,11 @@
  .mode-advanced:not(.mobile-panel-closed) .architectViewportColumn{width:calc(100% - 290px)}
 }
 @media(max-width:760px){.advancedMobileControls select{min-width:0;max-width:80px;min-height:44px;font-size:16px;border:1px solid #cedde8;border-radius:8px;background:#fff}.mode-advanced .architectQuickActions strong{font-size:14px}.mode-advanced .architectViewportColumn{display:block}.mode-advanced .engineeringEditorStage .appShell{height:100%!important;min-height:0!important}}
+@media(max-width:760px){
+ .advancedToolContent button,.advancedProjectContent button{border:1px solid #c9d8e3;border-radius:8px;background:#f6fafc;color:#24495f;padding:8px}
+ .mode-advanced .advancedDisplayContent label{min-height:44px;font-size:14px!important;align-items:center}
+ .mode-advanced [aria-label="Snap settings"]{left:6px!important;right:6px;top:44px!important;transform:none!important;overflow-x:auto;max-width:calc(100% - 12px);padding:4px 8px!important;gap:12px!important}
+ .mode-advanced [aria-label="Snap settings"] label{min-height:36px;flex-shrink:0}
+ .lgPortalPanel input:not([type=checkbox]),.lgPortalPanel select{font-size:16px!important;min-height:44px}
+ .lgPortalPanel button{min-height:44px}
+}
