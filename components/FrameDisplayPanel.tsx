@@ -1,5 +1,5 @@
 "use client";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   getDisplayOptions,
   subscribeDisplayOptions,
@@ -11,13 +11,20 @@ export default function FrameDisplayPanel({
   onDimensions,
   members,
   onMembers,
+  onOpen,
+  dismissWhen,
 }: {
+  onOpen?: () => void;
+  dismissWhen?: boolean;
   dimensions: boolean;
   onDimensions: (v: boolean) => void;
   members: boolean;
   onMembers: (v: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (dismissWhen) setOpen(false);
+  }, [dismissWhen]);
   const options = useSyncExternalStore(
     subscribeDisplayOptions,
     getDisplayOptions,
@@ -32,7 +39,13 @@ export default function FrameDisplayPanel({
   ];
   return (
     <aside className="sfDisplayPanel" aria-label="Simple display controls">
-      <button aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button
+        aria-expanded={open}
+        onClick={() => {
+          if (!open) onOpen?.();
+          setOpen(!open);
+        }}
+      >
         Display · ON / OFF
       </button>
       {open ? (

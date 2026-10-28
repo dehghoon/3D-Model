@@ -75,3 +75,28 @@ test("authorized nearby defaults resolve to real complete records and keep singl
   );
   assert.equal(simpleDefaultSection(catalog, "brace")?.family, "L");
 });
+
+test("two-finger navigation combines pinch scale and centroid movement without shifting the anchor", async () => {
+  const { pinchFrame } = await import("../lib/frame-navigation");
+  const bounds = { left: 0, top: 0, width: 820, height: 590 };
+  const initial = INITIAL_FRAME_VIEW;
+  const next = pinchFrame(
+    initial,
+    bounds,
+    { x: 300, y: 200, distance: 100 },
+    { x: 340, y: 220, distance: 200 },
+  );
+  assert.equal(next.width, 410);
+  assert.deepEqual(
+    framePoint(next, bounds, 340, 220),
+    framePoint(initial, bounds, 300, 200),
+  );
+  const pan = pinchFrame(
+    initial,
+    bounds,
+    { x: 300, y: 200, distance: 100 },
+    { x: 350, y: 230, distance: 100 },
+  );
+  assert.equal(pan.x, -50);
+  assert.equal(pan.y, -30);
+});

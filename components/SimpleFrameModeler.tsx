@@ -9,10 +9,12 @@ import {
 } from "../lib/core-frame-catalogs";
 import type { Section, Material } from "@linkoteq/structural-core";
 import FrameDisplayPanel from "./FrameDisplayPanel";
+import MobileFrameSheet, { type MobileFrameTab } from "./MobileFrameSheet";
 import {
   INITIAL_FRAME_VIEW,
   framePoint,
   zoomFrame,
+  pinchFrame,
   type FrameView,
 } from "../lib/frame-navigation";
 import {
@@ -55,6 +57,35 @@ export default function SimpleFrameModeler({
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [plan, setPlan] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileFrameTab>("plan");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const touchPoints = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{
+    view: FrameView;
+    x: number;
+    y: number;
+    distance: number;
+  } | null>(null);
+  useEffect(() => {
+    const query = window.matchMedia?.("(max-width: 760px)");
+    if (!query) return;
+    const sync = () => setMobile(query.matches);
+    sync();
+    query.addEventListener?.("change", sync);
+    return () => query.removeEventListener?.("change", sync);
+  }, []);
+  function showPanel(tab: MobileFrameTab) {
+    setMobileTab(tab);
+    setSheetOpen(true);
+  }
+  function pickMember(id: string) {
+    if (!generated) return;
+    setSelectedId(id);
+    setEdit(null);
+    if (mobile) showPanel("members");
+  }
+
   const [navigationTool, setNavigationTool] = useState<
     "select" | "pan" | "orbit"
   >("select");
@@ -248,6 +279,7 @@ export default function SimpleFrameModeler({
       return;
     }
     setSelectedId(null);
+    if (mobile) showPanel("plan");
     setEdit({ axis, index });
     setValue(String(layout[axis][index]));
   }
@@ -319,139 +351,310 @@ export default function SimpleFrameModeler({
       </g>
     );
   }
-  return (
-    <>
-      <FrameCatalogToolbar
-        model={model}
-        layout={layout}
-        catalogs={catalogs}
-        error={catalogError}
-        onRetry={() => setRetry((n) => n + 1)}
-        onLayout={updateWithSection}
-        onMaterial={materialChange}
-        onLocation={locationChange}
-      />
-      <main className="simpleFrameWorkspace">
-        <aside className="sfSetup">
-          <span className="sfEyebrow">QUICK FRAME</span>
-          <h1>Your building, in a few clicks</h1>
-          <p>
-            Set the plan, add grids and storeys. Columns and beams connect
-            automatically.
-          </p>
-          {!generated ? (
-            <div className="sfNotice">
-              Your existing model is kept in Advanced. Creating a quick frame
-              replaces the current geometry.
-              <button onClick={() => update(layout, true)}>
-                Create quick frame
-              </button>
-              <button onClick={onAdvanced}>Keep editing in Advanced</button>
-            </div>
-          ) : null}
-          <h2>
-            Plan size <small>metres</small>
-          </h2>
-          {(["x", "y"] as const).map((axis) => (
-            <label key={axis}>
-              Overall {axis === "x" ? "length X" : "width Y"}
-              <input
-                key={`${axis}-${total(layout[axis])}`}
-                type="number"
-                min="0.1"
-                max="20000"
-                step="any"
-                defaultValue={total(layout[axis])}
-                onBlur={(e) => {
-                  try {
-                    if (Number(e.target.value) !== total(layout[axis]))
-                      update({
-                        ...layout,
-                        [axis]: fitDimension(Number(e.target.value)),
-                      });
-                  } catch (err) {
-                    setError((err as Error).message);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                }}
-              />
-            </label>
-          ))}
-          <h2>Grids &amp; storeys</h2>
-          {(["x", "y", "heights"] as const).map((axis) => (
-            <div className="sfCounter" key={axis}>
-              <div>
-                <strong>
-                  {axis === "heights"
-                    ? "Storeys"
-                    : `Grid lines ${axis.toUpperCase()}`}
-                </strong>
-                <small>
-                  {axis === "heights" ? "New storey: 3 m" : "New bay: 5 m"}
-                </small>
-              </div>
-              <button
-                aria-label={`Remove ${axis}`}
-                disabled={layout[axis].length === 1}
-                onClick={() =>
-                  update({
-                    ...layout,
-                    [axis]: resizeBays(
-                      layout[axis],
-                      layout[axis].length - 1,
-                      axis === "heights" ? 3 : 5,
-                    ),
-                  })
-                }
-              >
-                −
-              </button>
-              <output>
-                {layout[axis].length + (axis === "heights" ? 0 : 1)}
-              </output>
-              <button
-                aria-label={`Add ${axis}`}
-                disabled={layout[axis].length === 20}
-                onClick={() =>
-                  update({
-                    ...layout,
-                    [axis]: resizeBays(
-                      layout[axis],
-                      layout[axis].length + 1,
-                      axis === "heights" ? 3 : 5,
-                    ),
-                  })
-                }
-              >
-                +
-              </button>
-            </div>
-          ))}
-          <p className="sfHint">
-            Adding a grid adds a 5 m bay. Changing the overall size uses 5 m
-            bays plus the remaining distance. Click any dimension to customize
-            it.
-          </p>
-          <FrameBraceControls
-            layout={layout}
-            onChange={(next) => update(next)}
-          />
-          <button className="sfAdvanced" onClick={onAdvanced}>
-            Continue in Advanced →
+  const catalogPanel = (
+    <FrameCatalogToolbar
+      model={model}
+      layout={layout}
+      catalogs={catalogs}
+      error={catalogError}
+      onRetry={() => setRetry((n) => n + 1)}
+      onLayout={updateWithSection}
+      onMaterial={materialChange}
+      onLocation={locationChange}
+    />
+  );
+  const setupPanel = (
+    <aside className="sfSetup">
+      <span className="sfEyebrow">QUICK FRAME</span>
+      <h1>Your building, in a few clicks</h1>
+      <p>
+        Set the plan, add grids and storeys. Columns and beams connect
+        automatically.
+      </p>
+      {!generated ? (
+        <div className="sfNotice">
+          Your existing model is kept in Advanced. Creating a quick frame
+          replaces the current geometry.
+          <button onClick={() => update(layout, true)}>
+            Create quick frame
           </button>
-        </aside>
+          <button onClick={onAdvanced}>Keep editing in Advanced</button>
+        </div>
+      ) : null}
+      <h2>
+        Plan size <small>metres</small>
+      </h2>
+      {(["x", "y"] as const).map((axis) => (
+        <label key={axis}>
+          Overall {axis === "x" ? "length X" : "width Y"}
+          <input
+            key={`${axis}-${total(layout[axis])}`}
+            type="number"
+            min="0.1"
+            max="20000"
+            step="any"
+            defaultValue={total(layout[axis])}
+            onBlur={(e) => {
+              try {
+                if (Number(e.target.value) !== total(layout[axis]))
+                  update({
+                    ...layout,
+                    [axis]: fitDimension(Number(e.target.value)),
+                  });
+              } catch (err) {
+                setError((err as Error).message);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+          />
+        </label>
+      ))}
+      <h2>Grids &amp; storeys</h2>
+      {(["x", "y", "heights"] as const).map((axis) => (
+        <div className="sfCounter" key={axis}>
+          <div>
+            <strong>
+              {axis === "heights"
+                ? "Storeys"
+                : `Grid lines ${axis.toUpperCase()}`}
+            </strong>
+            <small>
+              {axis === "heights" ? "New storey: 3 m" : "New bay: 5 m"}
+            </small>
+          </div>
+          <button
+            aria-label={`Remove ${axis}`}
+            disabled={layout[axis].length === 1}
+            onClick={() =>
+              update({
+                ...layout,
+                [axis]: resizeBays(
+                  layout[axis],
+                  layout[axis].length - 1,
+                  axis === "heights" ? 3 : 5,
+                ),
+              })
+            }
+          >
+            −
+          </button>
+          <output>{layout[axis].length + (axis === "heights" ? 0 : 1)}</output>
+          <button
+            aria-label={`Add ${axis}`}
+            disabled={layout[axis].length === 20}
+            onClick={() =>
+              update({
+                ...layout,
+                [axis]: resizeBays(
+                  layout[axis],
+                  layout[axis].length + 1,
+                  axis === "heights" ? 3 : 5,
+                ),
+              })
+            }
+          >
+            +
+          </button>
+        </div>
+      ))}
+      <p className="sfHint">
+        Adding a grid adds a 5 m bay. Changing the overall size uses 5 m bays
+        plus the remaining distance. Click any dimension to customize it.
+      </p>
+      <FrameBraceControls layout={layout} onChange={(next) => update(next)} />
+      <button className="sfAdvanced" onClick={onAdvanced}>
+        Continue in Advanced →
+      </button>
+    </aside>
+  );
+  const memberEditor = selected ? (
+    <section className="sfMemberEditor" aria-label="Member editor">
+      <div>
+        <strong>
+          {selected.type} · {selected.id}
+        </strong>
+        <button onClick={() => setSelectedId(null)}>Close member editor</button>
+      </div>
+      <FrameSectionPicker
+        label="Member section"
+        value={selected.sectionId}
+        catalogs={catalogs}
+        model={model}
+        onChange={(section) => editMember({ sectionId: section.id }, section)}
+      />
+      <label>
+        Member material
+        <select
+          aria-label="Member material"
+          value={selected.materialId}
+          onChange={(e) => editMember({ materialId: e.target.value })}
+        >
+          {model.materials.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Rotation (degrees)
+        <input
+          aria-label="Member rotation"
+          key={`${selected.id}-${selected.rotationDeg}`}
+          type="number"
+          step="any"
+          defaultValue={selected.rotationDeg ?? 0}
+          onBlur={(e) => editMember({ rotationDeg: Number(e.target.value) })}
+        />
+      </label>
+      <button
+        onClick={() => {
+          editMember({ excluded: true });
+          setSelectedId(null);
+        }}
+      >
+        Omit this member
+      </button>
+      <button
+        onClick={() => {
+          const next = { ...layout.overrides };
+          delete next[selected.id];
+          update({ ...layout, overrides: next });
+        }}
+      >
+        Use defaults for this member
+      </button>
+    </section>
+  ) : null;
+  const dimensionEditor = edit ? (
+    <form
+      className="sfEdit"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const next = {
+          ...layout,
+          [edit.axis]: layout[edit.axis].map((v, i) =>
+            i === edit.index ? Number(value) : v,
+          ),
+        };
+        try {
+          createSimpleFrame(next, model);
+          update(next);
+          setEdit(null);
+          if (mobile) setSheetOpen(false);
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+    >
+      <label>
+        {edit.axis === "heights"
+          ? "Storey height"
+          : `${edit.axis.toUpperCase()} bay spacing`}{" "}
+        {edit.index + 1} (m)
+        <input
+          autoFocus
+          type="number"
+          step="any"
+          min="0.1"
+          max="1000"
+          required
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </label>
+      <button type="submit">Apply</button>
+      <button type="button" onClick={() => setEdit(null)}>
+        Cancel
+      </button>
+    </form>
+  ) : (
+    <p className="sfCanvasHint">
+      {navigationTool === "select"
+        ? "Select · Click a member to change its section"
+        : navigationTool === "pan"
+          ? "Pan · Drag to move the view"
+          : "Orbit · Drag to rotate the 3D view"}{" "}
+      · Wheel: zoom · Middle/right drag or Shift+drag: pan
+    </p>
+  );
+  const memberBrowser = (
+    <section className="sfMobileMemberBrowser" aria-label="Member browser">
+      <p>Tap a member in the model, or choose one below.</p>
+      <details className="sfMobileDefaults">
+        <summary>Default sections</summary>
+        {(["beam", "column", "brace"] as const).map((type) => (
+          <FrameSectionPicker
+            key={type}
+            compact
+            label={`Default ${type} section`}
+            value={layout.defaults?.[type] ?? ""}
+            model={model}
+            catalogs={catalogs}
+            onChange={(section) =>
+              updateWithSection(
+                {
+                  ...layout,
+                  defaults: { ...layout.defaults, [type]: section.id },
+                },
+                section,
+              )
+            }
+          />
+        ))}
+      </details>
+      <label>
+        Member type
+        <select
+          aria-label="Browse member type"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="all">All members</option>
+          <option value="beam">Beams</option>
+          <option value="column">Columns</option>
+          <option value="brace">Braces</option>
+        </select>
+      </label>
+      <ul>
+        {model.members
+          .filter((m) => filter === "all" || m.type === filter)
+          .map((member, index) => (
+            <li key={member.id}>
+              <button onClick={() => pickMember(member.id)}>
+                <strong>
+                  {member.type} {index + 1}
+                </strong>
+                <span>
+                  {model.sections.find((s) => s.id === member.sectionId)
+                    ?.designation ?? member.sectionId}
+                </span>
+              </button>
+            </li>
+          ))}
+      </ul>
+    </section>
+  );
+  return (
+    <div
+      className={`simpleFrameApp ${mobile ? "sfMobileLayout" : ""}`}
+      data-panel-open={sheetOpen}
+    >
+      {!mobile ? catalogPanel : null}
+      <main className="simpleFrameWorkspace">
+        {!mobile ? setupPanel : null}
         <section className="sfCanvas">
           <header>
             <div>
-              <strong>Live model</strong>
+              <strong>{mobile ? model.project.name : "Live model"}</strong>
               <span>
                 {width.toFixed(1)} × {depth.toFixed(1)} m · {height.toFixed(1)}{" "}
                 m high
               </span>
             </div>
-            <div>
+            <div className="sfDesktopViewportTools">
               <label className="sfMemberFilter">
                 Pick members
                 <select
@@ -528,13 +731,77 @@ export default function SimpleFrameModeler({
                 Plan
               </button>
             </div>
+            {mobile ? (
+              <button
+                className="sfMobileSave"
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(model, null, 2)], {
+                    type: "application/json",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `${model.project.id}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Save
+              </button>
+            ) : null}
           </header>
-          <FrameDisplayPanel
-            dimensions={showDimensions}
-            onDimensions={setShowDimensions}
-            members={showMembers}
-            onMembers={setShowMembers}
-          />
+          <div
+            className={mobile ? "sfMobileModelTools" : "sfDesktopDisplayHost"}
+          >
+            {mobile ? (
+              <>
+                <button
+                  aria-label="Select members"
+                  aria-pressed={navigationTool === "select"}
+                  onClick={() => setNavigationTool("select")}
+                >
+                  <span aria-hidden="true">↖</span>Select
+                </button>
+                <button
+                  aria-label="Rotate model"
+                  aria-pressed={navigationTool === "orbit"}
+                  disabled={plan}
+                  onClick={() => setNavigationTool("orbit")}
+                >
+                  <span aria-hidden="true">⟳</span>Orbit
+                </button>
+                <button
+                  aria-label="Switch model view"
+                  onClick={() => {
+                    setPlan(!plan);
+                    setNavigationTool("select");
+                    moveCamera(INITIAL_FRAME_VIEW);
+                  }}
+                >
+                  <span aria-hidden="true">▱</span>
+                  {plan ? "3D" : "Plan"}
+                </button>
+              </>
+            ) : null}
+            <FrameDisplayPanel
+              dimensions={showDimensions}
+              onDimensions={setShowDimensions}
+              members={showMembers}
+              onMembers={setShowMembers}
+              dismissWhen={mobile && sheetOpen}
+              onOpen={() => {
+                if (mobile) setSheetOpen(false);
+              }}
+            />
+            {mobile ? (
+              <button
+                aria-label="Fit model"
+                onClick={() => moveCamera(INITIAL_FRAME_VIEW)}
+              >
+                <span aria-hidden="true">⛶</span>Fit
+              </button>
+            ) : null}
+          </div>
           <svg
             ref={svgRef}
             viewBox={`${camera.x} ${camera.y} ${camera.width} ${camera.height}`}
@@ -543,12 +810,31 @@ export default function SimpleFrameModeler({
             onContextMenu={(e) => e.preventDefault()}
             onPointerDown={(e) => {
               suppressClick.current = false;
+              if (e.pointerType === "touch") {
+                touchPoints.current.set(e.pointerId, {
+                  x: e.clientX,
+                  y: e.clientY,
+                });
+                if (touchPoints.current.size >= 2) {
+                  for (const pointerId of touchPoints.current.keys())
+                    e.currentTarget.setPointerCapture?.(pointerId);
+                  const [a, b] = [...touchPoints.current.values()];
+                  pinch.current = {
+                    view: cameraRef.current,
+                    x: (a.x + b.x) / 2,
+                    y: (a.y + b.y) / 2,
+                    distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+                  };
+                  gesture.current = null;
+                  suppressClick.current = true;
+                  return;
+                }
+              }
               const kind =
                 e.button === 1 ||
                 e.button === 2 ||
                 e.shiftKey ||
-                navigationTool === "pan" ||
-                e.pointerType === "touch"
+                navigationTool === "pan"
                   ? "pan"
                   : navigationTool === "orbit"
                     ? "orbit"
@@ -566,6 +852,32 @@ export default function SimpleFrameModeler({
               }
             }}
             onPointerMove={(e) => {
+              if (
+                e.pointerType === "touch" &&
+                touchPoints.current.has(e.pointerId)
+              ) {
+                touchPoints.current.set(e.pointerId, {
+                  x: e.clientX,
+                  y: e.clientY,
+                });
+                if (pinch.current && touchPoints.current.size >= 2) {
+                  const [a, b] = [...touchPoints.current.values()];
+                  suppressClick.current = true;
+                  moveCamera(
+                    pinchFrame(
+                      pinch.current.view,
+                      e.currentTarget.getBoundingClientRect(),
+                      pinch.current,
+                      {
+                        x: (a.x + b.x) / 2,
+                        y: (a.y + b.y) / 2,
+                        distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+                      },
+                    ),
+                  );
+                  return;
+                }
+              }
               const start = gesture.current;
               if (!start) return;
               const dx = e.clientX - start.x,
@@ -588,11 +900,18 @@ export default function SimpleFrameModeler({
                 });
             }}
             onPointerUp={(e) => {
+              touchPoints.current.delete(e.pointerId);
+              if (pinch.current) {
+                pinch.current = null;
+                suppressClick.current = true;
+              }
               gesture.current = null;
               if (e.currentTarget.hasPointerCapture?.(e.pointerId))
                 e.currentTarget.releasePointerCapture(e.pointerId);
             }}
             onPointerCancel={() => {
+              touchPoints.current.clear();
+              pinch.current = null;
               gesture.current = null;
               suppressClick.current = true;
             }}
@@ -606,6 +925,7 @@ export default function SimpleFrameModeler({
               if (e.target === e.currentTarget) {
                 setSelectedId(null);
                 setEdit(null);
+                if (mobile) setSheetOpen(false);
               }
             }}
             aria-label="Interactive structural frame: click dimensions to edit"
@@ -646,16 +966,12 @@ export default function SimpleFrameModeler({
                       tabIndex={0}
                       aria-label={`Edit ${member.type} ${member.id}`}
                       onClick={() => {
-                        if (generated) {
-                          setSelectedId(member.id);
-                          setEdit(null);
-                        }
+                        pickMember(member.id);
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setSelectedId(member.id);
-                          setEdit(null);
+                          pickMember(member.id);
                         }
                       }}
                     >
@@ -826,71 +1142,7 @@ export default function SimpleFrameModeler({
                 ),
               )}
           </svg>
-          {selected ? (
-            <section className="sfMemberEditor" aria-label="Member editor">
-              <div>
-                <strong>
-                  {selected.type} · {selected.id}
-                </strong>
-                <button onClick={() => setSelectedId(null)}>
-                  Close member editor
-                </button>
-              </div>
-              <FrameSectionPicker
-                label="Member section"
-                value={selected.sectionId}
-                catalogs={catalogs}
-                model={model}
-                onChange={(section) =>
-                  editMember({ sectionId: section.id }, section)
-                }
-              />
-              <label>
-                Member material
-                <select
-                  aria-label="Member material"
-                  value={selected.materialId}
-                  onChange={(e) => editMember({ materialId: e.target.value })}
-                >
-                  {model.materials.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Rotation (degrees)
-                <input
-                  aria-label="Member rotation"
-                  key={`${selected.id}-${selected.rotationDeg}`}
-                  type="number"
-                  step="any"
-                  defaultValue={selected.rotationDeg ?? 0}
-                  onBlur={(e) =>
-                    editMember({ rotationDeg: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <button
-                onClick={() => {
-                  editMember({ excluded: true });
-                  setSelectedId(null);
-                }}
-              >
-                Omit this member
-              </button>
-              <button
-                onClick={() => {
-                  const next = { ...layout.overrides };
-                  delete next[selected.id];
-                  update({ ...layout, overrides: next });
-                }}
-              >
-                Use defaults for this member
-              </button>
-            </section>
-          ) : null}
+          {!mobile ? memberEditor : null}
           {Object.values(layout.overrides ?? {}).some((o) => o.excluded) ? (
             <button
               onClick={() => {
@@ -906,55 +1158,11 @@ export default function SimpleFrameModeler({
               Restore omitted members
             </button>
           ) : null}
-          {edit ? (
-            <form
-              className="sfEdit"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const next = {
-                  ...layout,
-                  [edit.axis]: layout[edit.axis].map((v, i) =>
-                    i === edit.index ? Number(value) : v,
-                  ),
-                };
-                try {
-                  createSimpleFrame(next, model);
-                  update(next);
-                  setEdit(null);
-                } catch (err) {
-                  setError((err as Error).message);
-                }
-              }}
-            >
-              <label>
-                {edit.axis === "heights"
-                  ? "Storey height"
-                  : `${edit.axis.toUpperCase()} bay spacing`}{" "}
-                {edit.index + 1} (m)
-                <input
-                  autoFocus
-                  type="number"
-                  step="any"
-                  min="0.1"
-                  max="1000"
-                  required
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                />
-              </label>
-              <button type="submit">Apply</button>
-              <button type="button" onClick={() => setEdit(null)}>
-                Cancel
-              </button>
-            </form>
+          {!mobile ? (
+            dimensionEditor
           ) : (
-            <p className="sfCanvasHint">
-              {navigationTool === "select"
-                ? "Select · Click a member to change its section"
-                : navigationTool === "pan"
-                  ? "Pan · Drag to move the view"
-                  : "Orbit · Drag to rotate the 3D view"}{" "}
-              · Wheel: zoom · Middle/right drag or Shift+drag: pan
+            <p className="sfTouchHint">
+              Two fingers: zoom &amp; pan · Tap a member to edit
             </p>
           )}
           {error ? <p role="alert">{error}</p> : null}
@@ -966,6 +1174,43 @@ export default function SimpleFrameModeler({
           </footer>
         </section>
       </main>
-    </>
+      {mobile ? (
+        <MobileFrameSheet
+          tab={mobileTab}
+          open={sheetOpen}
+          title={
+            edit
+              ? "Edit dimension"
+              : mobileTab === "plan"
+                ? "Plan & levels"
+                : mobileTab === "project"
+                  ? "Project settings"
+                  : selected
+                    ? "Member properties"
+                    : "Members"
+          }
+          onClose={() => setSheetOpen(false)}
+          onTab={(tab) => {
+            if (tab === mobileTab && sheetOpen) {
+              setSheetOpen(false);
+              return;
+            }
+            setEdit(null);
+            showPanel(tab);
+          }}
+        >
+          {edit
+            ? dimensionEditor
+            : mobileTab === "plan"
+              ? setupPanel
+              : mobileTab === "project"
+                ? catalogPanel
+                : selected
+                  ? memberEditor
+                  : memberBrowser}
+          {error ? <p role="alert">{error}</p> : null}
+        </MobileFrameSheet>
+      ) : null}
+    </div>
   );
 }

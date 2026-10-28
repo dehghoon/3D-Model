@@ -41,3 +41,22 @@ export function framePoint(
       (y - bounds.top - (bounds.height - view.height * scale) / 2) / scale,
   };
 }
+export function pinchFrame(
+  view: FrameView,
+  bounds: { left: number; top: number; width: number; height: number },
+  start: { x: number; y: number; distance: number },
+  next: { x: number; y: number; distance: number },
+): FrameView {
+  const anchor = framePoint(view, bounds, start.x, start.y);
+  const zoomed = zoomFrame(
+    view,
+    start.distance / Math.max(1, next.distance),
+    anchor,
+  );
+  const point = framePoint(zoomed, bounds, next.x, next.y);
+  return {
+    ...zoomed,
+    x: zoomed.x + anchor.x - point.x,
+    y: zoomed.y + anchor.y - point.y,
+  };
+}

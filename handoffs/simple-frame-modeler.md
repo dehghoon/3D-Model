@@ -39,3 +39,13 @@ Simple now opens a dedicated parametric frame workspace. The former manual point
 - The right-side Simple Display menu toggles members, nodes, node numbers, member labels, grids, dimensions and line thickness. Applicable options use the same display store as Advanced. Display and navigation are presentation state, not canonical geometry changes.
 - Advanced no longer switches itself into View when display controls mount; its initial utility is Select.
 - Verification adds cursor-anchor/zoom-limit and letterboxing tests, complete-material filtering and actual nearby-default lookup tests. DOM tests cover default Select, wheel zoom, middle-button pan, drag suppression, Fit, grid visibility, member section editing and absence of manual material inputs.
+
+## Mobile workspace
+
+- At viewport widths up to 760 px, Simple becomes a model-first screen with compact project/save header, large model tools and three bottom tabs: Plan & levels, Members and Project.
+- A single collapsible bottom sheet contains the active panel. It can expand or reduce through its handle, collapse by downward drag, close by its button or Escape, and scroll its contents independently. The model remains visible above it; safe-area padding protects bottom navigation.
+- The desktop setup sidebar and horizontal catalogs move into the bottom sheet without duplicating the engineering model or controls. Members offers a list and default-section selectors; tapping a model member opens its existing individual editor. Tapping a dimension opens only that input and Apply closes the sheet. Background taps clear selection.
+- Two touch pointers simultaneously pan and zoom around their centroid. One-finger rotation requires Orbit. Pinching cannot accidentally select a member, and single-finger taps retain the actual SVG target rather than being captured at the SVG root. Existing mouse navigation remains available.
+- The Display popup and bottom sheet are mutually exclusive. Inputs are at least 16 px and primary mobile controls at least 44 px. Presentation state remains outside canonical JSON.
+- `/mobile-preview` embeds the real app at selectable phone and landscape widths for browser review; it does not simulate a separate modeler or add controls to the main user flow.
+- Mobile DOM coverage checks one-panel behavior, grid additions, member edits, dimension edits, collapse/expand, two-pointer navigation, tap targeting and display-sheet exclusion. Pure tests check pinch-anchor and centroid movement. Desktop modeling tests remain active.
