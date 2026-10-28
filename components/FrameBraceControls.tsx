@@ -53,18 +53,13 @@ export default function FrameBraceControls({
         <div key={direction}>
           <label>
             Number of braced bays {direction.toUpperCase()}
-            <input
+            <select
               aria-label={`Braced bays ${direction.toUpperCase()}`}
-              type="number"
-              min="0"
-              max={Math.min(
-                20,
-                layout[direction].length *
-                  (layout[direction === "x" ? "y" : "x"].length + 1),
-              )}
               value={braces.filter((b) => b.direction === direction).length}
               onChange={(e) => count(direction, Number(e.target.value))}
-            />
+            >
+              {Array.from({ length: Math.min(20, layout[direction].length * (layout[direction === "x" ? "y" : "x"].length + 1)) + 1 }, (_, n) => <option key={n} value={n}>{n}</option>)}
+            </select>
           </label>
           {braces
             .filter((b) => b.direction === direction)

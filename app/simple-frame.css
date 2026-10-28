@@ -641,3 +641,36 @@
  .sfMobileLayout>.sfMobileSheet{grid-column:2;grid-row:1;height:auto;max-height:none;min-height:0;border-radius:12px 0 0 0}
  .sfMobileLayout>.sfMobileTabs{grid-column:1/-1;grid-row:2;min-height:0}
 }
+
+.advancedMobileControls,.advancedMobileTabs,.advancedSheetClose,.advancedToolContent,.advancedProjectContent{display:none}
+@media(max-width:760px){
+ .mode-advanced.architectEditorShell{position:relative;display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden}
+ .mode-advanced .architectToolstrip,.mode-advanced .architectContextbar,.mode-advanced .architectStatusbar{display:none!important}
+ .mode-advanced .architectWorkspaceFrame{flex:1;min-height:0;display:block;position:relative;padding:0}
+ .mode-advanced .architectViewportColumn,.mode-advanced .architectViewportStage,.mode-advanced .engineeringEditorStage{height:100%;min-height:0!important;width:100%;margin:0}
+ .mode-advanced .architectQuickPanel{display:none!important}
+ .mode-advanced:not(.mobile-panel-closed) .architectQuickPanel{display:flex!important;position:absolute;top:auto;left:0;right:0;bottom:0;width:100%;max-height:52%;min-height:160px;padding:12px 16px;gap:10px;overflow:auto;border-radius:18px 18px 0 0;background:#fff;z-index:100;box-shadow:0 -5px 24px #254a6425}
+ .mode-advanced .architectPanelHeading{display:none}
+ .mode-advanced .advancedSheetClose{display:block;min-height:44px;border:0;background:#edf3f7;border-radius:8px;flex-shrink:0}
+ .mode-advanced .architectQuickActions,.mode-advanced .advancedDisplayContent{display:none}
+ .mode-advanced.mobile-panel-setup .architectQuickActions{display:grid;grid-template-columns:1fr 1fr}
+ .mode-advanced.mobile-panel-setup .architectQuickActions [data-utility-command]{display:none}
+ .mode-advanced.mobile-panel-tools .advancedToolContent,.mode-advanced.mobile-panel-project .advancedProjectContent{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .mode-advanced.mobile-panel-display .advancedDisplayContent{display:block}
+ .mode-advanced .architectQuickPanel button,.mode-advanced .architectQuickPanel select{min-height:44px;font-size:16px}
+ .mode-advanced .advancedMobileControls{display:flex;gap:6px;padding:6px;background:#f4f8fb;flex-shrink:0}
+ .advancedMobileControls button{flex:1;min-width:0;min-height:44px;border:1px solid #cedde8;border-radius:8px;background:#fff;font-size:13px}
+ .mode-advanced .advancedMobileTabs{display:flex;padding-bottom:env(safe-area-inset-bottom);background:#fff;border-top:1px solid #d6e2ea;flex-shrink:0;z-index:101}
+ .advancedMobileTabs button{flex:1;min-width:0;min-height:56px;border:0;background:#fff;color:#28526a;font-size:12px}
+ .advancedMobileTabs button[aria-expanded=true]{background:#e7f3f3;color:#135c57;font-weight:700}
+ .mode-advanced .engineeringEditorStage .toolbar,.mode-advanced .engineeringEditorStage .inspector,.mode-advanced .engineeringEditorStage .importbar,.mode-advanced .engineeringEditorStage .topbar{display:none!important}
+ .mode-advanced .propertiesSidePanel{top:auto;bottom:calc(56px + env(safe-area-inset-bottom));left:0;right:0;width:100%;max-height:50dvh;border-radius:18px 18px 0 0;z-index:110}
+ .mode-advanced .propertiesSidePanel input,.mode-advanced .propertiesSidePanel select{font-size:16px;min-height:44px;max-width:100%}
+ .mode-advanced .propertiesSidePanel button{min-height:44px}
+ .mode-advanced .loadManagerLauncherGroup{position:absolute;top:auto;bottom:68px;right:8px}
+}
+@media(max-width:760px) and (min-width:600px) and (max-height:500px){
+ .mode-advanced:not(.mobile-panel-closed) .architectQuickPanel{left:auto;width:290px;top:0;max-height:100%;border-radius:12px 0 0 0}
+ .mode-advanced:not(.mobile-panel-closed) .architectViewportColumn{width:calc(100% - 290px)}
+}
+@media(max-width:760px){.advancedMobileControls select{min-width:0;max-width:80px;min-height:44px;font-size:16px;border:1px solid #cedde8;border-radius:8px;background:#fff}.mode-advanced .architectQuickActions strong{font-size:14px}.mode-advanced .architectViewportColumn{display:block}.mode-advanced .engineeringEditorStage .appShell{height:100%!important;min-height:0!important}}

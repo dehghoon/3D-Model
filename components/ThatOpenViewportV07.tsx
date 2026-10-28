@@ -169,6 +169,33 @@ export default function ThatOpenViewportV07({
     runtime.camera.controls.enabled = false;
     const canvas = runtime.renderer.three.domElement;
     let start: PointerStart | null = null;
+    const touches = new Map<number, { x: number; y: number }>();
+    let pinching = false;
+    const touchPair = () => {
+      const [a, b] = [...touches.values()];
+      return a && b ? { x: (a.x+b.x)/2, y: (a.y+b.y)/2, distance: Math.hypot(a.x-b.x,a.y-b.y) } : null;
+    };
+    const navigateTouch = (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      const before = touchPair();
+      if (event.type === "pointerdown" || event.type === "pointermove") touches.set(event.pointerId, {x:event.clientX,y:event.clientY});
+      else touches.delete(event.pointerId);
+      const after = touchPair();
+      if (touches.size >= 2 || pinching) {
+        start = null; setMarquee(null);
+        if (touches.size >= 2) pinching = true;
+        if (before && after && event.type === "pointermove" && toolModeRef.current === "select" && !getModelingPointTool() && getInteractionState().mode === "select") {
+          const controls = runtime.camera.controls;
+          const scale = Math.max(controls.distance, 1) / Math.max(canvas.clientHeight, 1);
+          void controls.truck((before.x-after.x)*scale, (after.y-before.y)*scale, false);
+          if (before.distance > 0 && after.distance > 0) void controls.dolly(Math.log(after.distance/before.distance)*Math.max(controls.distance,1), false);
+        }
+        if (!touches.size) pinching = false;
+      }
+    };
+    const preset = (event: Event) => { void setThatOpenView(runtime, (event as CustomEvent<ViewMode>).detail); };
+    const fit = () => { void setThatOpenView(runtime, runtime.viewMode); };
+
 
     const commitSelections = (selections: ConcreteSelection[]) => {
       const unique = uniqueSelections(selections);
@@ -187,7 +214,7 @@ export default function ThatOpenViewportV07({
       snapThatOpen(runtime, event, modelRef.current, selectionRef.current);
 
     const pointerDown = (event: PointerEvent) => {
-      if (!event.isPrimary || event.button !== 0) return;
+      if (pinching || !event.isPrimary || event.button !== 0) return;
       canvas.setPointerCapture?.(event.pointerId);
       start = {
         x: event.clientX,
@@ -358,6 +385,7 @@ export default function ThatOpenViewportV07({
 
       if (picked) {
         commitSelections([picked]);
+        if (origin.pointerType === "touch") queueMicrotask(() => window.dispatchEvent(new Event("linkoteq:properties-open")));
       } else {
         commitSelections([]);
       }
@@ -396,6 +424,9 @@ export default function ThatOpenViewportV07({
       setToolMode("view");
     };
 
+    for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) canvas.addEventListener(type, navigateTouch as EventListener, true);
+    window.addEventListener("linkoteq:view-fit", fit);
+    window.addEventListener("linkoteq:view-preset", preset);
     canvas.addEventListener("pointerdown", pointerDown, { passive: true });
     canvas.addEventListener("pointermove", pointerMove, { passive: true });
     canvas.addEventListener("pointerup", pointerUp, { passive: true });
@@ -405,6 +436,9 @@ export default function ThatOpenViewportV07({
     window.addEventListener("linkoteq:view-cycle", enableView);
 
     return () => {
+      for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) canvas.removeEventListener(type, navigateTouch as EventListener, true);
+      window.removeEventListener("linkoteq:view-fit", fit);
+      window.removeEventListener("linkoteq:view-preset", preset);
       canvas.removeEventListener("pointerdown", pointerDown);
       canvas.removeEventListener("pointermove", pointerMove);
       canvas.removeEventListener("pointerup", pointerUp);

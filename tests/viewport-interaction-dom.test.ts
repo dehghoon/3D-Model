@@ -33,7 +33,7 @@ export function createThatOpenRuntime(container) {
   container.append(canvas);
   const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 100);
   camera.position.set(0, 0, 20); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
-  return { camera: { three: camera, controls: { enabled: false } }, renderer: { three: { domElement: canvas } }, build: null };
+  return { camera: { three: camera, controls: { enabled: false, distance: 10, truck: (...args) => canvas.dataset.pan = JSON.stringify(args), dolly: (...args) => canvas.dataset.zoom = JSON.stringify(args) } }, renderer: { three: { domElement: canvas } }, build: null };
 }
 export function snapThatOpen(runtime, event, model, selection) {
  return resolveSnapPoint(event, model, selection, runtime.camera.three, runtime.renderer.three.domElement, 13);
@@ -174,6 +174,21 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
       harness.act(() => dom.window.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape" })));
       assert.equal(harness.getModelingPointTool(), null);
       assert.equal(harness.getInteractionState().mode, "select");
+      click("Select", true);
+      const beforeGesture = JSON.stringify(mounted.model());
+      const beforeSelection = JSON.stringify(harness.getPublishedSelections());
+      const canvas = host.querySelector("canvas")!;
+      const touch = (type: string, id: number, x: number, y: number) => harness.act(() => {
+        const event = new dom.window.MouseEvent(type, {bubbles:true,clientX:x,clientY:y,button:0});
+        Object.defineProperties(event,{pointerType:{value:"touch"},pointerId:{value:id},isPrimary:{value:id===1}});
+        canvas.dispatchEvent(event);
+      });
+      touch("pointerdown",1,100,100); touch("pointerdown",2,200,100);
+      touch("pointermove",2,230,120);
+      touch("pointerup",2,230,120); touch("pointerup",1,100,100);
+      assert.ok(canvas.dataset.pan); assert.ok(canvas.dataset.zoom);
+      assert.equal(JSON.stringify(mounted.model()),beforeGesture);
+      assert.equal(JSON.stringify(harness.getPublishedSelections()),beforeSelection,"Pinch must not select a member");
       mounted.unmount();
       dom.window.document.body.dataset.failWebgl = "true";
       mounted = harness.mount(host);

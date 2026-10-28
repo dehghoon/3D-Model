@@ -110,10 +110,10 @@ test("simple dimensions edit canonical geometry, grids/storeys grow, and Advance
   const setInput = (input: HTMLInputElement, value: string) =>
     h.act(() => {
       Object.getOwnPropertyDescriptor(
-        dom.window.HTMLInputElement.prototype,
+        input.tagName === "SELECT" ? dom.window.HTMLSelectElement.prototype : dom.window.HTMLInputElement.prototype,
         "value",
       )!.set!.call(input, value);
-      input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+      input.dispatchEvent(new dom.window.Event(input.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
     });
   try {
     await h.act(async () => {
@@ -299,7 +299,18 @@ test("simple dimensions edit canonical geometry, grids/storeys grow, and Advance
     assert.ok(Number(columnHit.getAttribute("width")) >= 14);
     assert.ok(Number(columnHit.getAttribute("height")) >= 14);
     click("Close member editor");
+    const braceCount = host.querySelector<HTMLSelectElement>('[aria-label="Braced bays X"]')!;
+    assert.equal(braceCount.tagName, "SELECT");
+    assert.equal(braceCount.value, "1");
+    setInput(braceCount as any, "2");
+    assert.equal(braceCount.value, "2");
+    setInput(braceCount as any, "1");
     click("Advanced Mode");
+    const mobileTabs = host.querySelector('.advancedMobileTabs')!;
+    h.act(() => (mobileTabs.querySelector('button') as HTMLButtonElement).click());
+    assert.ok(host.querySelector('.mobile-panel-setup'));
+    h.act(() => (host.querySelector('[aria-label="Collapse panel"]') as HTMLButtonElement).click());
+    assert.ok(host.querySelector(".mobile-panel-closed"));
     const model = JSON.parse(host.querySelector("[data-model]")!.textContent!);
     assert.equal(model.levels.length, 4);
     assert.equal(model.materials.find((m:any)=>m.id==='test-core-350W').analysis.E.value,200000);
