@@ -63,8 +63,12 @@ function downloadModel(model: StructuralModel): void {
   URL.revokeObjectURL(url);
 }
 
-export default function StructuralEditorV07() {
-  const [model, setModel] = useState<StructuralModel>(() => createStarterModelV05());
+export default function StructuralEditorV07({ model: externalModel, onModelChange }: { model?: StructuralModel; onModelChange?: (model: StructuralModel) => void } = {}) {
+  const [localModel, setLocalModel] = useState<StructuralModel>(() => createStarterModelV05());
+  const model = externalModel ?? localModel;
+  function setModel(next: StructuralModel) {
+    if (onModelChange) onModelChange(next); else setLocalModel(next);
+  }
   const [selection, setSelection] = useState<EditorSelection>(null);
   const selections = usePublishedSelections();
   const [propertiesOpen, setPropertiesOpen] = useState(false);
@@ -76,11 +80,12 @@ export default function StructuralEditorV07() {
   useEffect(() => {
     const open = () => setPropertiesOpen(true);
     const close = () => setPropertiesOpen(false);
+    window.addEventListener("linkoteq:mobile-panel-open", close);
     window.addEventListener("linkoteq:properties-open", open);
     window.addEventListener("linkoteq:modeling-command", close);
     window.addEventListener("linkoteq:utility-command", close);
     window.addEventListener("linkoteq:view-select", close);
-    return () => { window.removeEventListener("linkoteq:properties-open", open);
+    return () => { window.removeEventListener("linkoteq:mobile-panel-open", close); window.removeEventListener("linkoteq:properties-open", open);
       window.removeEventListener("linkoteq:modeling-command", close); window.removeEventListener("linkoteq:utility-command", close); window.removeEventListener("linkoteq:view-select", close); };
   }, []);
 

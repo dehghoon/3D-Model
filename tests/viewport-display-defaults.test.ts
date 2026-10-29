@@ -7,11 +7,11 @@ function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("Quick Tools exposes viewport display controls and starts in View", () => {
+test("Quick Tools exposes viewport display controls and starts in Select", () => {
   const shell = source("components/StructuralEditorShellV3.tsx");
   const display = source("components/ViewportDisplayOptionsV05.tsx");
 
-  assert.match(shell, /useState<UtilityTool>\("View"\)/);
+  assert.match(shell, /useState<UtilityTool>\("Select"\)/);
   assert.match(shell, /<ViewportDisplayOptionsV05 \/>/);
 
   for (const label of [
@@ -27,7 +27,7 @@ test("Quick Tools exposes viewport display controls and starts in View", () => {
     assert.match(display, new RegExp(`label: "${label}"`));
   }
 
-  assert.match(display, /linkoteq:view-cycle/);
+  assert.doesNotMatch(display, /linkoteq:view-cycle/);
 });
 
 test("Base support defaults restrain translations only", () => {
@@ -71,3 +71,4 @@ test("display options are wired into the active Core scene", () => {
   assert.match(displayScene, /options\.grids/);
   assert.match(displayScene, /options\.surfaces/);
 });
+

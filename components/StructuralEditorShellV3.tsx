@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
+import SimpleFrameModeler from "./SimpleFrameModeler";
+import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
+import type { StructuralModel } from "@linkoteq/structural-core";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
 
 import { MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
@@ -49,12 +52,25 @@ function utilityDescription(tool: UtilityTool): string {
 }
 
 export default function StructuralEditorShellV3() {
+  const [mobilePanel, setMobilePanel] = useState<"tools" | "setup" | "display" | "project" | null>(null);
   const [mode, setMode] = useState<WorkspaceMode>("simple");
+  const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
+  function switchMode(next: WorkspaceMode) {
+    window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
+    window.dispatchEvent(new Event("linkoteq:view-select"));
+    setMobilePanel(null);
+    setMode(next);
+  }
+  function advancedChange(next: StructuralModel) {
+    const metadata = { ...next.project.metadata };
+    delete metadata.simpleFrame;
+    setModel({ ...next, project: { ...next.project, metadata } });
+  }
   const pointState = usePointToolState();
   const interaction = useInteractionState();
   const selections = usePublishedSelections();
   const activeModelTool = pointState.tool ? `${pointState.tool[0].toUpperCase()}${pointState.tool.slice(1)}` as ModelingTool : null;
-  const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("View");
+  const [activeUtilityTool, setActiveUtilityTool] = useState<UtilityTool>("Select");
 
   useEffect(() => {
     const active = (event: Event) => setActiveUtilityTool((event as CustomEvent<UtilityTool>).detail);
@@ -63,6 +79,21 @@ export default function StructuralEditorShellV3() {
     window.addEventListener("linkoteq:view-select", select);
     return () => { window.removeEventListener("linkoteq:utility-active", active); window.removeEventListener("linkoteq:view-select", select); };
   }, []);
+  useEffect(() => {
+    const close = () => setMobilePanel(null);
+    window.addEventListener("linkoteq:properties-open", close);
+    window.addEventListener("linkoteq:grid-panel-open", close);
+    window.addEventListener("linkoteq:levels-panel-open", close);
+    return () => {
+      window.removeEventListener("linkoteq:properties-open", close);
+      window.removeEventListener("linkoteq:grid-panel-open", close);
+      window.removeEventListener("linkoteq:levels-panel-open", close);
+    };
+  }, []);
+  function toggleMobilePanel(panel: "tools" | "setup" | "display" | "project") {
+    window.dispatchEvent(new Event("linkoteq:mobile-panel-open"));
+    setMobilePanel(current => current === panel ? null : panel);
+  }
   function finishSurface(): void { window.dispatchEvent(new Event(SURFACE_FINISH_EVENT)); }
   function runModelTool(tool: ModelingTool): void {
     window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT, { detail: tool.toLowerCase() }));
@@ -73,7 +104,7 @@ export default function StructuralEditorShellV3() {
   }
 
   return (
-    <div className={`architectEditorShell mode-${mode} ${activeModelTool || interaction.mode !== "select" ? "has-active-point-tool" : ""}`}>
+    <div className={`architectEditorShell mobile-panel-${mobilePanel ?? "closed"} mode-${mode} ${activeModelTool || interaction.mode !== "select" ? "has-active-point-tool" : ""}`}>
       <header className="architectTopbar">
         <div className="architectBrand">
           <span className="architectBrandMark" aria-hidden="true">
@@ -88,19 +119,19 @@ export default function StructuralEditorShellV3() {
           <button
             type="button"
             className={mode === "simple" ? "active" : ""}
-            onClick={() => setMode("simple")}
+            onClick={() => switchMode("simple")}
           >
             Simple Mode
           </button>
           <button
             type="button"
             className={mode === "advanced" ? "active" : ""}
-            onClick={() => setMode("advanced")}
+            onClick={() => switchMode("advanced")}
           >
             Advanced Mode
           </button>
         </div>
-        <div className="architectTopActions" aria-label="Project actions">
+        {mode === "advanced" ? <div className="architectTopActions" aria-label="Project actions">
           <button
             type="button"
             className="architectIconAction"
@@ -129,8 +160,10 @@ export default function StructuralEditorShellV3() {
             ⇩
           </button>
         </div>
+        : <span className="sfTopBadge">Automatic frame · SI / m</span>}
       </header>
 
+      {mode === "advanced" ? <>
       <nav className="architectToolstrip" aria-label="Add structural elements">
         {modelingTools.map((tool) => (
           <button
@@ -169,15 +202,25 @@ export default function StructuralEditorShellV3() {
         </div>
       </div>
 
+      <div className="advancedMobileControls" aria-label="Mobile viewport tools">
+        <button type="button" onClick={() => {runUtilityTool("Select"); window.dispatchEvent(new Event("linkoteq:view-select"));}}>Select</button>
+        <button type="button" onClick={() => {runUtilityTool("View"); window.dispatchEvent(new Event("linkoteq:view-cycle"));}}>Orbit</button>
+        <select aria-label="Mobile view" defaultValue="3d" onChange={event => window.dispatchEvent(new CustomEvent("linkoteq:view-preset", {detail:event.target.value}))}>
+          <option value="3d">3D</option><option value="bottom">Bottom</option><option value="front">Front</option><option value="right">Right</option>
+        </select>
+        <button type="button" onClick={() => toggleMobilePanel("display")}>Display</button>
+        <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-fit"))}>Fit</button>
+      </div>
       <div className="architectWorkspaceFrame">
-        {mode === "simple" ? (
+        {mode === "advanced" ? (
           <aside className="architectQuickPanel" aria-label="Setup and quick tools">
+            <button type="button" className="advancedSheetClose" aria-label="Collapse panel" onClick={() => setMobilePanel(null)}>⌄ Close</button>
             <div className="architectPanelHeading">
               <div>
                 <span className="architectEyebrow">MODEL</span>
                 <h2>Setup &amp; Tools</h2>
               </div>
-              <span className="architectPanelBadge">{mode === "simple" ? "Simple" : "Advanced"}</span>
+              <span className="architectPanelBadge">Advanced</span>
             </div>
             <div className="architectQuickActions">
               <button type="button" onClick={openGrid}>
@@ -216,14 +259,19 @@ export default function StructuralEditorShellV3() {
                 </button>
               ))}
             </div>
-            <ViewportDisplayOptionsV05 />
+            <div className="advancedDisplayContent"><ViewportDisplayOptionsV05 /></div>
+            <div className="advancedToolContent">{modelingTools.map(tool => <button type="button" key={tool} onClick={() => {runModelTool(tool); setMobilePanel(null);}}>{tool}</button>)}
+            {utilityTools.map(tool => <button type="button" key={tool} onClick={() => {runUtilityTool(tool); setMobilePanel(null);}}>{tool}</button>)}
+            {activeModelTool === "Slab" || activeModelTool === "Wall" ? <button type="button" onClick={finishSurface}>Finish {activeModelTool}</button> : null}
+            <button type="button" disabled={!selections.length} onClick={() => window.dispatchEvent(new Event("linkoteq:properties-open"))}>Properties ({selections.length})</button></div>
+            <div className="advancedProjectContent">{(["New", "Open", "Save"] as const).map(action => <button type="button" key={action} onClick={() => clickProjectAction(action)}>{action} project</button>)}</div>
           </aside>
         ) : null}
 
         <div className="architectViewportColumn">
           <div className="architectViewportStage">
             <div className="engineeringEditorStage">
-              <StructuralEditorV05 />
+              <StructuralEditorV05 model={model} onModelChange={advancedChange} />
             </div>
           </div>
           <div className="architectStatusbar" role="status" aria-live="polite">
@@ -245,6 +293,10 @@ export default function StructuralEditorShellV3() {
           </div>
         </div>
       </div>
+      <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
+        {([ ["setup", "Plan & levels"], ["tools", "Members & tools"], ["project", "Project"] ] as const).map(([panel, label]) => <button type="button" key={panel} aria-expanded={mobilePanel === panel} onClick={() => toggleMobilePanel(panel)}>{label}</button>)}
+      </nav>
+      </> : <SimpleFrameModeler model={model} onChange={setModel} onAdvanced={() => switchMode("advanced")} />}
     </div>
   );
 }

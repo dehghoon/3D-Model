@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { gridDisplayEndpoints } from "./grid-display";
 import type { GridLine, Node, StructuralModel } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../editor/selection";
 
@@ -177,7 +178,7 @@ function surfaceObject(
   return mesh;
 }
 
-function gridObject(grids: GridLine[]): THREE.Group {
+function gridObject(grids: GridLine[], nodes: Node[]): THREE.Group {
   const group = new THREE.Group();
   group.name = "core-grids";
   const material = new THREE.LineBasicMaterial({
@@ -186,7 +187,8 @@ function gridObject(grids: GridLine[]): THREE.Group {
     opacity: 0.75,
   });
 
-  for (const grid of grids) {
+  for (const reference of grids) {
+    const grid = gridDisplayEndpoints(reference, nodes);
     const geometry = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(grid.start.x, 0.02, grid.start.y),
       new THREE.Vector3(grid.end.x, 0.02, grid.end.y),
@@ -209,7 +211,7 @@ export function buildCoreScene(
   const key = new THREE.DirectionalLight(0xffffff, 1.8);
   key.position.set(10, 14, 8);
   root.add(key);
-  root.add(gridObject(model.grids));
+  root.add(gridObject(model.grids, model.nodes));
 
   for (const surface of model.surfaces) {
     const object = surfaceObject(model, surface, selection);
@@ -300,3 +302,4 @@ export function getObjectSelection(
 
   return null;
 }
+

@@ -1,0 +1,131 @@
+{
+  "dataset_version": "cisc-sst13-2026-08-25",
+  "sections": [
+    {
+      "designation": "W310x33",
+      "designation_imperial": "W12x22",
+      "designation_metric": "W310x33",
+      "family": "W",
+      "id": "cisc-w310x33",
+      "properties": {
+        "depth": 313,
+        "elastic_modulus_major": 415000,
+        "elastic_modulus_minor": 37600,
+        "flange_thickness": 10.8,
+        "flange_width": 102,
+        "gross_area": 4180,
+        "mass_per_length": 33,
+        "moment_of_inertia_major": 65000000,
+        "moment_of_inertia_minor": 1920000,
+        "plastic_modulus_major": 480000,
+        "plastic_modulus_minor": 59600,
+        "radius_of_gyration_major": 125,
+        "radius_of_gyration_minor": 21.400000000000002,
+        "torsional_constant": 122000,
+        "warping_constant": 43800000000,
+        "web_thickness": 6.6
+      },
+      "units": {
+        "area": "mm2",
+        "inertia": "mm4",
+        "length": "mm",
+        "mass": "kg/m",
+        "section_modulus": "mm3",
+        "warping": "mm6"
+      },
+      "source": "CISC",
+      "dataset_version": "cisc-sst13-2026-08-25"
+    },
+    {
+      "designation": "W250x49",
+      "designation_imperial": "W10x33",
+      "designation_metric": "W250x49",
+      "family": "W",
+      "id": "cisc-w250x49",
+      "properties": {
+        "depth": 247,
+        "elastic_modulus_major": 572000,
+        "elastic_modulus_minor": 150000,
+        "flange_thickness": 11,
+        "flange_width": 202,
+        "gross_area": 6260,
+        "mass_per_length": 49,
+        "moment_of_inertia_major": 70600000,
+        "moment_of_inertia_minor": 15100000,
+        "plastic_modulus_major": 633000,
+        "plastic_modulus_minor": 228000,
+        "radius_of_gyration_major": 106,
+        "radius_of_gyration_minor": 49.2,
+        "torsional_constant": 241000,
+        "warping_constant": 211000000000,
+        "web_thickness": 7.4
+      },
+      "units": {
+        "area": "mm2",
+        "inertia": "mm4",
+        "length": "mm",
+        "mass": "kg/m",
+        "section_modulus": "mm3",
+        "warping": "mm6"
+      },
+      "source": "CISC",
+      "dataset_version": "cisc-sst13-2026-08-25"
+    },
+    {
+      "designation": "2LE76x76x6.4",
+      "designation_imperial": "2LE3x3x1/4",
+      "designation_metric": "2LE76x76x6.4",
+      "family": "2LE",
+      "id": "cisc-2le76x76x6-4",
+      "properties": {
+        "B": 76.2,
+        "D": 76.2,
+        "T": 6.35,
+        "gross_area": 1858,
+        "mass_per_length": 14.6,
+        "moment_of_inertia_major": 1040000,
+        "torsional_constant": 24900,
+        "warping_constant": 11100000
+      },
+      "units": {
+        "area": "mm2",
+        "inertia": "mm4",
+        "length": "mm",
+        "mass": "kg/m",
+        "section_modulus": "mm3",
+        "warping": "mm6"
+      },
+      "source": "CISC",
+      "dataset_version": "cisc-sst13-2026-08-25"
+    },
+    {
+      "designation": "L76x76x6.4",
+      "designation_imperial": "L3x3x1/4",
+      "designation_metric": "L76x76x6.4",
+      "family": "L",
+      "id": "cisc-l76x76x6-4",
+      "properties": {
+        "B": 76.2,
+        "D": 76.2,
+        "T": 6.35,
+        "gross_area": 929,
+        "mass_per_length": 7.3,
+        "moment_of_inertia_major": 518000,
+        "moment_of_inertia_minor": 518000,
+        "torsional_constant": 12500,
+        "warping_constant": 5540000
+      },
+      "units": {
+        "area": "mm2",
+        "inertia": "mm4",
+        "length": "mm",
+        "mass": "kg/m",
+        "section_modulus": "mm3",
+        "warping": "mm6"
+      },
+      "source": "CISC",
+      "dataset_version": "cisc-sst13-2026-08-25"
+    }
+  ],
+  "sourceCoreRef": "b1f25a6b735f4e3c586d4d8497298ebd6f656126"
+}

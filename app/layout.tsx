@@ -17,6 +17,7 @@ import "./grid-offset-editor.css";
 import "./editor-selection-ux.css";
 import "./engineering-properties-v05.css";
 import "./point-input.css";
+import "./simple-frame.css";
 
 export const metadata = {
   title: "LinkoTeq 3D Structural Model",
