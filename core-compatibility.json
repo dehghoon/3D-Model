@@ -1,0 +1,6 @@
+{
+  "componentId": "3d-model",
+  "coreSchemaVersion": "0.5",
+  "policy": "canonical-main-required",
+  "note": "CI checks current canonical Core; release blocking additionally requires repository branch protection"
+}
