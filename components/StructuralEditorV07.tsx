@@ -268,16 +268,14 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
             selectedNodes={selectedNodes}
             selectedSurfaces={selectedSurfaces}
             onModelChange={(next, status) => {
-              applyModelChange(next);
-              setMessage(status);
+              applyModelChange(next, status);
             }}
           />
           <MemberEndReleaseEditor
             model={model}
             selectedMembers={selectedMembers}
             onModelChange={(next, status) => {
-              applyModelChange(next);
-              setMessage(status);
+              applyModelChange(next, status);
             }}
           />
           <SelectedNodeSupportV05
