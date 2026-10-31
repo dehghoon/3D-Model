@@ -310,6 +310,11 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
             model={model}
             selection={selection}
             onSelect={setCanonicalSelection}
+            onMultiSelect={(next) => {
+              publishSelections(next);
+              setSelection(next.at(-1) ?? null);
+              setPropertiesOpen(false);
+            }}
           />
         </section>
 
