@@ -171,9 +171,11 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
       aria-label="Point input"
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
-        if (event.key === "Escape")
+        if (event.key === "Escape") {
+          cancelInteraction();
           window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
-        event.stopPropagation();
+          event.stopPropagation();
+        }
       }}
     >
       <div className="pointInputHeading">
@@ -181,9 +183,10 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
         <button
           type="button"
           aria-label="Cancel active tool"
-          onClick={() =>
-            window.dispatchEvent(new Event("linkoteq:modeling-cancel"))
-          }
+          onClick={() => {
+            cancelInteraction();
+            window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
+          }}
         >
           Cancel
         </button>
