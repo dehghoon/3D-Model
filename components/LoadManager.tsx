@@ -13,6 +13,7 @@ import type {
 } from "@linkoteq/structural-core";
 import { assertCanonicalLoad, mapSnowWriteback } from "../lib/core-loads-v05";
 type LoadMode = "slab" | "wall" | "beam" | "node";
+type MemberLoadKind = "distributed" | "point";
 type Props = {
   model: StructuralModel;
   selectedSurfaces: Surface[];
@@ -57,6 +58,8 @@ export default function LoadManager({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<LoadMode>("slab");
   const [magnitude, setMagnitude] = useState("1");
+  const [memberLoadKind, setMemberLoadKind] = useState<MemberLoadKind>("distributed");
+  const [pointDistance, setPointDistance] = useState("0");
   const [loadDirection, setLoadDirection] = useState<"FX" | "FY" | "FZ" | "MX" | "MY" | "MZ">("FZ");
   const [loadCaseId, setLoadCaseId] = useState("D");
   const [loadCategory, setLoadCategory] = useState("dead");
@@ -87,6 +90,11 @@ export default function LoadManager({
       setStatus("Wall load requires an explicit Core adapter; no load was added.");
       return;
     }
+    const distance = pointDistance.trim() === "" ? NaN : Number(pointDistance);
+    if (mode === "beam" && memberLoadKind === "point" && (!Number.isFinite(distance) || distance < 0)) {
+      setStatus("Enter a non-negative distance from the member start in metres.");
+      return;
+    }
     if (mode === "beam" && loadDirection.startsWith("M")) {
       setStatus("Member distributed loads require a force direction (FX/FY/FZ).");
       return;
@@ -105,6 +113,17 @@ export default function LoadManager({
           loadCaseId,
           coordinateSystem: "global",
           components: { [loadDirection]: { value, unit: loadDirection.startsWith("M") ? "kN*m" : "kN" } },
+        };
+      } else if (mode === "beam" && memberLoadKind === "point") {
+        load = {
+          id,
+          type: "member-point",
+          memberId: targetId,
+          loadCaseId,
+          coordinateSystem: "global",
+          direction: loadDirection as "FX" | "FY" | "FZ",
+          magnitude: { value, unit: "kN" },
+          x: { value: distance, unit: "m" },
         };
       } else if (mode === "beam") {
         load = {
@@ -227,6 +246,19 @@ export default function LoadManager({
       <select value={loadCategory} onChange={(event) => setLoadCategory(event.target.value)}>
         {["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].map((v) => <option key={v} value={v}>{v}</option>)}
       </select>
+      {mode === "beam" && (
+        <label>Member load type
+          <select value={memberLoadKind} onChange={(event) => setMemberLoadKind(event.target.value as MemberLoadKind)}>
+            <option value="distributed">Uniform distributed</option>
+            <option value="point">Point load</option>
+          </select>
+        </label>
+      )}
+      {mode === "beam" && memberLoadKind === "point" && (
+        <label>Distance from member start (m)
+          <input type="number" min="0" step="any" value={pointDistance} onChange={(event) => setPointDistance(event.target.value)} />
+        </label>
+      )}
       {(mode === "node" || mode === "beam") && (
         <label>Global direction / component
           <select value={loadDirection} onChange={(event) => setLoadDirection(event.target.value as typeof loadDirection)}>
@@ -236,7 +268,7 @@ export default function LoadManager({
           </select>
         </label>
       )}
-      <label>Signed magnitude ({mode === "node" ? (loadDirection.startsWith("M") ? "kN·m" : "kN") : mode === "beam" ? "kN/m" : "kPa"})
+      <label>Signed magnitude ({mode === "node" ? (loadDirection.startsWith("M") ? "kN·m" : "kN") : mode === "beam" ? (memberLoadKind === "point" ? "kN" : "kN/m") : "kPa"})
         <input type="number" step="any" value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Signed magnitude" />
       </label>
       <button style={primary} onClick={addManualLoad}>Add canonical load</button>
