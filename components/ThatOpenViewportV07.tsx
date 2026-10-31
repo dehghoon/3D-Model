@@ -404,6 +404,11 @@ export default function ThatOpenViewportV07({
     const pointerCancel = () => {
       start = null;
       setMarquee(null);
+      if (getModelingPointTool()) renderModelingPreview(runtime);
+      else if (getInteractionState().mode === "copy-target") {
+        setCopyPreview(null);
+        renderTransformPreview(runtime);
+      }
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -440,6 +445,7 @@ export default function ThatOpenViewportV07({
     canvas.addEventListener("pointermove", pointerMove, { passive: true });
     canvas.addEventListener("pointerup", pointerUp, { passive: true });
     canvas.addEventListener("pointercancel", pointerCancel, { passive: true });
+    canvas.addEventListener("pointerleave", pointerCancel, { passive: true });
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("linkoteq:view-select", enableSelect);
     window.addEventListener("linkoteq:view-cycle", enableView);
@@ -452,6 +458,7 @@ export default function ThatOpenViewportV07({
       canvas.removeEventListener("pointermove", pointerMove);
       canvas.removeEventListener("pointerup", pointerUp);
       canvas.removeEventListener("pointercancel", pointerCancel);
+      canvas.removeEventListener("pointerleave", pointerCancel);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("linkoteq:view-select", enableSelect);
       window.removeEventListener("linkoteq:view-cycle", enableView);
