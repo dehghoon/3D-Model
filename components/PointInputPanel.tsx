@@ -12,6 +12,7 @@ import {
   useInteractionState,
   setCopyBase,
   setCopyPreview,
+  cancelInteraction,
 } from "../lib/editor/interaction-store";
 import type { SnapPoint } from "../lib/editor/interaction-store";
 import {
@@ -117,7 +118,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
         <button
           type="button"
           onClick={() =>
-            window.dispatchEvent(new Event("linkoteq:modeling-cancel"))
+            (cancelInteraction(), window.dispatchEvent(new Event("linkoteq:modeling-cancel")))
           }
         >
           Dismiss
