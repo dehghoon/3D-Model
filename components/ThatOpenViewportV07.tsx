@@ -14,9 +14,10 @@ import {
   getInteractionState,
   setCopyBase,
   setCopyPreview,
+  setTransformMessage,
   useInteractionState,
 } from "../lib/editor/interaction-store";
-import { MEMBER_DRAW_PICK_EVENT, getModelingPointTool, usePointToolState } from "../lib/editor/member-draw-events";
+import { MEMBER_DRAW_PICK_EVENT, getModelingPointTool, setPointToolMessage, usePointToolState } from "../lib/editor/member-draw-events";
 import { useMemberDrawState } from "../lib/editor/member-draw-store";
 import { isTapGesture } from "../lib/visualization/mobile-picking";
 import {
@@ -274,15 +275,20 @@ export default function ThatOpenViewportV07({
 
       if (drawing) {
         const point = resolveSnap(event);
-        if (point) window.dispatchEvent(new CustomEvent(MEMBER_DRAW_PICK_EVENT, {
-          detail: point,
-        }));
+        if (point) {
+          window.dispatchEvent(new CustomEvent(MEMBER_DRAW_PICK_EVENT, { detail: point }));
+        } else {
+          setPointToolMessage("No valid snap point at this location. Pick a node/grid/work plane or enter XYZ coordinates.");
+        }
         return;
       }
 
       if (state.mode === "copy-base") {
         const point = resolveSnap(event);
-        if (!point) return;
+        if (!point) {
+          setTransformMessage("No valid base point. Pick a node/grid/work plane or enter XYZ coordinates.");
+          return;
+        }
         setCopyBase(point);
         setCopyPreview(point);
         renderTransformPreview(runtime);
@@ -291,7 +297,10 @@ export default function ThatOpenViewportV07({
 
       if (state.mode === "copy-target") {
         const point = resolveSnap(event);
-        if (!point || !state.base) return;
+        if (!point || !state.base) {
+          setTransformMessage("No valid target point. Pick a snap point or enter XYZ coordinates.");
+          return;
+        }
         setCopyPreview(point);
         const delta = deltaBetween(state.base.point, point.point);
         if (
