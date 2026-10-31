@@ -8,6 +8,7 @@ import CopyInteractionBridgeV01 from "./CopyInteractionBridgeV01";
 import ElementProperties from "./ElementProperties";
 import LoadManager from "./LoadManager";
 import MemberEndReleaseEditor from "./MemberEndReleaseEditor";
+import DiaphragmEditor from "./DiaphragmEditor";
 import ModelToolsV05 from "./ModelToolsV05";
 import NodeCreatorV05 from "./NodeCreatorV05";
 import SelectedNodeSupportV05 from "./SelectedNodeSupportV05";
@@ -264,6 +265,15 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
             onNodeCreated={(nodeId) =>
               setCanonicalSelection({ type: "node", id: nodeId })
             }
+          />
+          <DiaphragmEditor
+            model={model}
+            selectedNodes={selectedNodes}
+            selectedSurfaces={selectedSurfaces}
+            onModelChange={(next, status) => {
+              applyModelChange(next);
+              setMessage(status);
+            }}
           />
           <MemberEndReleaseEditor
             model={model}
