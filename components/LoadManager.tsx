@@ -57,6 +57,7 @@ export default function LoadManager({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<LoadMode>("slab");
   const [magnitude, setMagnitude] = useState("1");
+  const [loadDirection, setLoadDirection] = useState<"FX" | "FY" | "FZ" | "MX" | "MY" | "MZ">("FZ");
   const [loadCaseId, setLoadCaseId] = useState("D");
   const [loadCategory, setLoadCategory] = useState("dead");
   const [status, setStatus] = useState("Core v0.5 canonical load tools.");
@@ -77,9 +78,17 @@ export default function LoadManager({
     return { ...next, loadCases: [...next.loadCases, loadCase] };
   }
   function addManualLoad() {
-    const value = Number(magnitude);
-    if (!Number.isFinite(value) || !targetIds.length) {
+    const value = magnitude.trim() === "" ? NaN : Number(magnitude);
+    if (!Number.isFinite(value) || !targetIds.length || !loadCaseId.trim()) {
       setStatus("Select targets and enter a valid magnitude.");
+      return;
+    }
+    if (mode === "wall") {
+      setStatus("Wall load requires an explicit Core adapter; no load was added.");
+      return;
+    }
+    if (mode === "beam" && loadDirection.startsWith("M")) {
+      setStatus("Member distributed loads require a force direction (FX/FY/FZ).");
       return;
     }
     let next = ensureLoadCase(model);
@@ -95,7 +104,7 @@ export default function LoadManager({
           nodeId: targetId,
           loadCaseId,
           coordinateSystem: "global",
-          components: { FZ: { value: -value, unit: "kN" } },
+          components: { [loadDirection]: { value, unit: loadDirection.startsWith("M") ? "kN*m" : "kN" } },
         };
       } else if (mode === "beam") {
         load = {
@@ -104,9 +113,9 @@ export default function LoadManager({
           memberId: targetId,
           loadCaseId,
           coordinateSystem: "global",
-          direction: "FZ",
-          w1: { value: -value, unit: "kN/m" },
-          w2: { value: -value, unit: "kN/m" },
+          direction: loadDirection as "FX" | "FY" | "FZ",
+          w1: { value, unit: "kN/m" },
+          w2: { value, unit: "kN/m" },
         };
       } else if (mode === "slab") {
         load = {
@@ -218,7 +227,18 @@ export default function LoadManager({
       <select value={loadCategory} onChange={(event) => setLoadCategory(event.target.value)}>
         {["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].map((v) => <option key={v} value={v}>{v}</option>)}
       </select>
-      <input value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Magnitude" />
+      {(mode === "node" || mode === "beam") && (
+        <label>Global direction / component
+          <select value={loadDirection} onChange={(event) => setLoadDirection(event.target.value as typeof loadDirection)}>
+            {["FX", "FY", "FZ", ...(mode === "node" ? ["MX", "MY", "MZ"] : [])].map((direction) => (
+              <option key={direction} value={direction}>{direction}</option>
+            ))}
+          </select>
+        </label>
+      )}
+      <label>Signed magnitude ({mode === "node" ? (loadDirection.startsWith("M") ? "kN·m" : "kN") : mode === "beam" ? "kN/m" : "kPa"})
+        <input type="number" step="any" value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Signed magnitude" />
+      </label>
       <button style={primary} onClick={addManualLoad}>Add canonical load</button>
       <button style={primary} onClick={() => runSnow().catch((error) => setStatus(error instanceof Error ? error.message : "Snow request failed."))}>
         Run Snow v0.5
