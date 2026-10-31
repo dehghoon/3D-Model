@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { StructuralModel } from "@linkoteq/structural-core";
-import { deleteSelection } from "../lib/editor/commands";
+import { deleteSelection, deleteSelections } from "../lib/editor/commands";
 
 function model(): StructuralModel {
   return {
@@ -36,4 +36,29 @@ test("surface with diaphragm membership cannot be silently deleted", () => {
   original.surfaces.push({ id: "S1", type: "slab", boundaryNodeIds: ["N1", "N2"] });
   original.diaphragms.push({ id: "D1", type: "rigid", levelId: "L1", surfaceIds: ["S1"] });
   assert.throws(() => deleteSelection(original, { type: "surface", id: "S1" }), /SURFACE_REFERENCED_BY_DIAPHRAGM/);
+});
+
+test("multi-select removes connected member and nodes atomically", () => {
+  const original = model();
+  const result = deleteSelections(original, [
+    { type: "node", id: "N1" }, { type: "member", id: "M1" }, { type: "node", id: "N2" },
+  ]);
+  assert.equal(result.nodes.length, 1);
+  assert.equal(result.nodes[0].id, "N3");
+  assert.equal(result.members.length, 0);
+  assert.equal(original.members.length, 1);
+});
+
+test("multi-select refuses to orphan retained members", () => {
+  assert.throws(() => deleteSelections(model(), [{ type: "node", id: "N1" }]), /NODE_REFERENCED_BY_MEMBER/);
+});
+
+test("multi-select rejects nodal loads and preserves original model", () => {
+  const original = model();
+  original.loads.push({
+    id: "LD-N", type: "nodal", nodeId: "N3", loadCaseId: "LC",
+    coordinateSystem: "global", components: { FZ: { value: -1, unit: "kN" } },
+  });
+  assert.throws(() => deleteSelections(original, [{ type: "node", id: "N3" }]), /NODE_REFERENCED_BY_LOAD/);
+  assert.equal(original.nodes.length, 3);
 });
