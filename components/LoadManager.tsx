@@ -95,6 +95,22 @@ export default function LoadManager({
       setStatus("Enter a non-negative distance from the member start in metres.");
       return;
     }
+    if (mode === "beam" && memberLoadKind === "point") {
+      const nodesById = new Map(model.nodes.map((node) => [node.id, node.position]));
+      for (const member of selectedMembers) {
+        const start = nodesById.get(member.startNodeId);
+        const end = nodesById.get(member.endNodeId);
+        if (!start || !end) {
+          setStatus(`Member ${member.id} has missing end-node coordinates.`);
+          return;
+        }
+        const length = Math.hypot(end.x - start.x, end.y - start.y, end.z - start.z);
+        if (distance > length + 1e-9) {
+          setStatus(`Point load distance exceeds member ${member.id} length (${length.toFixed(3)} m).`);
+          return;
+        }
+      }
+    }
     if (mode === "beam" && loadDirection.startsWith("M")) {
       setStatus("Member distributed loads require a force direction (FX/FY/FZ).");
       return;
