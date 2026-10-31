@@ -15,7 +15,7 @@ import SelectedNodeSupportV05 from "./SelectedNodeSupportV05";
 import ThatOpenViewportV01 from "./ThatOpenViewportV01";
 import { assertCanonicalV05, migrateProjectToV05 } from "../lib/core-v05";
 import { createStarterModelV05 } from "../lib/default-model-v05";
-import { deleteSelection } from "../lib/editor/commands";
+import { deleteSelections as deleteModelSelections } from "../lib/editor/commands";
 import {
   clearSelection,
   createSelection,
@@ -159,10 +159,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
     if (!effective.length) return;
 
     try {
-      let next = model;
-      for (const target of effective) {
-        next = deleteSelection(next, target).model;
-      }
+      const next = deleteModelSelections(model, effective);
       assertCanonicalV05(next);
       setModel(next);
       clearCanonicalSelection();
