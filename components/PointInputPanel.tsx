@@ -39,7 +39,7 @@ function CoordinateForm({
   mode: "absolute" | "relative";
   setMode: (mode: "absolute" | "relative") => void;
 }) {
-  const [values, setValues] = useState(() => mode === "relative" ? {x:"0",y:"0",z:"0"} : { x: "", y: "", z: "" });
+  const [values, setValues] = useState({ x: "", y: "", z: "" });
   const [error, setError] = useState("");
   return (
     <form
@@ -59,7 +59,9 @@ function CoordinateForm({
         <select
           value={mode}
           onChange={(event) => {
-            setMode(event.target.value as typeof mode);
+            const nextMode = event.target.value as typeof mode;
+            setMode(nextMode);
+            setValues(nextMode === "relative" ? { x: "0", y: "0", z: "0" } : { x: "", y: "", z: "" });
             setError("");
           }}
         >
@@ -199,7 +201,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
         </p>
       ) : null}
       <CoordinateForm
-        key={`${tool.tool}:${step}:${base ? `${base.x}:${base.y}:${base.z}` : "none"}:${base ? entryMode : "absolute"}`}
+        key={`${tool.tool}:${transform.mode}:${step}:${base ? `${base.x}:${base.y}:${base.z}` : "none"}`}
         base={base}
         mode={base ? entryMode : "absolute"}
         setMode={setEntryMode}
