@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { assertCanonicalV05 } from "../lib/core-v05";
-import { deleteSelection } from "../lib/editor/commands";
+import { deleteSelections } from "../lib/editor/commands";
 import {
   finishCopyInteraction,
   getInteractionState,
@@ -81,20 +81,7 @@ export default function CopyInteractionBridgeV01({
           return;
         }
         try {
-          let next = latest.current.model;
-          for (const selection of [...selections].sort(
-            (a, b) => Number(a.type === "node") - Number(b.type === "node"),
-          ))
-            next = deleteSelection(next, selection).model;
-          const ids = new Set(next.nodes.map((node) => node.id));
-          if (
-            next.surfaces.some((surface) =>
-              surface.boundaryNodeIds.some((id) => !ids.has(id)),
-            )
-          )
-            throw new Error(
-              "Delete the connected surface before removing its boundary nodes.",
-            );
+          const next = deleteSelections(latest.current.model, selections);
           assertCanonicalV05(next);
           latest.current.model = next;
           publishSelections([]);
