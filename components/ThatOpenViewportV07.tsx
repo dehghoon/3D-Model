@@ -187,6 +187,11 @@ export default function ThatOpenViewportV07({
     const nativeMouseButtons = { ...runtime.camera.controls.mouseButtons };
     const syncCameraMouseButtons = (mode: "select" | "view") => {
       const buttons = runtime.camera.controls.mouseButtons;
+      // Some test runtimes provide a minimal camera-controls mock without mouseButtons.
+      if (!buttons) {
+        runtime.camera.controls.enabled = true;
+        return;
+      }
       if (mode === "select") {
         buttons.left = 0;
         buttons.middle = 0;
