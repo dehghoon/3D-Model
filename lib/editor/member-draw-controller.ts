@@ -1,4 +1,4 @@
-import type { MemberType, StructuralModel, Vec3 } from "@linkoteq/structural-core";
+import type { MemberType, JoistSpecification, StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import {
   createMemberFromCanonicalRefs,
   createNodeFromGlobalCoordinates,
@@ -41,6 +41,7 @@ export function createMemberFromSnapPoints(
     type: MemberType;
     materialId: string;
     sectionId: string;
+    joist?: JoistSpecification;
     start: SnapPoint;
     end: SnapPoint;
   },
@@ -62,6 +63,7 @@ export function createMemberFromSnapPoints(
     endNodeId: end.nodeId,
     materialId: input.materialId,
     sectionId: input.sectionId,
+    joist: input.joist,
   });
 
   return { model: created.model, memberId: created.member.id };
