@@ -214,6 +214,40 @@ export default function ThatOpenViewportV07({
     const resolveSnap = (event: PointerEvent) =>
       snapThatOpen(runtime, event, modelRef.current, selectionRef.current);
 
+    // Keep left-button picking/marquee in Select mode while allowing
+    // wheel zoom and middle-button pan without switching to View mode.
+    let panPointer: { id: number; x: number; y: number } | null = null;
+    const selectNavigationEnabled = () =>
+      toolModeRef.current === "select" && getInteractionState().mode === "select";
+    const wheelZoom = (event: WheelEvent) => {
+      if (!selectNavigationEnabled()) return;
+      event.preventDefault();
+      const controls = runtime.camera.controls;
+      const normalized = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
+      const distance = Math.max(controls.distance, 0.1);
+      const step = Math.max(-distance * 0.3, Math.min(distance * 0.3, normalized * distance * 0.001));
+      void controls.dolly(-step, false);
+    };
+    const middlePanDown = (event: PointerEvent) => {
+      if (event.button !== 1 || !selectNavigationEnabled()) return;
+      event.preventDefault();
+      panPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      canvas.setPointerCapture?.(event.pointerId);
+    };
+    const middlePanMove = (event: PointerEvent) => {
+      if (!panPointer || event.pointerId !== panPointer.id) return;
+      event.preventDefault();
+      const scale = Math.max(runtime.camera.controls.distance, 1) / Math.max(canvas.clientHeight, 1);
+      void runtime.camera.controls.truck(
+        (panPointer.x - event.clientX) * scale,
+        (event.clientY - panPointer.y) * scale,
+        false,
+      );
+      panPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    };
+    const middlePanEnd = (event: PointerEvent) => {
+      if (panPointer?.id === event.pointerId) panPointer = null;
+    };
     const pointerDown = (event: PointerEvent) => {
       if (pinching || !event.isPrimary || event.button !== 0) return;
       canvas.setPointerCapture?.(event.pointerId);
@@ -441,6 +475,12 @@ export default function ThatOpenViewportV07({
     for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) canvas.addEventListener(type, navigateTouch as EventListener, true);
     window.addEventListener("linkoteq:view-fit", fit);
     window.addEventListener("linkoteq:view-preset", preset);
+    canvas.addEventListener("wheel", wheelZoom, { passive: false });
+    canvas.addEventListener("pointerdown", middlePanDown);
+    canvas.addEventListener("pointermove", middlePanMove);
+    canvas.addEventListener("pointerup", middlePanEnd);
+    canvas.addEventListener("pointercancel", middlePanEnd);
+    canvas.addEventListener("auxclick", (event) => { if (event.button === 1) event.preventDefault(); });
     canvas.addEventListener("pointerdown", pointerDown, { passive: true });
     canvas.addEventListener("pointermove", pointerMove, { passive: true });
     canvas.addEventListener("pointerup", pointerUp, { passive: true });
