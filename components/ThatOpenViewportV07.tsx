@@ -314,7 +314,6 @@ export default function ThatOpenViewportV07({
       if (
         !start ||
         toolModeRef.current !== "select" ||
-        runtime.camera.controls.enabled ||
         state.mode !== "select"
       ) {
         return;
@@ -392,10 +391,7 @@ export default function ThatOpenViewportV07({
         return;
       }
 
-      if (
-        toolModeRef.current === "view" ||
-        runtime.camera.controls.enabled
-      ) {
+      if (toolModeRef.current === "view") {
         setMarquee(null);
         return;
       }
