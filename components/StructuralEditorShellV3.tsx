@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
 import SimpleFrameModeler from "./SimpleFrameModeler";
 import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
-import type { StructuralModel } from "@linkoteq/structural-core";
+import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
+import { detectJoistBay, layoutJoists, createJoistsInBay, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
 
 import { MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
@@ -57,6 +58,12 @@ export default function StructuralEditorShellV3() {
   const [joistSetupOpen, setJoistSetupOpen] = useState(false);
   const [joistSeries, setJoistSeries] = useState<"K" | "LH" | "DLH" | "other">("K");
   const [joistDesignation, setJoistDesignation] = useState("");
+  const [joistBay, setJoistBay] = useState<JoistBay | null>(null);
+  const [joistDirection, setJoistDirection] = useState<0 | 1>(0);
+  const [joistQuantityMode, setJoistQuantityMode] = useState<"count" | "spacing">("count");
+  const [joistCount, setJoistCount] = useState(3);
+  const [joistSpacing, setJoistSpacing] = useState(1.2);
+  const [joistBayError, setJoistBayError] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
   const historyRef = useRef<{ past: StructuralModel[]; future: StructuralModel[] }>({ past: [], future: [] });
   const modelRef = useRef(model);
@@ -144,9 +151,44 @@ export default function StructuralEditorShellV3() {
   }
   function finishSurface(): void { window.dispatchEvent(new Event(SURFACE_FINISH_EVENT)); }
   function runModelTool(tool: ModelingTool): void {
-    if (tool === "Joist") { setJoistSetupOpen(true); return; }
+    if (tool === "Joist") { setJoistSetupOpen(true); setJoistBay(null); return; }
     setJoistSetupOpen(false);
     window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT, { detail: tool.toLowerCase() }));
+  }
+  useEffect(() => {
+    const pick = (event: Event) => {
+      const point = (event as CustomEvent<Vec3>).detail;
+      try {
+        const bay = detectJoistBay(modelRef.current, point, point.z);
+        setJoistBay(bay);
+        setJoistBayError("");
+      } catch (error) {
+        setJoistBay(null);
+        setJoistBayError(error instanceof Error ? error.message : "Unable to identify a closed beam bay.");
+      }
+    };
+    window.addEventListener("linkoteq:joist-bay-pick", pick);
+    return () => window.removeEventListener("linkoteq:joist-bay-pick", pick);
+  }, []);
+  function confirmJoistBay() {
+    if (!joistBay || !joistDesignation.trim()) return;
+    try {
+      const current = modelRef.current;
+      const materialId = current.materials.find(m => m.type === "steel")?.id;
+      const sectionId = current.sections.find(s => s.family === "joist")?.id;
+      if (!materialId || !sectionId) throw new Error("Select or import a verified joist section and steel material first.");
+      const result = createJoistsInBay(current, {
+        bay: joistBay, direction: joistDirection,
+        ...(joistQuantityMode === "count" ? {count: joistCount} : {spacing: joistSpacing}),
+        materialId, sectionId,
+        joist: {series:joistSeries,designation:joistDesignation.trim(),analyticalRepresentation:"preserve-only",capacityVerification:"unverified"},
+      });
+      advancedChange(result.model);
+      setJoistBay(null);
+      setJoistBayError(`Created ${result.memberIds.length} joists.`);
+      window.sessionStorage.removeItem("linkoteq:joist-bay-mode");
+      window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
+    } catch(error) {setJoistBayError(error instanceof Error ? error.message : "Joist placement failed.");}
   }
   function runUtilityTool(tool: UtilityTool): void {
     window.dispatchEvent(new CustomEvent(UTILITY_COMMAND_EVENT, { detail: tool }));
@@ -229,8 +271,21 @@ export default function StructuralEditorShellV3() {
         <label>Series <select value={joistSeries} onChange={e=>setJoistSeries(e.target.value as typeof joistSeries)}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
         <label>Designation <input value={joistDesignation} onChange={e=>setJoistDesignation(e.target.value)} placeholder="Enter joist designation" style={{width:"100%"}} /></label>
         <small>Capacity is unverified. The designation is preserved, not treated as a verified catalog capacity.</small>
-        <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>setJoistSetupOpen(false)}>Cancel</button><button type="button" disabled={!joistDesignation.trim()} onClick={()=>{window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
+        <small>Plan bay: select Draw Joist, then click inside a closed four-beam bay at the visible level.</small>
+        <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>{setJoistSetupOpen(false);window.sessionStorage.removeItem("linkoteq:joist-bay-mode");}}>Cancel</button><button type="button" disabled={!joistDesignation.trim()} onClick={()=>{window.sessionStorage.setItem("linkoteq:joist-bay-mode","active");window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
       </section> : null}
+      {joistBay ? <section aria-label="Joist bay preview" style={{position:"fixed",top:"17%",left:"50%",transform:"translateX(-50%)",zIndex:10001,width:"min(92vw,430px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
+        <strong>Joist Bay — Preview</strong>
+        <small>Boundary beams: {joistBay.beamIds.join(", ")} · Level Z = {joistBay.levelZ}</small>
+        <label>Span direction <select value={joistDirection} onChange={e=>setJoistDirection(Number(e.target.value) as 0|1)}><option value={0}>Between opposite beams 1 and 3</option><option value={1}>Between opposite beams 2 and 4</option></select></label>
+        <label>Distribution <select value={joistQuantityMode} onChange={e=>setJoistQuantityMode(e.target.value as "count"|"spacing")}><option value="count">Number of joists</option><option value="spacing">Maximum spacing (m)</option></select></label>
+        {joistQuantityMode==="count" ? <label>Count <input type="number" min={1} max={1000} value={joistCount} onChange={e=>setJoistCount(Number(e.target.value))}/></label> : <label>Spacing (m) <input type="number" min={0.01} step={0.1} value={joistSpacing} onChange={e=>setJoistSpacing(Number(e.target.value))}/></label>}
+        <small>Calculated: {(()=>{try{return layoutJoists(joistBay,{direction:joistDirection,...(joistQuantityMode==="count"?{count:joistCount}:{spacing:joistSpacing})}).length+" joists"}catch{return "Invalid spacing or count"}})()}</small>
+        <small>Each new joist has pinned rotational releases at both ends. No capacity verification is implied.</small>
+        {joistBayError ? <p role="alert">{joistBayError}</p> : null}
+        <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>setJoistBay(null)}>Cancel</button><button type="button" onClick={confirmJoistBay}>Confirm Joists</button></div>
+      </section> : null}
+      {!joistBay && joistBayError ? <p role="status">{joistBayError}</p> : null}
       <nav className="architectToolstrip" aria-label="Add structural elements">
         {modelingTools.map((tool) => (
           <button
