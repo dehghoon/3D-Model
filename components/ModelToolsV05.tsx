@@ -80,7 +80,7 @@ export default function ModelToolsV05({
   const ignoredSelectionRef = useRef<string | null>(null);
   const initializingDefaultRef = useRef(false);
   const handlersRef = useRef<{
-    choose: (tool: Tool) => void;
+    choose: (tool: Tool, joistOverride?: {series: "K" | "LH" | "DLH" | "other"; designation: string}) => void;
     pick: (point: SnapPoint) => void;
     finish: () => void;
   } | null>(null);
@@ -152,7 +152,7 @@ export default function ModelToolsV05({
     setStatus(message);
     setPointToolMessage(message);
   }
-  function chooseTool(next: Tool) {
+  function chooseTool(next: Tool, joistOverride?: {series: "K" | "LH" | "DLH" | "other"; designation: string}) {
     cancel();
     window.dispatchEvent(new Event("linkoteq:view-select"));
     if (next === "select") return;
@@ -169,7 +169,7 @@ export default function ModelToolsV05({
       );
       return;
     }
-    if (next === "joist" && !joistDesignation.trim()) {
+    if (next === "joist" && !(joistOverride?.designation ?? joistDesignation).trim()) {
       setStatus("Enter a joist designation before drawing.");
       setPointToolMessage("Enter a joist designation before drawing.");
       return;
@@ -181,7 +181,7 @@ export default function ModelToolsV05({
         type: next as MemberType,
         materialId: resolvedMaterialId,
         sectionId: resolvedSectionId,
-        ...(next === "joist" ? { joist: { series: joistSeries, designation: joistDesignation.trim(), analyticalRepresentation: "preserve-only" as const, capacityVerification: "unverified" as const } } : {}),
+        ...(next === "joist" ? { joist: { series: joistOverride?.series ?? joistSeries, designation: (joistOverride?.designation ?? joistDesignation).trim(), analyticalRepresentation: "preserve-only" as const, capacityVerification: "unverified" as const } } : {}),
       });
   }
   function acceptPoint(snap: SnapPoint) {
@@ -270,6 +270,10 @@ export default function ModelToolsV05({
       if (TOOLS.some((item) => item.id === next))
         handlersRef.current?.choose(next);
     };
+    const configureJoist = (event: Event) => {
+      const config = (event as CustomEvent<{series: "K" | "LH" | "DLH" | "other"; designation: string}>).detail;
+      if (config?.designation?.trim() && ["K","LH","DLH","other"].includes(config.series)) handlersRef.current?.choose("joist", config);
+    };
     const pick = (event: Event) => {
       const point = (event as CustomEvent<SnapPoint>).detail;
       if (point?.point) handlersRef.current?.pick(point);
@@ -279,12 +283,14 @@ export default function ModelToolsV05({
       if (event.key === "Escape") cancel();
     };
     window.addEventListener(MODELING_COMMAND_EVENT, choose);
+    window.addEventListener("linkoteq:joist-configure-and-draw", configureJoist);
     window.addEventListener(MEMBER_DRAW_PICK_EVENT, pick);
     window.addEventListener(SURFACE_FINISH_EVENT, finish);
     window.addEventListener("linkoteq:modeling-cancel", cancel);
     window.addEventListener("keydown", key);
     return () => {
       window.removeEventListener(MODELING_COMMAND_EVENT, choose);
+      window.removeEventListener("linkoteq:joist-configure-and-draw", configureJoist);
       window.removeEventListener(MEMBER_DRAW_PICK_EVENT, pick);
       window.removeEventListener(SURFACE_FINISH_EVENT, finish);
       window.removeEventListener("linkoteq:modeling-cancel", cancel);
