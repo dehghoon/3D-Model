@@ -45,3 +45,21 @@ test("diaphragm rejects unknown levels, targets, duplicate targets and level mis
   const other = model.levels.find(l => l.id !== level.id);
   if (other) assert.throws(() => assignDiaphragm(model, {...input, levelId: other.id}), /DIAPHRAGM_NODE_LEVEL_MISMATCH/);
 });
+
+test("diaphragm survives JSON save/reopen and remains editable", () => {
+  const { model, level, nodes } = fixture();
+  const assigned = assignDiaphragm(model, {
+    id: "D1", type: "rigid", levelId: level.id, nodeIds: [nodes[0].id], surfaceIds: [],
+  });
+  const exportedJson = JSON.stringify(assigned, null, 2);
+  const reopened = JSON.parse(exportedJson) as typeof assigned;
+  assert.deepEqual(reopened.diaphragms, assigned.diaphragms);
+  assert.deepEqual(reopened.nodes, assigned.nodes);
+  const edited = assignDiaphragm(reopened, {
+    id: "D1", type: "semi-rigid", levelId: level.id,
+    nodeIds: nodes.slice(0, 2).map(node => node.id), surfaceIds: [],
+  });
+  assert.equal(edited.diaphragms.length, 1);
+  assert.equal(edited.diaphragms[0].type, "semi-rigid");
+  assert.deepEqual(edited.diaphragms[0].nodeIds, nodes.slice(0, 2).map(node => node.id));
+});
