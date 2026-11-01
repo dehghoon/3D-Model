@@ -21,7 +21,9 @@ export function setModelingPointTool(tool: ModelingPointTool | null): void {
   emit({
     tool,
     points: [],
-    message: tool
+    message: tool === "joist" && typeof window !== "undefined" && window.sessionStorage.getItem("linkoteq:joist-bay-mode") === "active"
+      ? "Area Joist: click inside a closed four-beam bay in the 3D viewport."
+      : tool
       ? `Pick the first ${tool === "slab" || tool === "wall" ? "boundary " : ""}point, or enter coordinates.`
       : "",
   });
