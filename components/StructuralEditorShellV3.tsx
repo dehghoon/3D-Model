@@ -160,6 +160,16 @@ export default function StructuralEditorShellV3() {
             <span>Core 0.5 · That Open</span>
           </div>
         </div>
+        <div className="architectHistoryActions" aria-label="Edit history" style={{
+          display:"flex", alignItems:"center", gap:4, flexShrink:0, position:"relative", zIndex:20
+        }}>
+          <button type="button" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo"
+            disabled={!historyRef.current.past.length} onClick={undo}
+            style={{minWidth:36, minHeight:40, padding:"4px 7px", flexShrink:0}}>↶</button>
+          <button type="button" title="Redo (Ctrl/Cmd+Shift+Z)" aria-label="Redo"
+            disabled={!historyRef.current.future.length} onClick={redo}
+            style={{minWidth:36, minHeight:40, padding:"4px 7px", flexShrink:0}}>↷</button>
+        </div>
         <div className="architectModeSwitch" aria-label="Workspace mode">
           <button
             type="button"
@@ -175,10 +185,6 @@ export default function StructuralEditorShellV3() {
           >
             Advanced Mode
           </button>
-        </div>
-        <div className="architectTopActions" aria-label="Edit history">
-          <button type="button" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo" disabled={!historyRef.current.past.length} onClick={undo}>↶ Undo</button>
-          <button type="button" title="Redo (Ctrl/Cmd+Shift+Z)" aria-label="Redo" disabled={!historyRef.current.future.length} onClick={redo}>↷ Redo</button>
         </div>
         {mode === "advanced" ? <div className="architectTopActions" aria-label="Project actions">
           <button
