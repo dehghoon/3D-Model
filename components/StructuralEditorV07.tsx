@@ -11,6 +11,7 @@ import MemberEndReleaseEditor from "./MemberEndReleaseEditor";
 import DiaphragmEditor from "./DiaphragmEditor";
 import ModelToolsV05 from "./ModelToolsV05";
 import NodeCreatorV05 from "./NodeCreatorV05";
+import MemberCreatorV05 from "./MemberCreatorV05";
 import SelectedNodeSupportV05 from "./SelectedNodeSupportV05";
 import ThatOpenViewportV01 from "./ThatOpenViewportV01";
 import { assertCanonicalV05, migrateProjectToV05 } from "../lib/core-v05";
@@ -262,6 +263,11 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
             onNodeCreated={(nodeId) =>
               setCanonicalSelection({ type: "node", id: nodeId })
             }
+          />
+          <MemberCreatorV05
+            model={model}
+            onModelChange={applyModelChange}
+            onMemberCreated={(memberId) => setCanonicalSelection({ type: "member", id: memberId })}
           />
           <DiaphragmEditor
             model={model}
