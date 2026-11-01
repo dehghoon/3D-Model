@@ -4,6 +4,7 @@ export function wheelDollyStep(deltaY: number, deltaMode: number, viewportHeight
   const factor = deltaMode === 1 ? 16 : deltaMode === 2 ? Math.max(viewportHeight, 1) : 1;
   const distance = Math.max(cameraDistance, 0.1);
   const normalized = deltaY * factor;
+  if (normalized === 0) return 0;
   return -Math.max(-distance * 0.3, Math.min(distance * 0.3, normalized * distance * 0.001));
 }
 
