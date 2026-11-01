@@ -143,13 +143,23 @@ export default function ThatOpenViewportV07({
   const pointTool = usePointToolState();
   const draw = useMemberDrawState();
   const [additive, setAdditive] = useState(false);
+  const [subtract, setSubtract] = useState(false);
   const additiveRef = useRef(false);
   additiveRef.current = additive;
+  const subtractRef = useRef(false);
+  subtractRef.current = subtract;
   const [runtimeError, setRuntimeError] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [toolMode, setToolMode] = useState<"select" | "view">("select");
   const [marquee, setMarquee] = useState<SelectionWindow | null>(null);
   const selectionCount = usePublishedSelections().length;
+
+  const commitSelectionsFromToolbar = () => {
+    const runtime = runtimeRef.current;
+    onMultiSelectRef.current?.([]);
+    if (!onMultiSelectRef.current) { onSelectRef.current(null); publishSelections([]); }
+    if (runtime) syncSelectionHighlight(runtime, modelRef.current, []);
+  };
 
   modelRef.current = model;
   selectionRef.current = selection;
@@ -415,9 +425,12 @@ export default function ThatOpenViewportV07({
           windowSelection,
         );
 
-        const combined = event.shiftKey || additiveRef.current
-          ? [...getPublishedSelections(), ...selected]
-          : selected;
+        const selectedKeys = new Set(selected.map(selectionKey));
+        const combined = subtractRef.current
+          ? getPublishedSelections().filter(item => !selectedKeys.has(selectionKey(item)))
+          : event.shiftKey || additiveRef.current
+            ? [...getPublishedSelections(), ...selected]
+            : selected;
 
         commitSelections(combined);
         setMarquee(null);
@@ -437,6 +450,11 @@ export default function ThatOpenViewportV07({
       }
 
       const picked = await pickThatOpen(runtime, event);
+      if (subtractRef.current) {
+        if (picked) commitSelections(getPublishedSelections().filter(item => selectionKey(item) !== selectionKey(picked)));
+        setMarquee(null);
+        return;
+      }
       const toggle = event.ctrlKey || event.metaKey || event.shiftKey || additiveRef.current;
 
       if (toggle) {
@@ -616,9 +634,17 @@ export default function ThatOpenViewportV07({
     >
       {!pointTool.tool && interaction.mode === "select" ? <button type="button"
         className={`viewportMultiSelect ${additive ? "active" : ""}`} aria-pressed={additive}
-        onClick={() => setAdditive(current => !current)}>
+        onClick={() => { setAdditive(current => !current); setSubtract(false); }}>
         {additive ? "Multiple selection ON" : "Multiple selection"} · {selectionCount} selected
       </button> : null}
+      {!pointTool.tool && interaction.mode === "select" ? <div style={{ position: "absolute", zIndex: 51, top: 52, left: 12, display: "flex", gap: 6 }}>
+        <button type="button" aria-pressed={subtract} onPointerDown={event => event.stopPropagation()}
+          onClick={() => { setSubtract(value => !value); setAdditive(false); }}>
+          {subtract ? "Deselect ON" : "Deselect"}
+        </button>
+        <button type="button" disabled={!selectionCount} onPointerDown={event => event.stopPropagation()}
+          onClick={() => { commitSelectionsFromToolbar(); }} aria-label="Clear selection">Clear selection</button>
+      </div> : null}
       {runtimeError ? (
         <div role="alert" style={{ position: "absolute", inset: 24, zIndex: 70,
           padding: 20, background: "#fff", color: "#0f172a" }}>
