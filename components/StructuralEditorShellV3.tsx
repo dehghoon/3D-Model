@@ -281,6 +281,21 @@ export default function StructuralEditorShellV3() {
         <label>Distribution <select value={joistQuantityMode} onChange={e=>setJoistQuantityMode(e.target.value as "count"|"spacing")}><option value="count">Number of joists</option><option value="spacing">Maximum spacing (m)</option></select></label>
         {joistQuantityMode==="count" ? <label>Count <input type="number" min={1} max={1000} value={joistCount} onChange={e=>setJoistCount(Number(e.target.value))}/></label> : <label>Spacing (m) <input type="number" min={0.01} step={0.1} value={joistSpacing} onChange={e=>setJoistSpacing(Number(e.target.value))}/></label>}
         <small>Calculated: {(()=>{try{return layoutJoists(joistBay,{direction:joistDirection,...(joistQuantityMode==="count"?{count:joistCount}:{spacing:joistSpacing})}).length+" joists"}catch{return "Invalid spacing or count"}})()}</small>
+        <svg viewBox="0 0 320 210" role="img" aria-label="Joist bay plan preview" style={{width:"100%",maxHeight:210,background:"#f4f6f8",borderRadius:8}}>
+          {(()=>{
+            const pts=joistBay.corners;
+            const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+            const minX=Math.min(...xs),minY=Math.min(...ys),dx=Math.max(...xs)-minX||1,dy=Math.max(...ys)-minY||1;
+            const scale=Math.min(280/dx,170/dy);
+            const xy=(p:Vec3)=>({x:20+(p.x-minX)*scale,y:190-(p.y-minY)*scale});
+            let segments:ReturnType<typeof layoutJoists>=[];
+            try{segments=layoutJoists(joistBay,{direction:joistDirection,...(joistQuantityMode==="count"?{count:joistCount}:{spacing:joistSpacing})});}catch{}
+            return <>
+              <polygon points={pts.map(p=>{const q=xy(p);return `${q.x},${q.y}`}).join(" ")} fill="#dce7f3" stroke="#334155" strokeWidth={5}/>
+              {segments.map((s,i)=>{const a=xy(s.start),b=xy(s.end);return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#0f766e" strokeWidth={3}/>})}
+            </>;
+          })()}
+        </svg>
         <small>Each new joist has pinned rotational releases at both ends. No capacity verification is implied.</small>
         {joistBayError ? <p role="alert">{joistBayError}</p> : null}
         <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>setJoistBay(null)}>Cancel</button><button type="button" onClick={confirmJoistBay}>Confirm Joists</button></div>
