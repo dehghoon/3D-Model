@@ -12,10 +12,10 @@ import { useInteractionState } from "../lib/editor/interaction-store";
 import { usePublishedSelections } from "../lib/editor/selection-store";
 
 type WorkspaceMode = "simple" | "advanced";
-type ModelingTool = "Column" | "Beam" | "Brace" | "Slab" | "Wall";
+type ModelingTool = "Column" | "Beam" | "Brace" | "Joist" | "Slab" | "Wall";
 type UtilityTool = "Select" | "View" | "Move" | "Copy" | "Delete";
 
-const modelingTools: ModelingTool[] = ["Column", "Beam", "Brace", "Slab", "Wall"];
+const modelingTools: ModelingTool[] = ["Column", "Beam", "Brace", "Joist", "Slab", "Wall"];
 const utilityTools: UtilityTool[] = ["Select", "View", "Move", "Copy", "Delete"];
 
 function clickProjectAction(label: "New" | "Open" | "Save"): void {
