@@ -144,6 +144,10 @@ export default function ThatOpenViewportV07({
   const draw = useMemberDrawState();
   const [additive, setAdditive] = useState(false);
   const [subtract, setSubtract] = useState(false);
+  const [windowPick, setWindowPick] = useState(false);
+  const windowPickRef = useRef(false);
+  windowPickRef.current = windowPick;
+  const windowStartRef = useRef<{x:number;y:number}|null>(null);
   const additiveRef = useRef(false);
   additiveRef.current = additive;
   const subtractRef = useRef(false);
@@ -307,6 +311,10 @@ export default function ThatOpenViewportV07({
     };
 
     const pointerMove = (event: PointerEvent) => {
+      if (windowPickRef.current && windowStartRef.current) {
+        setMarquee({start: windowStartRef.current, end: {x:event.clientX,y:event.clientY}});
+        return;
+      }
       const state = getInteractionState();
 
       if (getModelingPointTool()) {
@@ -348,6 +356,26 @@ export default function ThatOpenViewportV07({
       if (!origin || origin.pointerId !== event.pointerId) return;
 
       const state = getInteractionState();
+      if (windowPickRef.current && state.mode === "select" && !getModelingPointTool()) {
+        const point = {x:event.clientX,y:event.clientY};
+        if (!windowStartRef.current) {
+          windowStartRef.current = point;
+          setMarquee({start:point,end:point});
+        } else {
+          const windowSelection = {start:windowStartRef.current,end:point};
+          const selected = selectMembersInWindow(modelRef.current,runtime.camera.three,canvas.getBoundingClientRect(),windowSelection);
+          const keys = new Set(selected.map(selectionKey));
+          const next = subtractRef.current
+            ? getPublishedSelections().filter(item => !keys.has(selectionKey(item)))
+            : additiveRef.current ? [...getPublishedSelections(),...selected] : selected;
+          commitSelections(next);
+          windowStartRef.current = null;
+          setMarquee(null);
+          setWindowPick(false);
+          windowPickRef.current = false;
+        }
+        return;
+      }
       const drawing = Boolean(getModelingPointTool());
       if ((drawing || state.mode !== "select") && !isTapGesture(
         origin.x, origin.y, event.clientX, event.clientY, origin.pointerType,
@@ -632,18 +660,23 @@ export default function ThatOpenViewportV07({
       }}
       aria-label="That Open structural viewport"
     >
-      {!pointTool.tool && interaction.mode === "select" ? <button type="button"
-        className={`viewportMultiSelect ${additive ? "active" : ""}`} aria-pressed={additive}
-        onClick={() => { setAdditive(current => !current); setSubtract(false); }}>
-        {additive ? "Multiple selection ON" : "Multiple selection"} · {selectionCount} selected
-      </button> : null}
-      {!pointTool.tool && interaction.mode === "select" ? <div style={{ position: "absolute", zIndex: 51, top: 52, left: 12, display: "flex", gap: 6 }}>
-        <button type="button" aria-pressed={subtract} onPointerDown={event => event.stopPropagation()}
-          onClick={() => { setSubtract(value => !value); setAdditive(false); }}>
+      {!pointTool.tool && interaction.mode === "select" ? <div className="viewportSelectionActions" style={{
+        position:"absolute", top: 56, left: 12, right: 12, zIndex: 55,
+        display:"flex", flexWrap:"wrap", alignItems:"center", gap: 6, pointerEvents:"none"
+      }}>
+        <button type="button" className={`viewportMultiSelect ${additive ? "active" : ""}`}
+          style={{position:"static", pointerEvents:"auto", maxWidth:"none", whiteSpace:"nowrap"}}
+          aria-pressed={additive} onClick={() => {setAdditive(value => !value);setSubtract(false);}}>
+          {additive ? "Multiple ON" : "Multiple select"} · {selectionCount}
+        </button>
+        <button type="button" aria-pressed={subtract} style={{pointerEvents:"auto"}}
+          onClick={() => {setSubtract(value => !value);setAdditive(false);}}>
           {subtract ? "Deselect ON" : "Deselect"}
         </button>
-        <button type="button" disabled={!selectionCount} onPointerDown={event => event.stopPropagation()}
-          onClick={() => { commitSelectionsFromToolbar(); }} aria-label="Clear selection">Clear selection</button>
+        <button type="button" aria-pressed={windowPick} style={{pointerEvents:"auto"}}
+          onClick={() => {windowStartRef.current=null;setMarquee(null);setWindowPick(value=>!value);}}>
+          {windowPick ? "Window: pick 2 corners" : "Window select"}
+        </button>
       </div> : null}
       {runtimeError ? (
         <div role="alert" style={{ position: "absolute", inset: 24, zIndex: 70,
