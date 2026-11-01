@@ -168,7 +168,21 @@ export default function ThatOpenViewportV07({
       return;
     }
     runtimeRef.current = runtime;
-    runtime.camera.controls.enabled = false;
+    // CameraControls must stay enabled for its update loop to apply programmatic
+    // dolly/rotate/truck while editing. Disable only native mouse gestures.
+    const nativeMouseButtons = { ...runtime.camera.controls.mouseButtons };
+    const syncCameraMouseButtons = (mode: "select" | "view") => {
+      const buttons = runtime.camera.controls.mouseButtons;
+      if (mode === "select") {
+        buttons.left = 0;
+        buttons.middle = 0;
+        buttons.right = 0;
+      } else {
+        Object.assign(buttons, nativeMouseButtons);
+      }
+      runtime.camera.controls.enabled = true;
+    };
+    syncCameraMouseButtons("select");
     const canvas = runtime.renderer.three.domElement;
     let start: PointerStart | null = null;
     const touches = new Map<number, { x: number; y: number }>();
@@ -485,13 +499,13 @@ export default function ThatOpenViewportV07({
 
     const enableSelect = () => {
       toolModeRef.current = "select";
-      runtime.camera.controls.enabled = false;
+      syncCameraMouseButtons("select");
       setToolMode("select");
     };
 
     const enableView = () => {
       toolModeRef.current = "view";
-      runtime.camera.controls.enabled = true;
+      syncCameraMouseButtons("view");
       setToolMode("view");
     };
 
@@ -562,11 +576,10 @@ export default function ThatOpenViewportV07({
     const runtime = runtimeRef.current;
     if (!runtime) return;
 
-    const shouldEnableCamera =
-      interaction.mode === "select" && !pointTool.tool && toolMode === "view";
-
     toolModeRef.current = toolMode;
-    runtime.camera.controls.enabled = shouldEnableCamera;
+    // Keep camera updates active even during point picking, Move and Copy.
+    // The Select-mode mouse mappings are disabled on initialization.
+    runtime.camera.controls.enabled = true;
 
     if (pointTool.tool) {
       renderModelingPreview(runtime);
