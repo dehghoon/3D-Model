@@ -1,3 +1,4 @@
+import { getJoistDesignationCandidates, SJI_LOAD_TABLE_SOURCE } from "../lib/catalogs/sji-joist-designations";
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -278,13 +279,14 @@ export default function StructuralEditorShellV3() {
       {mode === "advanced" ? <>
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
-        <label>Series <select value={joistSeries} onChange={e=>setJoistSeries(e.target.value as typeof joistSeries)}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
+        <label>Series <select value={joistSeries} onChange={e=>{setJoistSeries(e.target.value as typeof joistSeries);setJoistDesignation("");setJoistSectionId("");}}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
         <label>Designation <select value={joistSectionId} onChange={e=>{const id=e.target.value;setJoistSectionId(id);setJoistDesignation(model.sections.find(s=>s.id===id)?.designation ?? "");}} style={{width:"100%"}}>
           <option value="">Select joist from catalog</option>
           {model.sections.filter(s=>s.family==="joist" && (joistSeries==="other" || (s.designation ?? "").toUpperCase().includes(joistSeries))).map(s=><option key={s.id} value={s.id}>{s.designation ?? s.id}</option>)}
         </select></label>
-        {!model.sections.some(s=>s.family==="joist") ? <small role="alert">No verified joist section properties are available in Core. SJI designation references are listed below, but engineering creation requires validated section properties.</small> : null}
-        <small>Designation is selected from the actual Core joist section catalog above. No generated or unverified SJI designation rows are offered as catalog entries.</small>
+        {!model.sections.some(s=>s.family==="joist") ? <small role="alert">No Core joist analytical sections are available. Published SJI designations can be selected below for reference, but Draw Joist stays disabled until a supported geometry-only Core workflow or validated analytical section is implemented.</small> : null}
+        <label>Source-verified SJI designation (reference only)<select value={joistSectionId ? "" : joistDesignation} onChange={e=>{setJoistDesignation(e.target.value);setJoistSectionId("");}} style={{width:"100%"}}><option value="">Select a published designation</option>{getJoistDesignationCandidates(joistSeries==="other"?"K":joistSeries).filter(d=>joistSeries!=="other").map(d=><option key={d.designation} value={d.designation}>{d.designation} — SJI table verified</option>)}</select></label>
+        <small>Reference designations are confirmed in the published SJI table, but are not analytical Core sections. <a href={SJI_LOAD_TABLE_SOURCE} target="_blank" rel="noreferrer">Official SJI table (PDF)</a>.</small>
         <small>Capacity is unverified. The designation is preserved, not treated as a verified catalog capacity.</small>
         <small>Plan bay: select Draw Joist, then click inside a closed four-beam bay at the visible level.</small>
         <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>{setJoistSetupOpen(false);window.sessionStorage.removeItem("linkoteq:joist-bay-mode");}}>Cancel</button><button type="button" disabled={!joistDesignation.trim() || !joistSectionId} onClick={()=>{window.sessionStorage.setItem("linkoteq:joist-bay-mode","active");window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
