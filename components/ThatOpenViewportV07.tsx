@@ -254,7 +254,7 @@ export default function ThatOpenViewportV07({
     let orbitPointer: { id: number; x: number; y: number } | null = null;
     const selectNavigationEnabled = () => toolModeRef.current === "select";
     const wheelZoom = (event: WheelEvent) => {
-      if (!selectNavigationEnabled()) return;
+      if (event.ctrlKey) return;
       event.preventDefault();
       const controls = runtime.camera.controls;
       void controls.dolly(wheelDollyStep(event.deltaY, event.deltaMode, canvas.clientHeight, controls.distance), false);
