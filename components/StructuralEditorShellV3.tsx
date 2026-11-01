@@ -54,6 +54,9 @@ function utilityDescription(tool: UtilityTool): string {
 export default function StructuralEditorShellV3() {
   const [mobilePanel, setMobilePanel] = useState<"tools" | "setup" | "display" | "project" | null>(null);
   const [mode, setMode] = useState<WorkspaceMode>("simple");
+  const [joistSetupOpen, setJoistSetupOpen] = useState(false);
+  const [joistSeries, setJoistSeries] = useState<"K" | "LH" | "DLH" | "other">("K");
+  const [joistDesignation, setJoistDesignation] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
   const historyRef = useRef<{ past: StructuralModel[]; future: StructuralModel[] }>({ past: [], future: [] });
   const modelRef = useRef(model);
@@ -141,6 +144,8 @@ export default function StructuralEditorShellV3() {
   }
   function finishSurface(): void { window.dispatchEvent(new Event(SURFACE_FINISH_EVENT)); }
   function runModelTool(tool: ModelingTool): void {
+    if (tool === "Joist") { setJoistSetupOpen(true); return; }
+    setJoistSetupOpen(false);
     window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT, { detail: tool.toLowerCase() }));
   }
   function runUtilityTool(tool: UtilityTool): void {
@@ -219,6 +224,13 @@ export default function StructuralEditorShellV3() {
       </header>
 
       {mode === "advanced" ? <>
+      {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
+        <strong>Steel Joist — Setup</strong>
+        <label>Series <select value={joistSeries} onChange={e=>setJoistSeries(e.target.value as typeof joistSeries)}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
+        <label>Designation <input value={joistDesignation} onChange={e=>setJoistDesignation(e.target.value)} placeholder="Enter joist designation" style={{width:"100%"}} /></label>
+        <small>Capacity is unverified. The designation is preserved, not treated as a verified catalog capacity.</small>
+        <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>setJoistSetupOpen(false)}>Cancel</button><button type="button" disabled={!joistDesignation.trim()} onClick={()=>{window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
+      </section> : null}
       <nav className="architectToolstrip" aria-label="Add structural elements">
         {modelingTools.map((tool) => (
           <button
