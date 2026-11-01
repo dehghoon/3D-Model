@@ -45,3 +45,13 @@ test("canonical model rejects joist fields attached to beams",()=>{
  invalid.members[0].type="beam";
  assert.throws(()=>assertCanonicalV05(invalid),/JOIST_SPECIFICATION_REQUIRES_JOIST_MEMBER/);
 });
+
+test("new joist defaults to pinned rotations at both ends while beam stays unreleased",()=>{
+ const base=model();
+ const joist=createMemberFromCanonicalRefs(base,{...refs,joist:{series:"K",designation:"K-test",analyticalRepresentation:"preserve-only",capacityVerification:"unverified"}}).member;
+ assert.deepEqual(joist.startRelease,{RX:true,RY:true,RZ:true});
+ assert.deepEqual(joist.endRelease,{RX:true,RY:true,RZ:true});
+ const beam=createMemberFromCanonicalRefs(base,{...refs,type:"beam"}).member;
+ assert.equal(beam.startRelease,undefined);
+ assert.equal(beam.endRelease,undefined);
+});
