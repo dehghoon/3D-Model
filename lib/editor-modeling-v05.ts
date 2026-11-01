@@ -123,7 +123,11 @@ export function createMemberFromCanonicalRefs(
     endNodeId,
     materialId,
     sectionId,
-    ...(input.joist ? { joist: structuredClone(input.joist) } : {}),
+    ...(input.joist ? {
+      joist: structuredClone(input.joist),
+      startRelease: { RX: true, RY: true, RZ: true },
+      endRelease: { RX: true, RY: true, RZ: true },
+    } : {}),
   };
 
   return {
