@@ -5,7 +5,7 @@ export const MEMBER_DRAW_PICK_EVENT = "linkoteq:member-draw-pick";
 export const MODELING_COMMAND_EVENT = "linkoteq:modeling-command";
 export const SURFACE_FINISH_EVENT = "linkoteq:surface-finish";
 export const UTILITY_COMMAND_EVENT = "linkoteq:utility-command";
-export type ModelingPointTool = "beam" | "column" | "brace" | "wall" | "slab";
+export type ModelingPointTool = "beam" | "column" | "brace" | "joist" | "wall" | "slab";
 interface PointToolState {
   tool: ModelingPointTool | null;
   points: SnapPoint[];
