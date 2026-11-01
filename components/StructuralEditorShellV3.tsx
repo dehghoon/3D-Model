@@ -218,6 +218,17 @@ export default function StructuralEditorShellV3() {
       window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
     } catch(error) {setJoistBayError(error instanceof Error ? error.message : "Joist placement failed.");}
   }
+  function startJoistAssignment(method: "area" | "two-point"): void {
+    setJoistAssignment(method);
+    joistFirstPointRef.current = null;
+    setJoistFirstPoint(null);
+    setJoistBay(null);
+    setJoistBayError(method === "area" ? "Click inside a closed four-beam bay." : "Pick the first point.");
+    window.sessionStorage.setItem("linkoteq:joist-bay-mode", method === "area" ? "active" : "two-point");
+    window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT,{detail:"joist"}));
+    window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));
+    setJoistSetupOpen(false);
+  }
   function runUtilityTool(tool: UtilityTool): void {
     window.dispatchEvent(new CustomEvent(UTILITY_COMMAND_EVENT, { detail: tool }));
     setActiveUtilityTool(tool);
@@ -296,13 +307,16 @@ export default function StructuralEditorShellV3() {
       {mode === "advanced" ? <>
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
-        <label>Assignment method <select value={joistAssignment} onChange={e=>setJoistAssignment(e.target.value as "area"|"two-point")}><option value="area">Area Assignment</option><option value="two-point">Two Point Assignment</option></select></label>
         <label>Series <select value={joistSeries} onChange={e=>{setJoistSeries(e.target.value as typeof joistSeries);setJoistDesignation("");setJoistSectionId("");}}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
         <label>Source-verified SJI designation (reference only)<select value={joistSectionId ? "" : joistDesignation} onChange={e=>{setJoistDesignation(e.target.value);setJoistSectionId("");}} style={{width:"100%"}}><option value="">Select a published designation</option>{getJoistDesignationCandidates(joistSeries==="other"?"K":joistSeries).filter(d=>joistSeries!=="other").map(d=><option key={d.designation} value={d.designation}>{d.designation} — SJI table verified</option>)}</select></label>
         <small>Reference designations are confirmed in the published SJI table, but are not analytical Core sections. <a href={SJI_LOAD_TABLE_SOURCE} target="_blank" rel="noreferrer">Official SJI table (PDF)</a>.</small>
         <small>Capacity is unverified. The designation is preserved, not treated as a verified catalog capacity.</small>
-        <small>{joistAssignment==="area"?"Click inside a closed four-beam bay, then choose direction and count or spacing.":"Pick the first point, then the second point to define a joist."}</small>
-        <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>{setJoistSetupOpen(false);window.sessionStorage.removeItem("linkoteq:joist-bay-mode");}}>Cancel</button><button type="button" disabled={!joistDesignation.trim()} onClick={()=>{joistFirstPointRef.current=null;setJoistFirstPoint(null);setJoistBayError(joistAssignment==="two-point"?"Pick the first point.":"Click inside a closed four-beam bay.");window.sessionStorage.setItem("linkoteq:joist-bay-mode",joistAssignment==="area"?"active":"two-point");window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT,{detail:"joist"}));window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
+        <small>Area: click inside a closed four-beam bay to choose count or spacing. Linear: pick the first and second endpoints.</small>
+        <div style={{display:"grid",gap:10}}>
+          <button type="button" disabled={!joistDesignation.trim()} style={{minHeight:48,padding:"10px 14px",fontWeight:700,borderRadius:8}} onClick={()=>startJoistAssignment("area")}>Draw Area Joist</button>
+          <button type="button" disabled={!joistDesignation.trim()} style={{minHeight:48,padding:"10px 14px",fontWeight:700,borderRadius:8}} onClick={()=>startJoistAssignment("two-point")}>Draw Linear Joist</button>
+          <button type="button" onClick={()=>{setJoistSetupOpen(false);window.sessionStorage.removeItem("linkoteq:joist-bay-mode");}}>Cancel</button>
+        </div>
       </section> : null}
       {joistBay ? <section aria-label="Joist bay preview" style={{position:"fixed",top:"17%",left:"50%",transform:"translateX(-50%)",zIndex:10001,width:"min(92vw,430px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Joist Bay — Preview</strong>
