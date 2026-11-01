@@ -7,7 +7,7 @@ import StructuralEditorV05 from "./StructuralEditorV05";
 import SimpleFrameModeler from "./SimpleFrameModeler";
 import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
-import { detectJoistBay, layoutJoists, createJoistsInBay, type JoistBay } from "../lib/editor/joist-bay-layout";
+import { detectJoistBay, layoutJoists, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
 
 import { MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
@@ -62,6 +62,7 @@ export default function StructuralEditorShellV3() {
   const [joistDesignation, setJoistDesignation] = useState("");
   const [joistSectionId, setJoistSectionId] = useState("");
   const [joistBay, setJoistBay] = useState<JoistBay | null>(null);
+  const [joistDrafts, setJoistDrafts] = useState<Array<{id:string;designation:string;start:Vec3;end:Vec3}>>([]);
   const [joistDirection, setJoistDirection] = useState<0 | 1>(0);
   const [joistQuantityMode, setJoistQuantityMode] = useState<"count" | "spacing">("count");
   const [joistCount, setJoistCount] = useState(3);
@@ -185,19 +186,10 @@ export default function StructuralEditorShellV3() {
   function confirmJoistBay() {
     if (!joistBay || !joistDesignation.trim()) return;
     try {
-      const current = modelRef.current;
-      const materialId = current.materials.find(m => m.type === "steel")?.id;
-      const sectionId = joistSectionId;
-      if (!materialId || !current.sections.some(s=>s.id===sectionId && s.family==="joist")) throw new Error("Choose an available joist catalog section and steel material.");
-      const result = createJoistsInBay(current, {
-        bay: joistBay, direction: joistDirection,
-        ...(joistQuantityMode === "count" ? {count: joistCount} : {spacing: joistSpacing}),
-        materialId, sectionId,
-        joist: {series:joistSeries,designation:joistDesignation.trim(),analyticalRepresentation:"preserve-only",capacityVerification:"unverified"},
-      });
-      advancedChange(result.model);
+      const segments = layoutJoists(joistBay, {direction:joistDirection, ...(joistQuantityMode === "count" ? {count:joistCount} : {spacing:joistSpacing})});
+      setJoistDrafts(previous => [...previous, ...segments.map((segment,index) => ({id:`draft-${previous.length + index + 1}`,designation:joistDesignation.trim(),start:segment.start,end:segment.end}))]);
       setJoistBay(null);
-      setJoistBayError(`Created ${result.memberIds.length} joists.`);
+      setJoistBayError("Geometry-only joists staged locally; Core persistence pending.");
       window.sessionStorage.removeItem("linkoteq:joist-bay-mode");
       window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
     } catch(error) {setJoistBayError(error instanceof Error ? error.message : "Joist placement failed.");}
