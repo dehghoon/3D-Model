@@ -480,7 +480,6 @@ export default function ThatOpenViewportV07({
     canvas.addEventListener("pointermove", middlePanMove);
     canvas.addEventListener("pointerup", middlePanEnd);
     canvas.addEventListener("pointercancel", middlePanEnd);
-    canvas.addEventListener("auxclick", (event) => { if (event.button === 1) event.preventDefault(); });
     canvas.addEventListener("pointerdown", pointerDown, { passive: true });
     canvas.addEventListener("pointermove", pointerMove, { passive: true });
     canvas.addEventListener("pointerup", pointerUp, { passive: true });
