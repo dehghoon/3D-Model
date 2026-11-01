@@ -37,7 +37,7 @@ export function detectJoistBay(model:StructuralModel, point:Vec3, levelZ:number)
     const t=det(qx,qy,sx,sy)/denominator,u=det(qx,qy,rx,ry)/denominator;
     if(t < -EPS||t>1+EPS||u < -EPS||u>1+EPS)continue;
     const p={x:a.a.x+rx*t,y:a.a.y+ry*t,z:levelZ};
-    cuts[i].push({p,t});cuts[j].push({p,u});
+    cuts[i].push({p,t});cuts[j].push({p,t:u});
   }
   type Edge={id:string;a:Vec3;b:Vec3;ka:string;kb:string};
   const edges:Edge[]=[];
