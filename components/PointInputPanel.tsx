@@ -107,6 +107,11 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
   const transform = useInteractionState();
   const [entryMode, setEntryMode] = useState<"absolute" | "relative">("absolute");
   const [endLevel, setEndLevel] = useState("");
+  const [endLevelStartKey, setEndLevelStartKey] = useState("");
+  const currentStartKey = tool.tool === "column" && draw.start
+    ? `${draw.start.point.x}:${draw.start.point.y}:${draw.start.point.z}`
+    : "";
+  const activeEndLevel = currentStartKey === endLevelStartKey ? endLevel : "";
   const [levelError, setLevelError] = useState("");
   const isSurface = tool.tool === "wall" || tool.tool === "slab";
   const transforming = transform.mode !== "select";
@@ -215,7 +220,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
           onSubmit={(event) => {
             event.preventDefault();
             try {
-              submit(columnPointAtLevel(model, draw.start!.point, endLevel));
+              submit(columnPointAtLevel(model, draw.start!.point, activeEndLevel));
               setLevelError("");
             } catch (error) {
               setLevelError(
@@ -227,8 +232,8 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
           <label>
             Column end level
             <select
-              value={endLevel}
-              onChange={(event) => setEndLevel(event.target.value)}
+              value={activeEndLevel}
+              onChange={(event) => { setEndLevel(event.target.value); setEndLevelStartKey(currentStartKey); }}
             >
               <option value="">Choose level</option>
               {model.levels.map((level) => (
@@ -238,7 +243,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
               ))}
             </select>
           </label>
-          <button type="submit" disabled={!endLevel}>
+          <button type="submit" disabled={!activeEndLevel}>
             Use end level
           </button>
           {levelError ? <p role="alert">{levelError}</p> : null}
