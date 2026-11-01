@@ -16,6 +16,8 @@ export default function MemberCreatorV05({ model, onModelChange, onMemberCreated
   const [endNodeId, setEndNodeId] = useState("");
   const [materialId, setMaterialId] = useState("");
   const [sectionId, setSectionId] = useState("");
+  const [joistSeries, setJoistSeries] = useState<"K" | "LH" | "DLH" | "other">("K");
+  const [joistDesignation, setJoistDesignation] = useState("");
 
   useEffect(() => {
     if (!model.nodes.some((item) => item.id === startNodeId)) setStartNodeId(model.nodes[0]?.id ?? "");
@@ -26,7 +28,8 @@ export default function MemberCreatorV05({ model, onModelChange, onMemberCreated
 
   const ready =
     Boolean(startNodeId && endNodeId && materialId && sectionId) &&
-    startNodeId !== endNodeId;
+    startNodeId !== endNodeId &&
+    (type !== "joist" || Boolean(joistDesignation.trim()));
 
   function createMember() {
     try {
@@ -36,6 +39,12 @@ export default function MemberCreatorV05({ model, onModelChange, onMemberCreated
         endNodeId,
         materialId,
         sectionId,
+        ...(type === "joist" ? { joist: {
+          series: joistSeries,
+          designation: joistDesignation.trim(),
+          analyticalRepresentation: "preserve-only" as const,
+          capacityVerification: "unverified" as const,
+        } } : {}),
       });
       onModelChange(result.model, `Created ${result.member.type} ${result.member.id} from canonical Core v0.5 references.`);
       onMemberCreated?.(result.member.id);
@@ -53,6 +62,7 @@ export default function MemberCreatorV05({ model, onModelChange, onMemberCreated
           <option value="beam">Beam</option>
           <option value="column">Column</option>
           <option value="brace">Brace</option>
+          <option value="joist">Steel Joist</option>
           <option value="other">Other</option>
         </select>
       </label>
@@ -84,6 +94,17 @@ export default function MemberCreatorV05({ model, onModelChange, onMemberCreated
           {model.sections.map((section) => <option key={section.id} value={section.id}>{section.designation ?? section.id}</option>)}
         </select>
       </label>
+      {type === "joist" ? <div>
+        <label>Joist series
+          <select value={joistSeries} onChange={(event) => setJoistSeries(event.target.value as typeof joistSeries)}>
+            <option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option>
+          </select>
+        </label>
+        <label>Joist designation
+          <input value={joistDesignation} onChange={(event) => setJoistDesignation(event.target.value)} placeholder="Catalog designation" />
+        </label>
+        <p className="selectionText">Joist is preserved without assumed design capacity or analysis properties.</p>
+      </div> : null}
       <button onClick={createMember} disabled={!ready}>Create member</button>
       {!model.materials.length || !model.sections.length ? (
         <p className="selectionText">Import or load approved canonical material and section records before creating members.</p>
