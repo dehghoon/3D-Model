@@ -72,8 +72,8 @@ export function createJoistsInBay(model:StructuralModel,input:{
    const result=createMemberFromSnapPoints(next,{
      type:"joist",materialId:input.materialId,sectionId:input.sectionId,
      joist:input.joist,
-     start:{point:segment.start,label:"Bay support"},
-     end:{point:segment.end,label:"Bay support"},
+     start:{point:segment.start,kind:"work-plane",label:"Bay support"},
+     end:{point:segment.end,kind:"work-plane",label:"Bay support"},
    });
    next=result.model;
    memberIds.push(result.memberId);
