@@ -522,14 +522,16 @@ export default function ThatOpenViewportV07({
     return () => {
       canvas.removeEventListener("wheel", wheelZoom);
       canvas.removeEventListener("contextmenu", preventContextMenu);
-      for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel", "pointerleave"]) {
-        canvas.removeEventListener(type, orbitDown);
-        canvas.removeEventListener(type, orbitMove);
-        canvas.removeEventListener(type, orbitEnd);
-        canvas.removeEventListener(type, middlePanDown);
-        canvas.removeEventListener(type, middlePanMove);
-        canvas.removeEventListener(type, middlePanEnd);
-      }
+      canvas.removeEventListener("pointerdown", orbitDown);
+      canvas.removeEventListener("pointermove", orbitMove);
+      canvas.removeEventListener("pointerup", orbitEnd);
+      canvas.removeEventListener("pointercancel", orbitEnd);
+      canvas.removeEventListener("pointerleave", orbitEnd);
+      canvas.removeEventListener("pointerdown", middlePanDown);
+      canvas.removeEventListener("pointermove", middlePanMove);
+      canvas.removeEventListener("pointerup", middlePanEnd);
+      canvas.removeEventListener("pointercancel", middlePanEnd);
+      canvas.removeEventListener("pointerleave", middlePanEnd);
       for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) canvas.removeEventListener(type, navigateTouch as EventListener, true);
       window.removeEventListener("linkoteq:view-fit", fit);
       window.removeEventListener("linkoteq:view-preset", preset);
