@@ -115,6 +115,8 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
   const [levelError, setLevelError] = useState("");
   const isSurface = tool.tool === "wall" || tool.tool === "slab";
   const transforming = transform.mode !== "select";
+  // Area Joist uses the viewport ray to identify a closed beam bay, not point input.
+  if (tool.tool === "joist" && typeof window !== "undefined" && window.sessionStorage.getItem("linkoteq:joist-bay-mode") === "active") return null;
   if (!tool.tool && !transforming) {
     const message =
       tool.message ||
