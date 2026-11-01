@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { MemberType } from "@linkoteq/structural-core";
+import type { MemberType, JoistSpecification } from "@linkoteq/structural-core";
 import type { SnapPoint } from "./interaction-store";
 
 export interface MemberDrawState {
@@ -9,6 +9,7 @@ export interface MemberDrawState {
   type: MemberType | null;
   materialId: string;
   sectionId: string;
+  joist?: JoistSpecification;
   start: SnapPoint | null;
   message: string;
 }
@@ -37,12 +38,14 @@ export function beginMemberDraw(input: {
   type: MemberType;
   materialId: string;
   sectionId: string;
+  joist?: JoistSpecification;
 }): void {
   emit({
     active: true,
     type: input.type,
     materialId: input.materialId,
     sectionId: input.sectionId,
+    joist: input.joist,
     start: null,
     message: `${input.type}: pick a snapped start point.`,
   });
