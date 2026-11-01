@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import { assertCanonicalV05, migrateProjectToV05 } from "../lib/core-v05";
 import { createMemberFromCanonicalRefs } from "../lib/editor-modeling-v05";
 
 const model=():StructuralModel=>({
@@ -23,4 +24,24 @@ test("joist without specification fails rather than silently becoming beam",()=>
 });
 test("beam cannot silently acquire joist engineering data",()=>{
  assert.throws(()=>createMemberFromCanonicalRefs(model(),{...refs,type:"beam",joist:{series:"K",designation:"K-test",analyticalRepresentation:"preserve-only",capacityVerification:"unverified"}}),/JOIST_SPECIFICATION_REQUIRES_JOIST_MEMBER/);
+});
+
+test("joist model survives canonical save and reopen without changing capacity status",()=>{
+ const created=createMemberFromCanonicalRefs(model(),{...refs,joist:{series:"LH",designation:"LH-test",analyticalRepresentation:"preserve-only",capacityVerification:"unverified",catalog:{publisher:"test",edition:"fixture"}}});
+ assert.doesNotThrow(()=>assertCanonicalV05(created.model));
+ const reopened=migrateProjectToV05(JSON.parse(JSON.stringify(created.model))).model;
+ assert.deepEqual(reopened,created.model);
+ assert.equal(reopened.members[0].joist?.catalog?.edition,"fixture");
+});
+test("import rejects malformed joist instead of silently dropping designation",()=>{
+ const created=createMemberFromCanonicalRefs(model(),{...refs,joist:{series:"K",designation:"K-test",analyticalRepresentation:"preserve-only",capacityVerification:"unverified"}});
+ const invalid=JSON.parse(JSON.stringify(created.model));
+ invalid.members[0].joist.designation="";
+ assert.throws(()=>migrateProjectToV05(invalid),/INVALID_JOIST_SPECIFICATION/);
+});
+test("canonical model rejects joist fields attached to beams",()=>{
+ const created=createMemberFromCanonicalRefs(model(),{...refs,joist:{series:"K",designation:"K-test",analyticalRepresentation:"preserve-only",capacityVerification:"unverified"}});
+ const invalid=JSON.parse(JSON.stringify(created.model));
+ invalid.members[0].type="beam";
+ assert.throws(()=>assertCanonicalV05(invalid),/JOIST_SPECIFICATION_REQUIRES_JOIST_MEMBER/);
 });
