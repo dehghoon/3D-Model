@@ -207,6 +207,10 @@ export default function ModelToolsV05({
         setSurfacePoints([...active.points, snap]);
         return;
       }
+      if (active.tool === "joist" && window.sessionStorage.getItem("linkoteq:joist-bay-mode") === "active") {
+        window.dispatchEvent(new CustomEvent("linkoteq:joist-bay-pick", { detail: snap.point }));
+        return;
+      }
       const draw = getMemberDrawState();
       if (!draw.active || !draw.type) return;
       if (!draw.start) {
