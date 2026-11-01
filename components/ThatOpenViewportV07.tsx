@@ -672,7 +672,7 @@ export default function ThatOpenViewportV07({
         <button type="button" className={`viewportMultiSelect ${additive ? "active" : ""}`}
           style={{position:"static", pointerEvents:"auto", maxWidth:"none", whiteSpace:"nowrap"}}
           aria-pressed={additive} onClick={() => {setAdditive(value => !value);setSubtract(false);}}>
-          {additive ? "Multiple ON" : "Multiple select"} · {selectionCount}
+          {additive ? "Multiple selection ON" : "Multiple selection"} · {selectionCount} selected
         </button>
         <button type="button" aria-pressed={subtract} style={{pointerEvents:"auto"}}
           onClick={() => {setSubtract(value => !value);setAdditive(false);}}>
