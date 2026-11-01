@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStarterModelV05 } from "../lib/starter-model-v05";
+import { createStarterModelV05 } from "../lib/default-model-v05";
 import { createMemberFromSnapPoints } from "../lib/editor/member-draw-controller";
 import { createSurfaceFromPoints } from "../lib/editor/surface-draw-controller";
 import { columnPointAtLevel, pointFromCoordinates } from "../lib/editor/point-input";
