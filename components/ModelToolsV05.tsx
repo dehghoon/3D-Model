@@ -38,7 +38,7 @@ import {
 } from "../lib/editor/member-draw-events";
 import { assertCanonicalV05 } from "../lib/core-v05";
 
-type Tool = "select" | "beam" | "column" | "brace" | "wall" | "slab";
+type Tool = "select" | "beam" | "column" | "brace" | "joist" | "wall" | "slab";
 interface Props {
   model: StructuralModel;
   selectedNodeId?: string;
@@ -49,6 +49,7 @@ const TOOLS: Array<{ id: Tool; label: string }> = [
   { id: "beam", label: "Beam" },
   { id: "column", label: "Column" },
   { id: "brace", label: "Brace" },
+  { id: "joist", label: "Joist" },
   { id: "wall", label: "Wall" },
   { id: "slab", label: "Slab" },
 ];
@@ -72,6 +73,8 @@ export default function ModelToolsV05({
   const tool = pointState.tool ?? "select";
   const [materialId, setMaterialId] = useState("");
   const [sectionId, setSectionId] = useState("");
+  const [joistSeries, setJoistSeries] = useState<"K" | "LH" | "DLH" | "other">("K");
+  const [joistDesignation, setJoistDesignation] = useState("");
   const [status, setStatus] = useState("Select a modeling tool.");
   const modelRef = useRef(model);
   const ignoredSelectionRef = useRef<string | null>(null);
@@ -82,7 +85,7 @@ export default function ModelToolsV05({
     finish: () => void;
   } | null>(null);
   modelRef.current = model;
-  const isMemberTool = tool === "beam" || tool === "column" || tool === "brace";
+  const isMemberTool = tool === "beam" || tool === "column" || tool === "brace" || tool === "joist";
   const isSurfaceTool = tool === "wall" || tool === "slab";
   const defaultMaterialId = getDefaultMaterialId(model);
   const defaultSectionId = getDefaultSectionId(model);
@@ -166,6 +169,11 @@ export default function ModelToolsV05({
       );
       return;
     }
+    if (next === "joist" && !joistDesignation.trim()) {
+      setStatus("Enter a joist designation before drawing.");
+      setPointToolMessage("Enter a joist designation before drawing.");
+      return;
+    }
     ignoredSelectionRef.current = selectedNodeId ?? null;
     setModelingPointTool(next);
     if (next !== "wall" && next !== "slab")
@@ -173,6 +181,7 @@ export default function ModelToolsV05({
         type: next as MemberType,
         materialId: resolvedMaterialId,
         sectionId: resolvedSectionId,
+        ...(next === "joist" ? { joist: { series: joistSeries, designation: joistDesignation.trim(), analyticalRepresentation: "preserve-only" as const, capacityVerification: "unverified" as const } } : {}),
       });
   }
   function acceptPoint(snap: SnapPoint) {
@@ -211,6 +220,7 @@ export default function ModelToolsV05({
         type: draw.type,
         materialId: draw.materialId,
         sectionId: draw.sectionId,
+        joist: draw.joist,
         start: draw.start,
         end: snap,
       });
@@ -321,6 +331,11 @@ export default function ModelToolsV05({
 
         {isMemberTool ? (
           <>
+            {tool === "joist" ? <>
+              <label>Joist series<select value={joistSeries} onChange={(event) => setJoistSeries(event.target.value as typeof joistSeries)}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
+              <label>Joist designation<input value={joistDesignation} onChange={(event) => setJoistDesignation(event.target.value)} placeholder="Required catalog designation" /></label>
+              <small>Capacity unverified; geometry and source designation preserved.</small>
+            </> : null}
             <label>
               Material
               <select
