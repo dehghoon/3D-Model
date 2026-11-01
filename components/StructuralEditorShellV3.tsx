@@ -5,7 +5,6 @@ import StructuralEditorV05 from "./StructuralEditorV05";
 import SimpleFrameModeler from "./SimpleFrameModeler";
 import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
-import { getJoistDesignationCandidates } from "../lib/catalogs/sji-joist-designations";
 import { detectJoistBay, layoutJoists, createJoistsInBay, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
 
@@ -282,13 +281,10 @@ export default function StructuralEditorShellV3() {
         <label>Series <select value={joistSeries} onChange={e=>setJoistSeries(e.target.value as typeof joistSeries)}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
         <label>Designation <select value={joistSectionId} onChange={e=>{const id=e.target.value;setJoistSectionId(id);setJoistDesignation(model.sections.find(s=>s.id===id)?.designation ?? "");}} style={{width:"100%"}}>
           <option value="">Select joist from catalog</option>
-          {model.sections.filter(s=>s.family==="joist").map(s=><option key={s.id} value={s.id}>{s.designation ?? s.id}</option>)}
+          {model.sections.filter(s=>s.family==="joist" && (joistSeries==="other" || (s.designation ?? "").toUpperCase().includes(joistSeries))).map(s=><option key={s.id} value={s.id}>{s.designation ?? s.id}</option>)}
         </select></label>
         {!model.sections.some(s=>s.family==="joist") ? <small role="alert">No verified joist section properties are available in Core. SJI designation references are listed below, but engineering creation requires validated section properties.</small> : null}
-        <label>SJI designation reference (not analysis-ready)<select value={joistDesignation} onChange={e=>setJoistDesignation(e.target.value)} style={{width:"100%"}}>
-          <option value="">Select reference designation</option>
-          {joistSeries!=="other" && getJoistDesignationCandidates(joistSeries).map(d=><option key={d.designation} value={d.designation}>{d.designation} — unverified candidate</option>)}
-        </select></label>
+        <small>Designation is selected from the actual Core joist section catalog above. No generated or unverified SJI designation rows are offered as catalog entries.</small>
         <small>Capacity is unverified. The designation is preserved, not treated as a verified catalog capacity.</small>
         <small>Plan bay: select Draw Joist, then click inside a closed four-beam bay at the visible level.</small>
         <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>{setJoistSetupOpen(false);window.sessionStorage.removeItem("linkoteq:joist-bay-mode");}}>Cancel</button><button type="button" disabled={!joistDesignation.trim() || !joistSectionId} onClick={()=>{window.sessionStorage.setItem("linkoteq:joist-bay-mode","active");window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
