@@ -1,4 +1,5 @@
-import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
+import { createMemberFromSnapPoints } from "./member-draw-controller";
+import type { JoistSpecification, StructuralModel, Vec3 } from "@linkoteq/structural-core";
 
 export interface JoistBay {
   levelZ: number;
@@ -57,4 +58,25 @@ export function layoutJoists(bay:JoistBay,input:{direction:0|1;count?:number;spa
     const t=(i+1)/(count+1);
     return {start:lerp(a,b,t),end:lerp(e,d,t)};
   });
+}
+
+/** Commit a previously previewed bay layout atomically. Caller must confirm preview first. */
+export function createJoistsInBay(model:StructuralModel,input:{
+ bay:JoistBay;direction:0|1;count?:number;spacing?:number;
+ materialId:string;sectionId:string;joist:JoistSpecification;
+}):{model:StructuralModel;memberIds:string[];segments:JoistSegment[]} {
+ const segments=layoutJoists(input.bay,input);
+ let next=model;
+ const memberIds:string[]=[];
+ for(const segment of segments){
+   const result=createMemberFromSnapPoints(next,{
+     type:"joist",materialId:input.materialId,sectionId:input.sectionId,
+     joist:input.joist,
+     start:{point:segment.start,label:"Bay support"},
+     end:{point:segment.end,label:"Bay support"},
+   });
+   next=result.model;
+   memberIds.push(result.memberId);
+ }
+ return {model:next,memberIds,segments};
 }
