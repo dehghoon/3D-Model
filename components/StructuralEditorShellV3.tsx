@@ -18,7 +18,7 @@ type WorkspaceMode = "simple" | "advanced";
 type ModelingTool = "Column" | "Beam" | "Brace" | "Joist" | "Slab" | "Wall";
 type UtilityTool = "Select" | "View" | "Move" | "Copy" | "Delete";
 
-const modelingTools: ModelingTool[] = ["Column", "Beam", "Brace", "Joist", "Slab", "Wall"];
+const modelingTools: ModelingTool[] = ["Column", "Beam", "Brace", "Slab", "Wall"];
 const utilityTools: UtilityTool[] = ["Select", "View", "Move", "Copy", "Delete"];
 
 function clickProjectAction(label: "New" | "Open" | "Save"): void {
