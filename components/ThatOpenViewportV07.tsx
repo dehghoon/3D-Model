@@ -386,6 +386,25 @@ export default function ThatOpenViewportV07({
         origin.x, origin.y, event.clientX, event.clientY, origin.pointerType,
       )) return;
 
+      if (drawing && getModelingPointTool() === "joist" && window.sessionStorage.getItem("linkoteq:joist-bay-mode") === "active") {
+        const rect = canvas.getBoundingClientRect();
+        const ndc = new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1, -(event.clientY-rect.top)/rect.height*2+1);
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(ndc, runtime.camera.three);
+        const model = modelRef.current;
+        const nodeById = new Map(model.nodes.map(n=>[n.id,n.position]));
+        const beamElevations = model.members.filter(m=>m.type==="beam").flatMap(m=>{
+          const a=nodeById.get(m.startNodeId),b=nodeById.get(m.endNodeId);
+          return a&&b&&Math.abs(a.z-b.z)<1e-5?[a.z]:[];
+        });
+        const levels = [...new Set(beamElevations)].sort((a,b)=>b-a);
+        const candidates = levels.flatMap(z=>{
+          const hit = new THREE.Vector3();
+          return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1),-z),hit) ? [{x:hit.x,y:hit.y,z}] : [];
+        });
+        window.dispatchEvent(new CustomEvent("linkoteq:joist-bay-ray-pick",{detail:candidates}));
+        return;
+      }
       if (drawing) {
         const point = resolveSnap(event);
         if (point) {
