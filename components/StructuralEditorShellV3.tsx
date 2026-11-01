@@ -58,6 +58,7 @@ export default function StructuralEditorShellV3() {
   const [joistSetupOpen, setJoistSetupOpen] = useState(false);
   const [joistSeries, setJoistSeries] = useState<"K" | "LH" | "DLH" | "other">("K");
   const [joistDesignation, setJoistDesignation] = useState("");
+  const [joistSectionId, setJoistSectionId] = useState("");
   const [joistBay, setJoistBay] = useState<JoistBay | null>(null);
   const [joistDirection, setJoistDirection] = useState<0 | 1>(0);
   const [joistQuantityMode, setJoistQuantityMode] = useState<"count" | "spacing">("count");
@@ -167,16 +168,25 @@ export default function StructuralEditorShellV3() {
         setJoistBayError(error instanceof Error ? error.message : "Unable to identify a closed beam bay.");
       }
     };
+    const rayPick = (event: Event) => {
+      const candidates = (event as CustomEvent<Vec3[]>).detail ?? [];
+      for (const point of candidates) {
+        try {const bay=detectJoistBay(modelRef.current,point,point.z);setJoistBay(bay);setJoistBayError("");return;} catch {}
+      }
+      setJoistBay(null);
+      setJoistBayError("No closed four-beam bay at the selected plan location.");
+    };
+    window.addEventListener("linkoteq:joist-bay-ray-pick", rayPick);
     window.addEventListener("linkoteq:joist-bay-pick", pick);
-    return () => window.removeEventListener("linkoteq:joist-bay-pick", pick);
+    return () => {window.removeEventListener("linkoteq:joist-bay-ray-pick", rayPick);window.removeEventListener("linkoteq:joist-bay-pick", pick);};
   }, []);
   function confirmJoistBay() {
     if (!joistBay || !joistDesignation.trim()) return;
     try {
       const current = modelRef.current;
       const materialId = current.materials.find(m => m.type === "steel")?.id;
-      const sectionId = current.sections.find(s => s.family === "joist")?.id;
-      if (!materialId || !sectionId) throw new Error("Select or import a verified joist section and steel material first.");
+      const sectionId = joistSectionId;
+      if (!materialId || !current.sections.some(s=>s.id===sectionId && s.family==="joist")) throw new Error("Choose an available joist catalog section and steel material.");
       const result = createJoistsInBay(current, {
         bay: joistBay, direction: joistDirection,
         ...(joistQuantityMode === "count" ? {count: joistCount} : {spacing: joistSpacing}),
@@ -269,10 +279,14 @@ export default function StructuralEditorShellV3() {
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
         <label>Series <select value={joistSeries} onChange={e=>setJoistSeries(e.target.value as typeof joistSeries)}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
-        <label>Designation <input value={joistDesignation} onChange={e=>setJoistDesignation(e.target.value)} placeholder="Enter joist designation" style={{width:"100%"}} /></label>
+        <label>Designation <select value={joistSectionId} onChange={e=>{const id=e.target.value;setJoistSectionId(id);setJoistDesignation(model.sections.find(s=>s.id===id)?.designation ?? "");}} style={{width:"100%"}}>
+          <option value="">Select joist from catalog</option>
+          {model.sections.filter(s=>s.family==="joist").map(s=><option key={s.id} value={s.id}>{s.designation ?? s.id}</option>)}
+        </select></label>
+        {!model.sections.some(s=>s.family==="joist") ? <small role="alert">No joist sections in the current Core catalog. Import or enable a joist catalog before drawing; generic beam sections are not substitutes.</small> : null}
         <small>Capacity is unverified. The designation is preserved, not treated as a verified catalog capacity.</small>
         <small>Plan bay: select Draw Joist, then click inside a closed four-beam bay at the visible level.</small>
-        <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>{setJoistSetupOpen(false);window.sessionStorage.removeItem("linkoteq:joist-bay-mode");}}>Cancel</button><button type="button" disabled={!joistDesignation.trim()} onClick={()=>{window.sessionStorage.setItem("linkoteq:joist-bay-mode","active");window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
+        <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>{setJoistSetupOpen(false);window.sessionStorage.removeItem("linkoteq:joist-bay-mode");}}>Cancel</button><button type="button" disabled={!joistDesignation.trim() || !joistSectionId} onClick={()=>{window.sessionStorage.setItem("linkoteq:joist-bay-mode","active");window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
       </section> : null}
       {joistBay ? <section aria-label="Joist bay preview" style={{position:"fixed",top:"17%",left:"50%",transform:"translateX(-50%)",zIndex:10001,width:"min(92vw,430px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Joist Bay — Preview</strong>
