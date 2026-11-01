@@ -1,5 +1,6 @@
-import { getJoistDesignationCandidates, SJI_LOAD_TABLE_SOURCE } from "../lib/catalogs/sji-joist-designations";
 "use client";
+
+import { getJoistDesignationCandidates, SJI_LOAD_TABLE_SOURCE } from "../lib/catalogs/sji-joist-designations";
 
 import { useEffect, useRef, useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
