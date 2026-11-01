@@ -240,7 +240,11 @@ export default function ThatOpenViewportV07({
       panPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
     };
     const middlePanEnd = (event: PointerEvent) => {
-      if (panPointer?.id === event.pointerId) panPointer = null;
+      if (panPointer?.id !== event.pointerId) return;
+      panPointer = null;
+      if (canvas.hasPointerCapture?.(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
     };
     const pointerDown = (event: PointerEvent) => {
       if (pinching || !event.isPrimary || event.button !== 0) return;
@@ -474,6 +478,7 @@ export default function ThatOpenViewportV07({
     canvas.addEventListener("pointermove", middlePanMove);
     canvas.addEventListener("pointerup", middlePanEnd);
     canvas.addEventListener("pointercancel", middlePanEnd);
+    canvas.addEventListener("pointerleave", middlePanEnd);
     canvas.addEventListener("pointerdown", pointerDown, { passive: true });
     canvas.addEventListener("pointermove", pointerMove, { passive: true });
     canvas.addEventListener("pointerup", pointerUp, { passive: true });
