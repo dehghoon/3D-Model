@@ -94,6 +94,41 @@ export function detectJoistBay(model:StructuralModel, point:Vec3, levelZ:number)
       candidates.push({levelZ,beamIds:ids,corners:corners as [Vec3,Vec3,Vec3,Vec3]});
     }
   }
+  // Robust fast path for rectangular grid bays. The nearest four framing
+  // lines around the click define the cell even if beams run across bays.
+  if(!candidates.length && beams.length){
+    const xs=[...new Set(beams.flatMap(e=>[e.a.x,e.b.x]))].sort((a,b)=>a-b);
+    const ys=[...new Set(beams.flatMap(e=>[e.a.y,e.b.y]))].sort((a,b)=>a-b);
+    const x0=[...xs].reverse().find(x=>x<point.x-EPS);
+    const x1=xs.find(x=>x>point.x+EPS);
+    const y0=[...ys].reverse().find(y=>y<point.y-EPS);
+    const y1=ys.find(y=>y>point.y+EPS);
+    if(x0!==undefined&&x1!==undefined&&y0!==undefined&&y1!==undefined){
+      const covers=(axis:"x"|"y",fixed:number,from:number,to:number)=>{
+        const intervals=beams.flatMap(e=>{
+          const a=e.a,b=e.b;
+          if(axis==="x" && Math.abs(a.y-fixed)<EPS && Math.abs(b.y-fixed)<EPS)
+            return [{start:Math.min(a.x,b.x),end:Math.max(a.x,b.x),id:e.id}];
+          if(axis==="y" && Math.abs(a.x-fixed)<EPS && Math.abs(b.x-fixed)<EPS)
+            return [{start:Math.min(a.y,b.y),end:Math.max(a.y,b.y),id:e.id}];
+          return [];
+        }).sort((a,b)=>a.start-b.start);
+        let covered=from;const ids:string[]=[];
+        for(const item of intervals){
+          if(item.start>covered+EPS)break;
+          if(item.end>covered+EPS){covered=item.end;ids.push(item.id);}
+          if(covered>=to-EPS)return ids[0]??"";
+        }
+        return "";
+      };
+      const bottom=covers("x",y0,x0,x1),right=covers("y",x1,y0,y1);
+      const top=covers("x",y1,x0,x1),left=covers("y",x0,y0,y1);
+      if(bottom&&right&&top&&left)candidates.push({
+        levelZ,beamIds:[bottom,right,top,left],
+        corners:[{x:x0,y:y0,z:levelZ},{x:x1,y:y0,z:levelZ},{x:x1,y:y1,z:levelZ},{x:x0,y:y1,z:levelZ}]
+      });
+    }
+  }
   if(!candidates.length)throw new Error("JOIST_BAY_NOT_FOUND_OR_NOT_CLOSED");
   if(candidates.length!==1)throw new Error("JOIST_BAY_AMBIGUOUS");
   return candidates[0];
