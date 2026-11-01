@@ -1,6 +1,7 @@
 import type {
   Member,
   MemberType,
+  JoistSpecification,
   Node,
   StructuralModel,
 } from "@linkoteq/structural-core";
@@ -22,6 +23,7 @@ export interface CreateMemberInput {
   endNodeId: string;
   materialId: string;
   sectionId: string;
+  joist?: JoistSpecification;
 }
 
 export interface CreateMemberResult {
@@ -74,6 +76,7 @@ function nextMemberId(type: MemberType, members: Member[]): string {
     type === "beam" ? "B" :
     type === "column" ? "C" :
     type === "brace" ? "BR" :
+    type === "joist" ? "J" :
     "M";
 
   return nextId(prefix, members.map((member) => member.id));
@@ -106,6 +109,13 @@ export function createMemberFromCanonicalRefs(
     throw new Error(`UNKNOWN_SECTION:${sectionId}`);
   }
 
+  if (input.type === "joist" && !input.joist) {
+    throw new Error("JOIST_SPECIFICATION_REQUIRED");
+  }
+  if (input.type !== "joist" && input.joist) {
+    throw new Error("JOIST_SPECIFICATION_REQUIRES_JOIST_MEMBER");
+  }
+
   const member: Member = {
     id: nextMemberId(input.type, model.members),
     type: input.type,
@@ -113,6 +123,7 @@ export function createMemberFromCanonicalRefs(
     endNodeId,
     materialId,
     sectionId,
+    ...(input.joist ? { joist: structuredClone(input.joist) } : {}),
   };
 
   return {
