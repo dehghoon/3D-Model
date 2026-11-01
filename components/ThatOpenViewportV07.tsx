@@ -186,7 +186,7 @@ export default function ThatOpenViewportV07({
       if (touches.size >= 2 || pinching) {
         start = null; setMarquee(null);
         if (touches.size >= 2) pinching = true;
-        if (before && after && event.type === "pointermove" && toolModeRef.current === "select" && !getModelingPointTool() && getInteractionState().mode === "select") {
+        if (before && after && event.type === "pointermove" && toolModeRef.current === "select") {
           const controls = runtime.camera.controls;
           const scale = Math.max(controls.distance, 1) / Math.max(canvas.clientHeight, 1);
           void controls.truck((before.x-after.x)*scale, (after.y-before.y)*scale, false);
@@ -218,8 +218,8 @@ export default function ThatOpenViewportV07({
     // Keep left-button picking/marquee in Select mode while allowing
     // wheel zoom and middle-button pan without switching to View mode.
     let panPointer: { id: number; x: number; y: number } | null = null;
-    const selectNavigationEnabled = () =>
-      toolModeRef.current === "select" && getInteractionState().mode === "select";
+    let orbitPointer: { id: number; x: number; y: number } | null = null;
+    const selectNavigationEnabled = () => toolModeRef.current === "select";
     const wheelZoom = (event: WheelEvent) => {
       if (!selectNavigationEnabled()) return;
       event.preventDefault();
@@ -238,6 +238,31 @@ export default function ThatOpenViewportV07({
       const delta = middlePanTruck(panPointer, { x: event.clientX, y: event.clientY }, canvas.clientHeight, runtime.camera.controls.distance);
       void runtime.camera.controls.truck(delta.x, delta.y, false);
       panPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    };
+    const orbitDown = (event: PointerEvent) => {
+      if (event.button !== 2 || !selectNavigationEnabled()) return;
+      event.preventDefault();
+      orbitPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      canvas.setPointerCapture?.(event.pointerId);
+    };
+    const orbitMove = (event: PointerEvent) => {
+      if (!orbitPointer || event.pointerId !== orbitPointer.id) return;
+      event.preventDefault();
+      const speed = 2 * Math.PI / Math.max(canvas.clientHeight, 1);
+      void runtime.camera.controls.rotate(
+        (orbitPointer.x - event.clientX) * speed,
+        (orbitPointer.y - event.clientY) * speed,
+        false,
+      );
+      orbitPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    };
+    const orbitEnd = (event: PointerEvent) => {
+      if (orbitPointer?.id !== event.pointerId) return;
+      orbitPointer = null;
+      if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    };
+    const preventContextMenu = (event: MouseEvent) => {
+      if (selectNavigationEnabled()) event.preventDefault();
     };
     const middlePanEnd = (event: PointerEvent) => {
       if (panPointer?.id !== event.pointerId) return;
@@ -474,6 +499,12 @@ export default function ThatOpenViewportV07({
     window.addEventListener("linkoteq:view-fit", fit);
     window.addEventListener("linkoteq:view-preset", preset);
     canvas.addEventListener("wheel", wheelZoom, { passive: false });
+    canvas.addEventListener("contextmenu", preventContextMenu);
+    canvas.addEventListener("pointerdown", orbitDown);
+    canvas.addEventListener("pointermove", orbitMove);
+    canvas.addEventListener("pointerup", orbitEnd);
+    canvas.addEventListener("pointercancel", orbitEnd);
+    canvas.addEventListener("pointerleave", orbitEnd);
     canvas.addEventListener("pointerdown", middlePanDown);
     canvas.addEventListener("pointermove", middlePanMove);
     canvas.addEventListener("pointerup", middlePanEnd);
@@ -489,6 +520,16 @@ export default function ThatOpenViewportV07({
     window.addEventListener("linkoteq:view-cycle", enableView);
 
     return () => {
+      canvas.removeEventListener("wheel", wheelZoom);
+      canvas.removeEventListener("contextmenu", preventContextMenu);
+      for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel", "pointerleave"]) {
+        canvas.removeEventListener(type, orbitDown);
+        canvas.removeEventListener(type, orbitMove);
+        canvas.removeEventListener(type, orbitEnd);
+        canvas.removeEventListener(type, middlePanDown);
+        canvas.removeEventListener(type, middlePanMove);
+        canvas.removeEventListener(type, middlePanEnd);
+      }
       for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) canvas.removeEventListener(type, navigateTouch as EventListener, true);
       window.removeEventListener("linkoteq:view-fit", fit);
       window.removeEventListener("linkoteq:view-preset", preset);
