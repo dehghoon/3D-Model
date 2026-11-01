@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
 import SimpleFrameModeler from "./SimpleFrameModeler";
 import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
@@ -55,6 +55,40 @@ export default function StructuralEditorShellV3() {
   const [mobilePanel, setMobilePanel] = useState<"tools" | "setup" | "display" | "project" | null>(null);
   const [mode, setMode] = useState<WorkspaceMode>("simple");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
+  const historyRef = useRef<{ past: StructuralModel[]; future: StructuralModel[] }>({ past: [], future: [] });
+  const modelRef = useRef(model);
+  modelRef.current = model;
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const applyModel = (next: StructuralModel) => {
+    const current = modelRef.current;
+    if (next === current) return;
+    const history = historyRef.current;
+    history.past.push(current);
+    if (history.past.length > 100) history.past.shift();
+    history.future = [];
+    modelRef.current = next;
+    setModel(next);
+    setHistoryVersion(version => version + 1);
+  };
+  const undo = () => {
+    const history = historyRef.current;
+    const previous = history.past.pop();
+    if (!previous) return;
+    history.future.push(modelRef.current);
+    modelRef.current = previous;
+    setModel(previous);
+    setHistoryVersion(version => version + 1);
+  };
+  const redo = () => {
+    const history = historyRef.current;
+    const next = history.future.pop();
+    if (!next) return;
+    history.past.push(modelRef.current);
+    modelRef.current = next;
+    setModel(next);
+    setHistoryVersion(version => version + 1);
+  };
+  void historyVersion;
   function switchMode(next: WorkspaceMode) {
     window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
     window.dispatchEvent(new Event("linkoteq:view-select"));
@@ -64,8 +98,19 @@ export default function StructuralEditorShellV3() {
   function advancedChange(next: StructuralModel) {
     const metadata = { ...next.project.metadata };
     delete metadata.simpleFrame;
-    setModel({ ...next, project: { ...next.project, metadata } });
+    applyModel({ ...next, project: { ...next.project, metadata } });
   }
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== "z") return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      event.preventDefault();
+      if (event.shiftKey) redo(); else undo();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
   const pointState = usePointToolState();
   const interaction = useInteractionState();
   const selections = usePublishedSelections();
@@ -114,6 +159,16 @@ export default function StructuralEditorShellV3() {
             <strong>Structural Concept Modeler</strong>
             <span>Core 0.5 · That Open</span>
           </div>
+        </div>
+        <div className="architectHistoryActions" aria-label="Edit history" style={{
+          display:"flex", alignItems:"center", gap:4, flexShrink:0, position:"relative", zIndex:20
+        }}>
+          <button type="button" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo"
+            disabled={!historyRef.current.past.length} onClick={undo}
+            style={{minWidth:36, minHeight:40, padding:"4px 7px", flexShrink:0}}>↶</button>
+          <button type="button" title="Redo (Ctrl/Cmd+Shift+Z)" aria-label="Redo"
+            disabled={!historyRef.current.future.length} onClick={redo}
+            style={{minWidth:36, minHeight:40, padding:"4px 7px", flexShrink:0}}>↷</button>
         </div>
         <div className="architectModeSwitch" aria-label="Workspace mode">
           <button
@@ -296,7 +351,7 @@ export default function StructuralEditorShellV3() {
       <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
         {([ ["setup", "Plan & levels"], ["tools", "Members & tools"], ["project", "Project"] ] as const).map(([panel, label]) => <button type="button" key={panel} aria-expanded={mobilePanel === panel} onClick={() => toggleMobilePanel(panel)}>{label}</button>)}
       </nav>
-      </> : <SimpleFrameModeler model={model} onChange={setModel} onAdvanced={() => switchMode("advanced")} />}
+      </> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} />}
     </div>
   );
 }

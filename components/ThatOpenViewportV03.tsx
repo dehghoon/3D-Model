@@ -14,6 +14,7 @@ interface Props {
   model: StructuralModel;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
+  onMultiSelect?: (selections: Array<Exclude<EditorSelection, null>>) => void;
 }
 
 export default function ThatOpenViewportV03(props: Props) {
@@ -28,8 +29,9 @@ export default function ThatOpenViewportV03(props: Props) {
           props.onSelect(selection);
         }}
         onMultiSelect={(selections) => {
-          props.onSelect(selections.at(-1) ?? null);
           publishSelections(selections);
+          if (props.onMultiSelect) props.onMultiSelect(selections);
+          else props.onSelect(selections.at(-1) ?? null);
         }}
       />
     </div>

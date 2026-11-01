@@ -81,6 +81,8 @@ function workPlanePoint(
 ): SnapPoint | null {
   const rect = element.getBoundingClientRect();
   if (!rect.width || !rect.height) return null;
+  if (pointer.clientX < rect.left || pointer.clientX > rect.right ||
+      pointer.clientY < rect.top || pointer.clientY > rect.bottom) return null;
 
   const ndc = new THREE.Vector2(
     ((pointer.clientX - rect.left) / rect.width) * 2 - 1,
@@ -239,6 +241,13 @@ export function resolveSnapPoint(
   tolerancePx: number,
   origin?: Vec3,
 ): SnapPoint | null {
+  const rect = element.getBoundingClientRect();
+  if (!rect.width || !rect.height ||
+      pointer.clientX < rect.left || pointer.clientX > rect.right ||
+      pointer.clientY < rect.top || pointer.clientY > rect.bottom) {
+    emitSnapCandidate({ active: false });
+    return null;
+  }
   const workPlane = workPlanePoint(pointer, model, selection, camera, element, origin);
   const candidates = [
     ...uniqueCandidates(model, origin?.z ?? selectedElevation(model, selection)),

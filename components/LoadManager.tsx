@@ -13,6 +13,7 @@ import type {
 } from "@linkoteq/structural-core";
 import { assertCanonicalLoad, mapSnowWriteback } from "../lib/core-loads-v05";
 type LoadMode = "slab" | "wall" | "beam" | "node";
+type MemberLoadKind = "distributed" | "point";
 type Props = {
   model: StructuralModel;
   selectedSurfaces: Surface[];
@@ -57,6 +58,9 @@ export default function LoadManager({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<LoadMode>("slab");
   const [magnitude, setMagnitude] = useState("1");
+  const [memberLoadKind, setMemberLoadKind] = useState<MemberLoadKind>("distributed");
+  const [pointDistance, setPointDistance] = useState("0");
+  const [loadDirection, setLoadDirection] = useState<"FX" | "FY" | "FZ" | "MX" | "MY" | "MZ">("FZ");
   const [loadCaseId, setLoadCaseId] = useState("D");
   const [loadCategory, setLoadCategory] = useState("dead");
   const [status, setStatus] = useState("Core v0.5 canonical load tools.");
@@ -77,9 +81,38 @@ export default function LoadManager({
     return { ...next, loadCases: [...next.loadCases, loadCase] };
   }
   function addManualLoad() {
-    const value = Number(magnitude);
-    if (!Number.isFinite(value) || !targetIds.length) {
+    const value = magnitude.trim() === "" ? NaN : Number(magnitude);
+    if (!Number.isFinite(value) || !targetIds.length || !loadCaseId.trim()) {
       setStatus("Select targets and enter a valid magnitude.");
+      return;
+    }
+    if (mode === "wall") {
+      setStatus("Wall load requires an explicit Core adapter; no load was added.");
+      return;
+    }
+    const distance = pointDistance.trim() === "" ? NaN : Number(pointDistance);
+    if (mode === "beam" && memberLoadKind === "point" && (!Number.isFinite(distance) || distance < 0)) {
+      setStatus("Enter a non-negative distance from the member start in metres.");
+      return;
+    }
+    if (mode === "beam" && memberLoadKind === "point") {
+      const nodesById = new Map(model.nodes.map((node) => [node.id, node.position]));
+      for (const member of selectedMembers) {
+        const start = nodesById.get(member.startNodeId);
+        const end = nodesById.get(member.endNodeId);
+        if (!start || !end) {
+          setStatus(`Member ${member.id} has missing end-node coordinates.`);
+          return;
+        }
+        const length = Math.hypot(end.x - start.x, end.y - start.y, end.z - start.z);
+        if (distance > length + 1e-9) {
+          setStatus(`Point load distance exceeds member ${member.id} length (${length.toFixed(3)} m).`);
+          return;
+        }
+      }
+    }
+    if (mode === "beam" && loadDirection.startsWith("M")) {
+      setStatus("Member distributed loads require a force direction (FX/FY/FZ).");
       return;
     }
     let next = ensureLoadCase(model);
@@ -95,7 +128,18 @@ export default function LoadManager({
           nodeId: targetId,
           loadCaseId,
           coordinateSystem: "global",
-          components: { FZ: { value: -value, unit: "kN" } },
+          components: { [loadDirection]: { value, unit: loadDirection.startsWith("M") ? "kN*m" : "kN" } },
+        };
+      } else if (mode === "beam" && memberLoadKind === "point") {
+        load = {
+          id,
+          type: "member-point",
+          memberId: targetId,
+          loadCaseId,
+          coordinateSystem: "global",
+          direction: loadDirection as "FX" | "FY" | "FZ",
+          magnitude: { value, unit: "kN" },
+          x: { value: distance, unit: "m" },
         };
       } else if (mode === "beam") {
         load = {
@@ -104,9 +148,9 @@ export default function LoadManager({
           memberId: targetId,
           loadCaseId,
           coordinateSystem: "global",
-          direction: "FZ",
-          w1: { value: -value, unit: "kN/m" },
-          w2: { value: -value, unit: "kN/m" },
+          direction: loadDirection as "FX" | "FY" | "FZ",
+          w1: { value, unit: "kN/m" },
+          w2: { value, unit: "kN/m" },
         };
       } else if (mode === "slab") {
         load = {
@@ -218,7 +262,31 @@ export default function LoadManager({
       <select value={loadCategory} onChange={(event) => setLoadCategory(event.target.value)}>
         {["dead", "live", "roof-live", "snow", "rain", "wind", "seismic", "temperature", "construction", "other"].map((v) => <option key={v} value={v}>{v}</option>)}
       </select>
-      <input value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Magnitude" />
+      {mode === "beam" && (
+        <label>Member load type
+          <select value={memberLoadKind} onChange={(event) => setMemberLoadKind(event.target.value as MemberLoadKind)}>
+            <option value="distributed">Uniform distributed</option>
+            <option value="point">Point load</option>
+          </select>
+        </label>
+      )}
+      {mode === "beam" && memberLoadKind === "point" && (
+        <label>Distance from member start (m)
+          <input type="number" min="0" step="any" value={pointDistance} onChange={(event) => setPointDistance(event.target.value)} />
+        </label>
+      )}
+      {(mode === "node" || mode === "beam") && (
+        <label>Global direction / component
+          <select value={loadDirection} onChange={(event) => setLoadDirection(event.target.value as typeof loadDirection)}>
+            {["FX", "FY", "FZ", ...(mode === "node" ? ["MX", "MY", "MZ"] : [])].map((direction) => (
+              <option key={direction} value={direction}>{direction}</option>
+            ))}
+          </select>
+        </label>
+      )}
+      <label>Signed magnitude ({mode === "node" ? (loadDirection.startsWith("M") ? "kN·m" : "kN") : mode === "beam" ? (memberLoadKind === "point" ? "kN" : "kN/m") : "kPa"})
+        <input type="number" step="any" value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Signed magnitude" />
+      </label>
       <button style={primary} onClick={addManualLoad}>Add canonical load</button>
       <button style={primary} onClick={() => runSnow().catch((error) => setStatus(error instanceof Error ? error.message : "Snow request failed."))}>
         Run Snow v0.5

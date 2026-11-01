@@ -13,6 +13,8 @@ export function pointFromCoordinates(
     y: Number(values.y),
     z: Number(values.z),
   };
+  if (!Object.values(point).every(Number.isFinite))
+    throw new Error("Coordinates must be finite numbers.");
   if (mode === "relative") {
     if (!base) throw new Error("Choose a base point before using offsets.");
     point.x += base.x;

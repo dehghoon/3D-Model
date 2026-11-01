@@ -7,13 +7,15 @@ import PointInputPanel from "./PointInputPanel";
 import CopyInteractionBridgeV01 from "./CopyInteractionBridgeV01";
 import ElementProperties from "./ElementProperties";
 import LoadManager from "./LoadManager";
+import MemberEndReleaseEditor from "./MemberEndReleaseEditor";
+import DiaphragmEditor from "./DiaphragmEditor";
 import ModelToolsV05 from "./ModelToolsV05";
 import NodeCreatorV05 from "./NodeCreatorV05";
 import SelectedNodeSupportV05 from "./SelectedNodeSupportV05";
 import ThatOpenViewportV01 from "./ThatOpenViewportV01";
 import { assertCanonicalV05, migrateProjectToV05 } from "../lib/core-v05";
 import { createStarterModelV05 } from "../lib/default-model-v05";
-import { deleteSelection } from "../lib/editor/commands";
+import { deleteSelections as deleteModelSelections } from "../lib/editor/commands";
 import {
   clearSelection,
   createSelection,
@@ -157,10 +159,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
     if (!effective.length) return;
 
     try {
-      let next = model;
-      for (const target of effective) {
-        next = deleteSelection(next, target).model;
-      }
+      const next = deleteModelSelections(model, effective);
       assertCanonicalV05(next);
       setModel(next);
       clearCanonicalSelection();
@@ -264,6 +263,21 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
               setCanonicalSelection({ type: "node", id: nodeId })
             }
           />
+          <DiaphragmEditor
+            model={model}
+            selectedNodes={selectedNodes}
+            selectedSurfaces={selectedSurfaces}
+            onModelChange={(next, status) => {
+              applyModelChange(next, status);
+            }}
+          />
+          <MemberEndReleaseEditor
+            model={model}
+            selectedMembers={selectedMembers}
+            onModelChange={(next, status) => {
+              applyModelChange(next, status);
+            }}
+          />
           <SelectedNodeSupportV05
             model={model}
             selectedNodes={selectedNodes}
@@ -294,6 +308,11 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
             model={model}
             selection={selection}
             onSelect={setCanonicalSelection}
+            onMultiSelect={(next) => {
+              publishSelections(next);
+              setSelection(next.at(-1) ?? null);
+              setPropertiesOpen(false);
+            }}
           />
         </section>
 

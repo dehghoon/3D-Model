@@ -12,6 +12,7 @@ import {
   useInteractionState,
   setCopyBase,
   setCopyPreview,
+  cancelInteraction,
 } from "../lib/editor/interaction-store";
 import type { SnapPoint } from "../lib/editor/interaction-store";
 import {
@@ -38,7 +39,7 @@ function CoordinateForm({
   mode: "absolute" | "relative";
   setMode: (mode: "absolute" | "relative") => void;
 }) {
-  const [values, setValues] = useState(() => mode === "relative" ? {x:"0",y:"0",z:"0"} : { x: "", y: "", z: "" });
+  const [values, setValues] = useState({ x: "", y: "", z: "" });
   const [error, setError] = useState("");
   return (
     <form
@@ -58,7 +59,9 @@ function CoordinateForm({
         <select
           value={mode}
           onChange={(event) => {
-            setMode(event.target.value as typeof mode);
+            const nextMode = event.target.value as typeof mode;
+            setMode(nextMode);
+            setValues(nextMode === "relative" ? { x: "0", y: "0", z: "0" } : { x: "", y: "", z: "" });
             setError("");
           }}
         >
@@ -104,6 +107,11 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
   const transform = useInteractionState();
   const [entryMode, setEntryMode] = useState<"absolute" | "relative">("absolute");
   const [endLevel, setEndLevel] = useState("");
+  const [endLevelStartKey, setEndLevelStartKey] = useState("");
+  const currentStartKey = tool.tool === "column" && draw.start
+    ? `${draw.start.point.x}:${draw.start.point.y}:${draw.start.point.z}`
+    : "";
+  const activeEndLevel = currentStartKey === endLevelStartKey ? endLevel : "";
   const [levelError, setLevelError] = useState("");
   const isSurface = tool.tool === "wall" || tool.tool === "slab";
   const transforming = transform.mode !== "select";
@@ -117,7 +125,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
         <button
           type="button"
           onClick={() =>
-            window.dispatchEvent(new Event("linkoteq:modeling-cancel"))
+            (cancelInteraction(), window.dispatchEvent(new Event("linkoteq:modeling-cancel")))
           }
         >
           Dismiss
@@ -168,9 +176,11 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
       aria-label="Point input"
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
-        if (event.key === "Escape")
+        if (event.key === "Escape") {
+          cancelInteraction();
           window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
-        event.stopPropagation();
+          event.stopPropagation();
+        }
       }}
     >
       <div className="pointInputHeading">
@@ -178,9 +188,10 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
         <button
           type="button"
           aria-label="Cancel active tool"
-          onClick={() =>
-            window.dispatchEvent(new Event("linkoteq:modeling-cancel"))
-          }
+          onClick={() => {
+            cancelInteraction();
+            window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
+          }}
         >
           Cancel
         </button>
@@ -198,7 +209,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
         </p>
       ) : null}
       <CoordinateForm
-        key={`${tool.tool}:${step}:${base ? `${base.x}:${base.y}:${base.z}` : "none"}:${base ? entryMode : "absolute"}`}
+        key={`${tool.tool}:${transform.mode}:${step}:${base ? `${base.x}:${base.y}:${base.z}` : "none"}`}
         base={base}
         mode={base ? entryMode : "absolute"}
         setMode={setEntryMode}
@@ -209,7 +220,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
           onSubmit={(event) => {
             event.preventDefault();
             try {
-              submit(columnPointAtLevel(model, draw.start!.point, endLevel));
+              submit(columnPointAtLevel(model, draw.start!.point, activeEndLevel));
               setLevelError("");
             } catch (error) {
               setLevelError(
@@ -221,8 +232,8 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
           <label>
             Column end level
             <select
-              value={endLevel}
-              onChange={(event) => setEndLevel(event.target.value)}
+              value={activeEndLevel}
+              onChange={(event) => { setEndLevel(event.target.value); setEndLevelStartKey(currentStartKey); }}
             >
               <option value="">Choose level</option>
               {model.levels.map((level) => (
@@ -232,7 +243,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
               ))}
             </select>
           </label>
-          <button type="submit" disabled={!endLevel}>
+          <button type="submit" disabled={!activeEndLevel}>
             Use end level
           </button>
           {levelError ? <p role="alert">{levelError}</p> : null}
