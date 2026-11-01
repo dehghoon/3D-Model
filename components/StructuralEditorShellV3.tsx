@@ -10,7 +10,7 @@ import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { detectJoistBay, layoutJoists, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
 
-import { MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
+import { MEMBER_DRAW_PICK_EVENT, MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
 import { useInteractionState } from "../lib/editor/interaction-store";
 import { usePublishedSelections } from "../lib/editor/selection-store";
 
@@ -58,6 +58,9 @@ export default function StructuralEditorShellV3() {
   const [mobilePanel, setMobilePanel] = useState<"tools" | "setup" | "display" | "project" | null>(null);
   const [mode, setMode] = useState<WorkspaceMode>("simple");
   const [joistSetupOpen, setJoistSetupOpen] = useState(false);
+  const [joistAssignment, setJoistAssignment] = useState<"area" | "two-point">("area");
+  const [joistFirstPoint, setJoistFirstPoint] = useState<Vec3 | null>(null);
+  const joistFirstPointRef = useRef<Vec3 | null>(null);
   const [joistSeries, setJoistSeries] = useState<"K" | "LH" | "DLH" | "other">("K");
   const [joistDesignation, setJoistDesignation] = useState("");
   const [joistSectionId, setJoistSectionId] = useState("");
@@ -70,6 +73,8 @@ export default function StructuralEditorShellV3() {
   const [joistBayError, setJoistBayError] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
   const historyRef = useRef<{ past: StructuralModel[]; future: StructuralModel[] }>({ past: [], future: [] });
+  const joistDesignationRef = useRef(joistDesignation);
+  joistDesignationRef.current = joistDesignation;
   const modelRef = useRef(model);
   modelRef.current = model;
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -179,9 +184,28 @@ export default function StructuralEditorShellV3() {
       setJoistBay(null);
       setJoistBayError("No closed four-beam bay at the selected plan location.");
     };
+    const pointPick = (event: Event) => {
+      if (window.sessionStorage.getItem("linkoteq:joist-bay-mode") !== "two-point") return;
+      const snap = (event as CustomEvent<{point:Vec3}>).detail;
+      const point = snap?.point;
+      if (!point) {setJoistBayError("Select a valid joist endpoint.");return;}
+      if (!joistFirstPointRef.current) {
+        joistFirstPointRef.current = point;
+        setJoistFirstPoint(point);
+        setJoistBayError("First point selected. Pick the second point.");
+      } else {
+        const start = joistFirstPointRef.current;
+        if (Math.hypot(point.x-start.x,point.y-start.y,point.z-start.z)<1e-6) {setJoistBayError("Second point must differ from the first.");return;}
+        setJoistDrafts(previous => [...previous,{id:`draft-${previous.length+1}`,designation:joistDesignationRef.current,start,end:point}]);
+        joistFirstPointRef.current=null;
+        setJoistFirstPoint(null);
+        setJoistBayError("Joist geometry staged. Pick the first point for another joist.");
+      }
+    };
+    window.addEventListener(MEMBER_DRAW_PICK_EVENT,pointPick);
     window.addEventListener("linkoteq:joist-bay-ray-pick", rayPick);
     window.addEventListener("linkoteq:joist-bay-pick", pick);
-    return () => {window.removeEventListener("linkoteq:joist-bay-ray-pick", rayPick);window.removeEventListener("linkoteq:joist-bay-pick", pick);};
+    return () => {window.removeEventListener(MEMBER_DRAW_PICK_EVENT,pointPick);window.removeEventListener("linkoteq:joist-bay-ray-pick", rayPick);window.removeEventListener("linkoteq:joist-bay-pick", pick);};
   }, []);
   function confirmJoistBay() {
     if (!joistBay || !joistDesignation.trim()) return;
@@ -272,12 +296,13 @@ export default function StructuralEditorShellV3() {
       {mode === "advanced" ? <>
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
+        <label>Assignment method <select value={joistAssignment} onChange={e=>setJoistAssignment(e.target.value as "area"|"two-point")}><option value="area">Area Assignment</option><option value="two-point">Two Point Assignment</option></select></label>
         <label>Series <select value={joistSeries} onChange={e=>{setJoistSeries(e.target.value as typeof joistSeries);setJoistDesignation("");setJoistSectionId("");}}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
         <label>Source-verified SJI designation (reference only)<select value={joistSectionId ? "" : joistDesignation} onChange={e=>{setJoistDesignation(e.target.value);setJoistSectionId("");}} style={{width:"100%"}}><option value="">Select a published designation</option>{getJoistDesignationCandidates(joistSeries==="other"?"K":joistSeries).filter(d=>joistSeries!=="other").map(d=><option key={d.designation} value={d.designation}>{d.designation} — SJI table verified</option>)}</select></label>
         <small>Reference designations are confirmed in the published SJI table, but are not analytical Core sections. <a href={SJI_LOAD_TABLE_SOURCE} target="_blank" rel="noreferrer">Official SJI table (PDF)</a>.</small>
         <small>Capacity is unverified. The designation is preserved, not treated as a verified catalog capacity.</small>
-        <small>Plan bay: select Draw Joist, then click inside a closed four-beam bay at the visible level.</small>
-        <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>{setJoistSetupOpen(false);window.sessionStorage.removeItem("linkoteq:joist-bay-mode");}}>Cancel</button><button type="button" disabled={!joistDesignation.trim()} onClick={()=>{window.sessionStorage.setItem("linkoteq:joist-bay-mode","active");window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT,{detail:"joist"}));window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
+        <small>{joistAssignment==="area"?"Click inside a closed four-beam bay, then choose direction and count or spacing.":"Pick the first point, then the second point to define a joist."}</small>
+        <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>{setJoistSetupOpen(false);window.sessionStorage.removeItem("linkoteq:joist-bay-mode");}}>Cancel</button><button type="button" disabled={!joistDesignation.trim()} onClick={()=>{joistFirstPointRef.current=null;setJoistFirstPoint(null);setJoistBayError(joistAssignment==="two-point"?"Pick the first point.":"Click inside a closed four-beam bay.");window.sessionStorage.setItem("linkoteq:joist-bay-mode",joistAssignment==="area"?"active":"two-point");window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT,{detail:"joist"}));window.dispatchEvent(new CustomEvent("linkoteq:joist-configure-and-draw",{detail:{series:joistSeries,designation:joistDesignation.trim()}}));setJoistSetupOpen(false);}}>Draw Joist</button></div>
       </section> : null}
       {joistBay ? <section aria-label="Joist bay preview" style={{position:"fixed",top:"17%",left:"50%",transform:"translateX(-50%)",zIndex:10001,width:"min(92vw,430px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Joist Bay — Preview</strong>
@@ -305,6 +330,7 @@ export default function StructuralEditorShellV3() {
         {joistBayError ? <p role="alert">{joistBayError}</p> : null}
         <div style={{display:"flex",gap:8}}><button type="button" onClick={()=>setJoistBay(null)}>Cancel</button><button type="button" onClick={confirmJoistBay}>Confirm Joists</button></div>
       </section> : null}
+      {joistFirstPoint ? <p role="status">First point: ({joistFirstPoint.x.toFixed(2)}, {joistFirstPoint.y.toFixed(2)}, {joistFirstPoint.z.toFixed(2)}) — Pick second point</p> : null}
       {!joistBay && joistBayError ? <p role="status">{joistBayError}</p> : null}
       <nav className="architectToolstrip" aria-label="Add structural elements">
         {modelingTools.map((tool) => (
