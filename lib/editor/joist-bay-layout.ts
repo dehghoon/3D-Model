@@ -18,26 +18,80 @@ function inside(p:Vec3, corners:Vec3[]):boolean {
 /** Finds only unambiguous four-sided, convex, beam-framed bays at one elevation. */
 export function detectJoistBay(model:StructuralModel, point:Vec3, levelZ:number):JoistBay {
   if(!near(point.z,levelZ))throw new Error("JOIST_PLAN_LEVEL_MISMATCH");
-  const nodes=new Map(model.nodes.map(n=>[n.id,n.position]));
-  const edges=model.members.filter(m=>m.type==="beam").flatMap(m=>{
+  const nodes = new Map(model.nodes.map(n => [n.id,n.position]));
+  const beams = model.members.filter(m=>m.type==="beam").flatMap(m=>{
     const a=nodes.get(m.startNodeId),b=nodes.get(m.endNodeId);
-    return a&&b&&near(a.z,levelZ)&&near(b.z,levelZ)&&key(a)!==key(b)?[{id:m.id,a,b,ka:key(a),kb:key(b)}]:[];
+    return a&&b&&near(a.z,levelZ)&&near(b.z,levelZ)&&key(a)!==key(b)?[{id:m.id,a,b}]:[];
   });
+  // Split long beams at every plan intersection, including T-junctions and
+  // crossings. A visible grid bay need not correspond to four whole members.
+  type Vertex = {p:Vec3;t:number};
+  const cuts:Vertex[][]=beams.map(e=>[{p:e.a,t:0},{p:e.b,t:1}]);
+  const det=(ax:number,ay:number,bx:number,by:number)=>ax*by-ay*bx;
+  for(let i=0;i<beams.length;i++)for(let j=i+1;j<beams.length;j++){
+    const a=beams[i],b=beams[j],rx=a.b.x-a.a.x,ry=a.b.y-a.a.y;
+    const sx=b.b.x-b.a.x,sy=b.b.y-b.a.y;
+    const denominator=det(rx,ry,sx,sy);
+    if(Math.abs(denominator)<EPS)continue;
+    const qx=b.a.x-a.a.x,qy=b.a.y-a.a.y;
+    const t=det(qx,qy,sx,sy)/denominator,u=det(qx,qy,rx,ry)/denominator;
+    if(t < -EPS||t>1+EPS||u < -EPS||u>1+EPS)continue;
+    const p={x:a.a.x+rx*t,y:a.a.y+ry*t,z:levelZ};
+    cuts[i].push({p,t});cuts[j].push({p,u});
+  }
+  type Edge={id:string;a:Vec3;b:Vec3;ka:string;kb:string};
+  const edges:Edge[]=[];
+  beams.forEach((beam,i)=>{
+    const sorted=cuts[i].sort((a,b)=>a.t-b.t);
+    for(let k=0;k<sorted.length-1;k++){
+      const a=sorted[k].p,b=sorted[k+1].p;
+      if(key(a)!==key(b))edges.push({id:beam.id,a,b,ka:key(a),kb:key(b)});
+    }
+  });
+  const adjacent=new Map<string,Edge[]>();
+  for(const e of edges)for(const directed of [e,{...e,a:e.b,b:e.a,ka:e.kb,kb:e.ka}]){
+    const list=adjacent.get(directed.ka)??[];
+    list.push(directed);adjacent.set(directed.ka,list);
+  }
   const candidates:JoistBay[]=[];
-  for(const e0 of edges)for(const e1 of edges) {
-    if(e1.id===e0.id||e1.ka!==e0.kb)continue;
-    for(const e2 of edges){
-      if([e0.id,e1.id].includes(e2.id)||e2.ka!==e1.kb)continue;
-      for(const e3 of edges){
-        if([e0.id,e1.id,e2.id].includes(e3.id)||e3.ka!==e2.kb||e3.kb!==e0.ka)continue;
-        const corners=[e0.a,e1.a,e2.a,e3.a] as [Vec3,Vec3,Vec3,Vec3];
-        const turns=corners.map((a,i)=>cross(a,corners[(i+1)%4],corners[(i+2)%4]));
-        if(!turns.every(t=>t>EPS)&&!turns.every(t=>t< -EPS))continue;
-        if(!inside(point,corners)||corners.some((a,i)=>Math.abs(cross(a,corners[(i+1)%4],point))<=EPS))continue;
-        const ids=[e0.id,e1.id,e2.id,e3.id] as [string,string,string,string];
-        const signature=[...ids].sort().join("|");
-        if(!candidates.some(b=>[...b.beamIds].sort().join("|")===signature))candidates.push({levelZ,beamIds:ids,corners});
+  // Find four straight boundary runs (each may contain several beam pieces).
+  // Trace faces by turning consistently at intersections; then merge collinear
+  // pieces and require exactly four convex corners.
+  const seen=new Set<string>();
+  for(const first of edges){
+    for(const initial of [first,{...first,a:first.b,b:first.a,ka:first.kb,kb:first.ka}]){
+      let current=initial;
+      const path:Edge[]=[];
+      for(let step=0;step<=edges.length;step++){
+        if(step>0&&current.ka===initial.ka)break;
+        if(path.some(e=>e.ka===current.ka)){path.length=0;break;}
+        path.push(current);
+        const choices=(adjacent.get(current.kb)??[]).filter(e=>e.kb!==current.ka);
+        if(!choices.length){path.length=0;break;}
+        const dx=current.b.x-current.a.x,dy=current.b.y-current.a.y;
+        // Clockwise angular successor gives a bounded planar face.
+        const angle=(e:Edge)=>{const ex=e.b.x-e.a.x,ey=e.b.y-e.a.y;
+          return (Math.atan2(det(dx,dy,ex,ey),dx*ex+dy*ey)+2*Math.PI)%(2*Math.PI);};
+        choices.sort((a,b)=>angle(a)-angle(b));
+        current=choices[0];
       }
+      if(path.length<4||current.ka!==initial.ka)continue;
+      const vertices=path.map(e=>e.a);
+      const corners=vertices.filter((p,i)=>Math.abs(cross(vertices[(i+vertices.length-1)%vertices.length],p,vertices[(i+1)%vertices.length]))>EPS);
+      if(corners.length!==4||!inside(point,corners))continue;
+      if(corners.some((p,i)=>Math.abs(cross(p,corners[(i+1)%4],point))<=EPS))continue;
+      const turns=corners.map((p,i)=>cross(p,corners[(i+1)%4],corners[(i+2)%4]));
+      if(!turns.every(t=>t>EPS)&&!turns.every(t=>t< -EPS))continue;
+      const signature=corners.map(key).sort().join("|");
+      if(seen.has(signature))continue;
+      seen.add(signature);
+      const ids=corners.map((p,i)=>{
+        const q=corners[(i+1)%4];
+        const edge=path.find(e=>Math.abs(cross(p,q,e.a))<=EPS&&Math.abs(cross(p,q,e.b))<=EPS&&
+          (e.a.x-p.x)*(q.x-p.x)+(e.a.y-p.y)*(q.y-p.y)>=-EPS);
+        return edge?.id??"";
+      }) as [string,string,string,string];
+      candidates.push({levelZ,beamIds:ids,corners:corners as [Vec3,Vec3,Vec3,Vec3]});
     }
   }
   if(!candidates.length)throw new Error("JOIST_BAY_NOT_FOUND_OR_NOT_CLOSED");
