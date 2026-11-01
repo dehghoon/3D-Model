@@ -20,6 +20,7 @@ import {
 import { MEMBER_DRAW_PICK_EVENT, getModelingPointTool, setPointToolMessage, usePointToolState } from "../lib/editor/member-draw-events";
 import { useMemberDrawState } from "../lib/editor/member-draw-store";
 import { isTapGesture } from "../lib/visualization/mobile-picking";
+import { wheelDollyStep, middlePanTruck } from "../lib/visualization/select-navigation";
 import {
   selectMembersInWindow,
   type SelectionWindow,
@@ -223,10 +224,7 @@ export default function ThatOpenViewportV07({
       if (!selectNavigationEnabled()) return;
       event.preventDefault();
       const controls = runtime.camera.controls;
-      const normalized = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
-      const distance = Math.max(controls.distance, 0.1);
-      const step = Math.max(-distance * 0.3, Math.min(distance * 0.3, normalized * distance * 0.001));
-      void controls.dolly(-step, false);
+      void controls.dolly(wheelDollyStep(event.deltaY, event.deltaMode, canvas.clientHeight, controls.distance), false);
     };
     const middlePanDown = (event: PointerEvent) => {
       if (event.button !== 1 || !selectNavigationEnabled()) return;
@@ -237,12 +235,8 @@ export default function ThatOpenViewportV07({
     const middlePanMove = (event: PointerEvent) => {
       if (!panPointer || event.pointerId !== panPointer.id) return;
       event.preventDefault();
-      const scale = Math.max(runtime.camera.controls.distance, 1) / Math.max(canvas.clientHeight, 1);
-      void runtime.camera.controls.truck(
-        (panPointer.x - event.clientX) * scale,
-        (event.clientY - panPointer.y) * scale,
-        false,
-      );
+      const delta = middlePanTruck(panPointer, { x: event.clientX, y: event.clientY }, canvas.clientHeight, runtime.camera.controls.distance);
+      void runtime.camera.controls.truck(delta.x, delta.y, false);
       panPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
     };
     const middlePanEnd = (event: PointerEvent) => {
