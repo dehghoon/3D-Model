@@ -76,11 +76,13 @@ export default function StructuralEditorShellV3() {
   const [sapHandoff, setSapHandoff] = useState<SapHandoff | null>(null);
   const [sapImportError, setSapImportError] = useState("");
   const [sapImportBusy, setSapImportBusy] = useState(false);
+  const [sapImportStatus, setSapImportStatus] = useState("Choose a .s2k or .$2k file using the file picker.");
   const [sapSelectedMember, setSapSelectedMember] = useState<string | null>(null);
   const sapImportFileRef = useRef<HTMLInputElement>(null);
   async function importSap2000(file: File): Promise<void> {
     setSapImportError("");
     setSapImportBusy(true);
+    setSapImportStatus(`Uploading ${file.name} (${(file.size/1024).toFixed(0)} KB) to SAP2000 importer…`);
     try {
       if (!/\.(s2k|\$2k)$/i.test(file.name)) throw new Error("Select an SAP2000 .s2k or .$2k file.");
       const body=new FormData();
@@ -91,10 +93,12 @@ export default function StructuralEditorShellV3() {
       if (!response.ok) throw new Error(typeof raw.error==="string"?raw.error:raw.detail||"SAP2000 import failed");
       const handoff=readSapHandoff(raw);
       setSapHandoff(handoff);
+      setSapImportStatus(`Imported ${handoff.geometryPreview.nodes.length} nodes and ${handoff.geometryPreview.members.length} frames from ${file.name}.`);
       setSapSelectedMember(null);
       setMode("advanced");
     } catch(error) {
       setSapImportError(error instanceof Error?error.message:"SAP2000 import failed");
+      setSapImportStatus(`Import failed for ${file.name}.`);
     } finally {setSapImportBusy(false);}
   }
   const historyRef = useRef<{ past: StructuralModel[]; future: StructuralModel[] }>({ past: [], future: [] });
@@ -320,7 +324,7 @@ export default function StructuralEditorShellV3() {
             ⌑
           </button>
           <button type="button" title="Import SAP2000 directly into Advanced Model" disabled={sapImportBusy} onClick={() => sapImportFileRef.current?.click()}>{sapImportBusy ? "Importing SAP2000…" : "Import SAP2000"}</button>
-          <input hidden ref={sapImportFileRef} type="file" accept=".s2k,.$2k" onChange={event => { const file = event.target.files?.[0]; if (file) void importSap2000(file); event.target.value = ""; }} />
+          <input ref={sapImportFileRef} aria-label="Choose SAP2000 file (.s2k or .$2k)" type="file" accept=".s2k,.$2k,application/octet-stream,text/plain" style={{maxWidth:190,fontSize:12}} onChange={event => { const file = event.target.files?.[0]; if (file) void importSap2000(file); event.target.value = ""; }} />
           <button
             type="button"
             className="architectIconAction architectSaveAction"
@@ -481,6 +485,7 @@ export default function StructuralEditorShellV3() {
         ) : null}
 
         <div className="architectViewportColumn">
+          <p role="status" style={{fontSize:13,margin:"4px 0"}}>{sapImportStatus}</p>
           {sapImportError ? <p role="alert">{sapImportError}</p> : null}
           {sapHandoff ? <section aria-label="SAP2000 import summary" style={{padding:8,background:"#fff8e1",color:"#222"}}>
             <strong>SAP2000 source geometry — NOT Core validated / NOT analysis ready</strong>
