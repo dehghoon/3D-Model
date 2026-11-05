@@ -72,8 +72,17 @@ export function readSapSourcePreview(value: unknown): SapSourcePreview {
   });
   const fidelity = record(value.importFidelity) ? value.importFidelity :
     record(value.fidelity) ? value.fidelity : {};
-  const sourceGridAudit = fidelity.sourceGridAudit ?? value.sourceGridAudit ?? null;
-  const sourceLevelAudit = fidelity.sourceLevelAudit ?? value.sourceLevelAudit ?? null;
+  // The current Import Result stores an inventory, while the separate v0.6
+  // gate report carries sourceGridAudit/sourceLevelAudit under importFidelity.
+  // Accept an explicitly bundled gate report only after the source hashes match.
+  const gate = record(value.sap2000V06GateReport) ? value.sap2000V06GateReport : null;
+  if (gate && (gate.sourceHash !== source.sourceHash || gate.coreModel !== null ||
+    gate.canonicalMappingValidated !== false || gate.analysisReady !== false)) {
+    return fail("GATE_REPORT_MISMATCH");
+  }
+  const gateFidelity = gate && record(gate.importFidelity) ? gate.importFidelity : {};
+  const sourceGridAudit = fidelity.sourceGridAudit ?? gateFidelity.sourceGridAudit ?? value.sourceGridAudit ?? null;
+  const sourceLevelAudit = fidelity.sourceLevelAudit ?? gateFidelity.sourceLevelAudit ?? value.sourceLevelAudit ?? null;
   return {
     kind: "sap2000-source-preview-not-analysis-ready",
     sourceHash: string(source.sourceHash),
