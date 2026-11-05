@@ -9,6 +9,8 @@ import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { detectJoistBay, layoutJoists, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
+import { readSapSourcePreview, type SapSourcePreview } from "../lib/import/sap2000-source-preview";
+import SapSourcePreviewPanel from "./SapSourcePreviewPanel";
 
 import { MEMBER_DRAW_PICK_EVENT, MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
 import { useInteractionState } from "../lib/editor/interaction-store";
@@ -72,6 +74,19 @@ export default function StructuralEditorShellV3() {
   const [joistSpacing, setJoistSpacing] = useState(1.2);
   const [joistBayError, setJoistBayError] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
+  const [sapPreview, setSapPreview] = useState<SapSourcePreview | null>(null);
+  const [sapPreviewError, setSapPreviewError] = useState("");
+  const sapImportFileRef = useRef<HTMLInputElement>(null);
+  async function loadSapImportResult(file: File): Promise<void> {
+    try {
+      const preview = readSapSourcePreview(JSON.parse(await file.text()) as unknown);
+      setSapPreview(preview);
+      setSapPreviewError("");
+      setMode("advanced");
+    } catch (error) {
+      setSapPreviewError(error instanceof Error ? error.message : "SAP source preview failed.");
+    }
+  }
   const historyRef = useRef<{ past: StructuralModel[]; future: StructuralModel[] }>({ past: [], future: [] });
   const joistDesignationRef = useRef(joistDesignation);
   joistDesignationRef.current = joistDesignation;
@@ -291,6 +306,8 @@ export default function StructuralEditorShellV3() {
           >
             ⌑
           </button>
+          <button type="button" title="Load SAP2000 source preview JSON" aria-label="Load SAP2000 source preview" onClick={() => sapImportFileRef.current?.click()}>SAP Preview</button>
+          <input hidden ref={sapImportFileRef} type="file" accept=".json,application/json" onChange={event => { const file = event.target.files?.[0]; if (file) void loadSapImportResult(file); event.target.value = ""; }} />
           <button
             type="button"
             className="architectIconAction architectSaveAction"
@@ -451,6 +468,8 @@ export default function StructuralEditorShellV3() {
         ) : null}
 
         <div className="architectViewportColumn">
+          {sapPreviewError ? <p role="alert">{sapPreviewError}</p> : null}
+          {sapPreview ? <SapSourcePreviewPanel preview={sapPreview} onClose={() => setSapPreview(null)} /> : null}
           <div className="architectViewportStage">
             <div className="engineeringEditorStage">
               <StructuralEditorV05 model={model} onModelChange={advancedChange} />
