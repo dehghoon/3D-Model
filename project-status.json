@@ -4,15 +4,15 @@
   "core": {
     "sourceOfTruth": "dehghoon/linkoteq-structural-core",
     "schemaVersion": "0.5",
-    "dependencyRef": "a7c7103e46bb98035d907624b92ff8c21931f496",
+    "dependencyRef": "v0.6.0",
     "targetSchemaVersion": "0.6",
     "targetPackageVersion": "0.6.0",
     "backwardCompatibleSchemaVersions": [
       "0.5",
       "0.6"
     ],
-    "migrationTargetStatus": "declared-not-runtime-verified",
-    "coreReleaseStatus": "v0.6.0 GitHub Release not verified; check separately"
+    "migrationTargetStatus": "dependency-and-ci-verified-schema-migration-pending",
+    "coreReleaseStatus": "v0.6.0 GitHub Release published and verified"
   },
   "migration": {
     "status": "CORE_V0_5_LEGACY_MIGRATION_VERIFIED_CI_GREEN",
@@ -57,6 +57,19 @@
       "command": "npm run build",
       "result": "FAILED_ON_VERCEL_FC3414D",
       "detail": "Typecheck failed on a misspelled diaphragms field; main source verified corrected and rebuild requested."
+    },
+    "coreV060CI": {
+      "runId": 41846618643,
+      "headCommit": "82f4b7fcae05cea83a3ca734808c56551c07290f",
+      "status": "SUCCESS",
+      "url": "https://github.com/dehghoon/3D-Model/actions/runs/41846618643",
+      "checks": {
+        "npm install": "PASSED",
+        "npm test": "PASSED",
+        "npm run typecheck": "PASSED",
+        "npm run build": "PASSED"
+      },
+      "scope": "dependency-and-ci-only; schema data migration and production deployment not verified"
     }
   },
   "productionVerification": "REBUILD_PENDING",
