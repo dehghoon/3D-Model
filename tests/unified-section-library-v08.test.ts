@@ -13,8 +13,8 @@ test("editor loads a verified starter model on initial open", () => {
   const starter = source("lib/default-model-v05.ts");
 
   assert.match(entry, /StructuralEditorV07/);
-  assert.match(editor, /createStarterModelV05\(\)/);
-  assert.match(editor, /useState<StructuralModel>\(\(\) => createStarterModelV05\(\)\)/);
+  assert.match(editor, /createStarterModelV06\(\)/);
+  assert.match(editor, /useState<StructuralModel>\(\(\) => createStarterModelV06\(\)\)/);
   assert.match(starter, /tests\/fixtures\/legacy-v02-project\.json/);
   assert.match(starter, /createDefaultPortalFrame/);
 });
