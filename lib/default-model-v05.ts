@@ -27,6 +27,7 @@ const VERIFIED_LEGACY_W310X39: CiscSectionRecord = {
   },
 };
 
-export function createStarterModelV05(): StructuralModel {
-  return createDefaultPortalFrame(VERIFIED_LEGACY_W310X39);
+export function createStarterModelV06(): StructuralModel {
+  const model = createDefaultPortalFrame(VERIFIED_LEGACY_W310X39);
+  return { ...model, schemaVersion: "0.6" };
 }
