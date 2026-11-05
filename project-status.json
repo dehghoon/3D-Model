@@ -3,26 +3,26 @@
   "branch": "main",
   "core": {
     "sourceOfTruth": "dehghoon/linkoteq-structural-core",
-    "schemaVersion": "0.5",
+    "schemaVersion": "0.6",
     "dependencyRef": "v0.6.0",
     "targetSchemaVersion": "0.6",
     "targetPackageVersion": "0.6.0",
     "backwardCompatibleSchemaVersions": [
-      "0.5",
       "0.6"
     ],
-    "migrationTargetStatus": "dependency-and-ci-verified-schema-migration-pending",
+    "migrationTargetStatus": "editor-create-import-edit-export-committed-owner-accepted-without-new-tests",
     "coreReleaseStatus": "v0.6.0 GitHub Release published and verified"
   },
   "migration": {
-    "status": "CORE_V0_5_LEGACY_MIGRATION_VERIFIED_CI_GREEN",
+    "status": "CORE_V0_6_EDITOR_MIGRATION_OWNER_ACCEPTED_UNTESTED",
     "legacyImport": {
       "from": "0.2",
       "to": "0.5",
       "stableIdsPreserved": true,
-      "newSavesUse": "0.5",
+      "newSavesUse": "0.6",
       "roundTripVerified": true,
-      "negativeMigrationCasesVerified": true
+      "negativeMigrationCasesVerified": true,
+      "note": "Historical legacy migration metadata only; current editor accepts native 0.6 and does not convert old models."
     },
     "snowIntegration": {
       "endpoint": "/api/v1/core/roof-snow/v0.5",
@@ -34,6 +34,13 @@
     "analysisBoundary": {
       "path": "3D Model -> Core Analysis Adapter -> PyNite -> Canonical Analysis Results",
       "directPyNiteCallIn3DModel": false
+    },
+    "ownerAcceptance": {
+      "accepted": true,
+      "scope": "Core 0.6 editor changes committed in 5491dcb, 56ce6f1, a43f9ce",
+      "newTestsRequested": false,
+      "technicalRuntimeVerification": "NOT_RUN",
+      "readback": "CONFIRMED"
     }
   },
   "verification": {
@@ -69,13 +76,15 @@
         "npm run typecheck": "PASSED",
         "npm run build": "PASSED"
       },
-      "scope": "dependency-and-ci-only; schema data migration and production deployment not verified"
+      "scope": "Historical dependency-only CI; does not verify later schema 0.6 editor commits"
     }
   },
   "productionVerification": "REBUILD_PENDING",
   "remainingBlockers": [
     "Preservation and verification of the legacy 3D editor UX after StructuralEditorV05 introduction",
     "Deployment verification",
-    "Production smoke test"
+    "Production smoke test",
+    "Other application paths still require schema 0.6 audit",
+    "Full runtime functionality not technically verified (owner waived new tests)"
   ]
 }
