@@ -14,8 +14,8 @@ import NodeCreatorV05 from "./NodeCreatorV05";
 import MemberCreatorV05 from "./MemberCreatorV05";
 import SelectedNodeSupportV05 from "./SelectedNodeSupportV05";
 import ThatOpenViewportV01 from "./ThatOpenViewportV01";
-import { assertCanonicalV05, migrateProjectToV05 } from "../lib/core-v05";
-import { createStarterModelV05 } from "../lib/default-model-v05";
+import { assertCanonicalV06, readProjectV06 } from "../lib/core-v06";
+import { createStarterModelV06 } from "../lib/default-model-v05";
 import { deleteSelections as deleteModelSelections } from "../lib/editor/commands";
 import {
   clearSelection,
@@ -35,7 +35,7 @@ type ConcreteSelection = Exclude<EditorSelection, null>;
 
 function emptyModel(): StructuralModel {
   return {
-    schemaVersion: "0.5",
+    schemaVersion: "0.6",
     project: { id: "PROJECT001", name: "3D Model", units: "SI" },
     levels: [],
     grids: [],
@@ -54,7 +54,7 @@ function emptyModel(): StructuralModel {
 }
 
 function downloadModel(model: StructuralModel): void {
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
   const blob = new Blob([JSON.stringify(model, null, 2)], {
     type: "application/json",
   });
@@ -67,7 +67,7 @@ function downloadModel(model: StructuralModel): void {
 }
 
 export default function StructuralEditorV07({ model: externalModel, onModelChange }: { model?: StructuralModel; onModelChange?: (model: StructuralModel) => void } = {}) {
-  const [localModel, setLocalModel] = useState<StructuralModel>(() => createStarterModelV05());
+  const [localModel, setLocalModel] = useState<StructuralModel>(() => createStarterModelV06());
   const model = externalModel ?? localModel;
   function setModel(next: StructuralModel) {
     if (onModelChange) onModelChange(next); else setLocalModel(next);
@@ -76,7 +76,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
   const selections = usePublishedSelections();
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [message, setMessage] = useState(
-    "Starter model loaded. Core v0.5 and That Open interaction active.",
+    "Starter model loaded. Core v0.6 and That Open interaction active.",
   );
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -126,22 +126,17 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
   async function importProject(file: File): Promise<void> {
     window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
     const parsed = JSON.parse(await file.text()) as unknown;
-    const migrated = migrateProjectToV05(parsed);
-    assertCanonicalV05(migrated.model);
-    setModel(migrated.model as StructuralModel);
+    const imported = readProjectV06(parsed);
+    setModel(imported);
     publishSelections([]);
     setSelection(null);
     setPropertiesOpen(false);
-    setMessage(
-      migrated.warnings.length
-        ? migrated.warnings.join(" ")
-        : "Core v0.5 project imported.",
-    );
+    setMessage("Core v0.6 project imported.");
   }
 
   function applyModelChange(next: StructuralModel, status: string): void {
     try {
-      assertCanonicalV05(next);
+      assertCanonicalV06(next);
       setModel(next);
       reconcileSelections(next);
       setMessage(status);
@@ -149,7 +144,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
       setMessage(
         error instanceof Error
           ? error.message
-          : "Core v0.5 model update failed.",
+          : "Core v0.6 model update failed.",
       );
     }
   }
@@ -161,7 +156,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
 
     try {
       const next = deleteModelSelections(model, effective);
-      assertCanonicalV05(next);
+      assertCanonicalV06(next);
       setModel(next);
       clearCanonicalSelection();
       setMessage(
@@ -217,7 +212,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
               window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
               setModel(emptyModel());
               clearCanonicalSelection();
-              setMessage("New Core v0.5 project created.");
+              setMessage("New Core v0.6 project created.");
             }}
           >
             New
@@ -351,7 +346,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
         selectedMembers={selectedMembers}
         selectedNodes={selectedNodes}
         onModelChange={(next, status) => {
-          assertCanonicalV05(next);
+          assertCanonicalV06(next);
           setModel(next);
           reconcileSelections(next);
           if (status) setMessage(status);
