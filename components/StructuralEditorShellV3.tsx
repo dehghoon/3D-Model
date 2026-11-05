@@ -140,6 +140,7 @@ export default function StructuralEditorShellV3() {
     setMode(next);
   }
   function advancedChange(next: StructuralModel) {
+    if (sapHandoff) { setSapImportError("SAP_SOURCE_READ_ONLY: close imported source before editing the Core model."); return; }
     const metadata = { ...next.project.metadata };
     delete metadata.simpleFrame;
     applyModel({ ...next, project: { ...next.project, metadata } });
@@ -185,6 +186,7 @@ export default function StructuralEditorShellV3() {
   }
   function finishSurface(): void { window.dispatchEvent(new Event(SURFACE_FINISH_EVENT)); }
   function runModelTool(tool: ModelingTool): void {
+    if (sapHandoff) { setSapImportError("Imported SAP source is read-only until Core mapping is validated."); return; }
     if (tool === "Joist") { setJoistSetupOpen(true); setJoistBay(null); return; }
     setJoistSetupOpen(false);
     window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT, { detail: tool.toLowerCase() }));
@@ -255,6 +257,7 @@ export default function StructuralEditorShellV3() {
     setJoistSetupOpen(false);
   }
   function runUtilityTool(tool: UtilityTool): void {
+    if (sapHandoff && !["Select","View"].includes(tool)) { setSapImportError("Imported SAP source is read-only."); return; }
     window.dispatchEvent(new CustomEvent(UTILITY_COMMAND_EVENT, { detail: tool }));
     setActiveUtilityTool(tool);
   }
@@ -268,7 +271,7 @@ export default function StructuralEditorShellV3() {
           </span>
           <div>
             <strong>Structural Concept Modeler</strong>
-            <span>Core 0.5 · That Open</span>
+            <span>Core 0.6 · That Open</span>
           </div>
         </div>
         <div className="architectHistoryActions" aria-label="Edit history" style={{
