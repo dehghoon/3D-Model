@@ -82,7 +82,7 @@ export default function StructuralEditorShellV3() {
     setSapImportError("");
     setSapImportBusy(true);
     try {
-      if (!/\\.(s2k|\\$2k)$/i.test(file.name)) throw new Error("Select an SAP2000 .s2k or .$2k file.");
+      if (!/\.(s2k|\$2k)$/i.test(file.name)) throw new Error("Select an SAP2000 .s2k or .$2k file.");
       const body=new FormData();
       body.append("file",file,file.name);
       body.append("project_id",model.project.id);
