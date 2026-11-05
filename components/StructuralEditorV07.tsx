@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import type { SapHandoff } from "../lib/import/sap2000-handoff";
 import type { StructuralModel } from "@linkoteq/structural-core";
 
 import PointInputPanel from "./PointInputPanel";
@@ -66,7 +67,7 @@ function downloadModel(model: StructuralModel): void {
   URL.revokeObjectURL(url);
 }
 
-export default function StructuralEditorV07({ model: externalModel, onModelChange }: { model?: StructuralModel; onModelChange?: (model: StructuralModel) => void } = {}) {
+export default function StructuralEditorV07({ model: externalModel, onModelChange, sapHandoff, onSapMemberSelect }: { model?: StructuralModel; onModelChange?: (model: StructuralModel) => void; sapHandoff?: SapHandoff | null; onSapMemberSelect?: (id:string|null)=>void } = {}) {
   const [localModel, setLocalModel] = useState<StructuralModel>(() => createStarterModelV06());
   const model = externalModel ?? localModel;
   function setModel(next: StructuralModel) {
@@ -307,6 +308,8 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
           <PointInputPanel model={model} />
           <ThatOpenViewportV01
             model={model}
+            sapHandoff={sapHandoff}
+            onSapMemberSelect={onSapMemberSelect}
             selection={selection}
             onSelect={setCanonicalSelection}
             onMultiSelect={(next) => {
