@@ -5,7 +5,7 @@ import { readSapSourcePreview, createSapPreviewDrawing } from "../lib/import/sap
 const valid = () => ({
   contract: "linkoteq.import-result", version: "0.1.0", sourceFormat: "sap2000",
   coreMappingStatus: "not-validated", coreModel: null,
-  source: { sourceHash: "abc123", originalFilename: "sample.s2k" },
+  source: { sourceHash: "a".repeat(64), originalFilename: "sample.s2k" },
   sourceUnitsDeclaration: "METER",
   sourceViews: {
     nodes: [
@@ -39,4 +39,18 @@ test("rejects certified claims and unresolved connectivity", () => {
   assert.throws(() => readSapSourcePreview({...bad,sourceViews:{...bad.sourceViews,frames:[{id:"f1",sourceId:"F1",startSourceId:"J1",endSourceId:"missing"}]}}), /UNRESOLVED_FRAME_NODE/);
   assert.throws(() => readSapSourcePreview({...bad,sourceViews:{...bad.sourceViews,nodes:[...bad.sourceViews.nodes,{id:"n3",sourceId:"J1",coordinatesSourceUnits:["0","0","0"]}]}}), /DUPLICATE_NODE/);
   assert.throws(() => readSapSourcePreview({...bad,sourceViews:{...bad.sourceViews,nodes:[{id:"n1",sourceId:"J1",coordinatesSourceUnits:["NaN","0","0"]}]}}), /NON|SAP_PREVIEW_/);
+});
+
+test("hash-matched gate fidelity preserves source grids and levels", () => {
+  const input = valid();
+  const { importFidelity: _unused, ...bare } = input;
+  const gate = {
+    sourceHash: input.source.sourceHash, coreModel: null,
+    canonicalMappingValidated: false, analysisReady: false,
+    importFidelity: input.importFidelity,
+  };
+  const loaded = readSapSourcePreview({...bare, sap2000V06GateReport:gate});
+  assert.deepEqual(loaded.gridAudit, input.importFidelity.sourceGridAudit);
+  assert.deepEqual(loaded.levelAudit, input.importFidelity.sourceLevelAudit);
+  assert.throws(() => readSapSourcePreview({...bare, sap2000V06GateReport:{...gate,sourceHash:"b".repeat(64)}}),/GATE_REPORT_MISMATCH/);
 });
