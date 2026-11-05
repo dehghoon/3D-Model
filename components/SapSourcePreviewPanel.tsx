@@ -19,20 +19,26 @@ export default function SapSourcePreviewPanel({ preview, onClose }: {
   const [details, setDetails] = useState(false);
   const [showNodes, setShowNodes] = useState(true);
   const [showFrames, setShowFrames] = useState(true);
+  const [viewMode, setViewMode] = useState<"iso" | "plan">("iso");
   const drawing = useMemo(() => createSapPreviewDrawing(preview), [preview]);
+  const project = (p: {x:number;y:number;z:number}) => viewMode === "plan"
+    ? { x:p.x, y:p.y }
+    : { x:(p.x-p.y)*Math.SQRT1_2, y:(p.x+p.y)*0.40824829046-p.z*0.81649658092 };
   const bounds = useMemo(() => {
-    const points = preview.nodes.map(n => n.positionSourceUnits);
-    if (!points.length) return { minX: 0, minY: 0, maxX: 1, maxY: 1 };
-    const xs = points.map(p => p.x);
-    const ys = points.map(p => p.y);
-    const minX = Math.min(...xs), minY = Math.min(...ys);
-    return { minX, minY, maxX: Math.max(...xs), maxY: Math.max(...ys) };
-  }, [preview]);
-  const extentX = Math.max(bounds.maxX - bounds.minX, 1e-9);
-  const extentY = Math.max(bounds.maxY - bounds.minY, 1e-9);
-  const scale = Math.min(700 / extentX, 370 / extentY);
-  const x = (value: number) => 30 + (value - bounds.minX) * scale;
-  const y = (value: number) => 420 - (value - bounds.minY) * scale;
+    const points = preview.nodes.map(n => {
+      const p=n.positionSourceUnits;
+      return viewMode === "plan" ? {x:p.x,y:p.y} :
+        {x:(p.x-p.y)*Math.SQRT1_2,y:(p.x+p.y)*0.40824829046-p.z*0.81649658092};
+    });
+    if (!points.length) return { minX:0,minY:0,maxX:1,maxY:1 };
+    const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+    return {minX:Math.min(...xs),minY:Math.min(...ys),maxX:Math.max(...xs),maxY:Math.max(...ys)};
+  },[preview,viewMode]);
+  const extentX = Math.max(bounds.maxX-bounds.minX,1e-9);
+  const extentY = Math.max(bounds.maxY-bounds.minY,1e-9);
+  const scale = Math.min(700/extentX,370/extentY);
+  const x = (value:number) => 30+(value-bounds.minX)*scale;
+  const y = (value:number) => 420-(value-bounds.minY)*scale;
   const gridCount = countSourceRecords(preview.gridAudit);
   const levelCount = countSourceRecords(preview.levelAudit);
   return (
@@ -43,15 +49,16 @@ export default function SapSourcePreviewPanel({ preview, onClose }: {
       </div>
       <p style={{margin:"6px 0"}}>{preview.filename} · {preview.nodes.length} joints · {preview.frames.length} frames · Source units: {preview.unitsDeclaration ?? "unspecified"}</p>
       <p style={{margin:"6px 0"}}>Grids: {gridCount === null ? "not provided" : gridCount + " raw records"} · Levels: {levelCount === null ? "not provided" : levelCount + " raw records"} · Core mapping: unvalidated</p>
-      <p style={{margin:"6px 0",fontSize:12}}>2D source-coordinate inspection only. Axes/units are not transformed. Unknown materials, sections, releases, loads and grid/level meanings are not certified or converted to Core.</p>
+      <p style={{margin:"6px 0",fontSize:12}}>Read-only source-coordinate inspection (isometric projection or plan). Axes/units are not transformed. Unknown materials, sections, releases, loads and grid/level meanings are not certified or converted to Core.</p>
       <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
         <label><input type="checkbox" checked={showFrames} onChange={e=>setShowFrames(e.target.checked)}/> Frames</label>
         <label><input type="checkbox" checked={showNodes} onChange={e=>setShowNodes(e.target.checked)}/> Joints</label>
+        <label>View <select aria-label="Source preview projection" value={viewMode} onChange={e=>setViewMode(e.target.value as "iso"|"plan")}><option value="iso">3D isometric</option><option value="plan">XY plan</option></select></label>
         <button type="button" onClick={()=>setDetails(v=>!v)} aria-expanded={details}>Source details</button>
       </div>
-      <svg role="img" aria-label="SAP2000 source plan preview (not a 3D Core model)" viewBox="0 0 780 460" style={{display:"block",width:"100%",maxHeight:360,background:"#f8fafc",border:"1px solid #ddd",marginTop:8}}>
-        {showFrames ? drawing.segments.map(s=><line key={s.id} x1={x(s.start.x)} y1={y(s.start.y)} x2={x(s.end.x)} y2={y(s.end.y)} stroke="#0f766e" strokeWidth="1.3"><title>{s.id}: ({s.start.x}, {s.start.y}, {s.start.z}) to ({s.end.x}, {s.end.y}, {s.end.z})</title></line>) : null}
-        {showNodes ? preview.nodes.map(n=><circle key={n.id} cx={x(n.positionSourceUnits.x)} cy={y(n.positionSourceUnits.y)} r="1.8" fill="#b45309"><title>{n.sourceId}: {JSON.stringify(n.positionSourceUnits)}</title></circle>) : null}
+      <svg role="img" aria-label="SAP2000 source geometry isometric or plan projection (not a Core model)" viewBox="0 0 780 460" style={{display:"block",width:"100%",maxHeight:360,background:"#f8fafc",border:"1px solid #ddd",marginTop:8}}>
+        {showFrames ? drawing.segments.map(s=><line key={s.id} x1={x(project(s.start).x)} y1={y(project(s.start).y)} x2={x(project(s.end).x)} y2={y(project(s.end).y)} stroke="#0f766e" strokeWidth="1.3"><title>{s.id}: ({s.start.x}, {s.start.y}, {s.start.z}) to ({s.end.x}, {s.end.y}, {s.end.z})</title></line>) : null}
+        {showNodes ? preview.nodes.map(n=><circle key={n.id} cx={x(project(n.positionSourceUnits).x)} cy={y(project(n.positionSourceUnits).y)} r="1.8" fill="#b45309"><title>{n.sourceId}: {JSON.stringify(n.positionSourceUnits)}</title></circle>) : null}
       </svg>
       {details ? <>
         <p>Source SHA256: <code>{preview.sourceHash}</code></p>
