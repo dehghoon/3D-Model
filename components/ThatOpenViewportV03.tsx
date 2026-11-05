@@ -8,10 +8,13 @@ import {
   publishSelections,
 } from "../lib/editor/selection-store";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import type { SapHandoff } from "../lib/import/sap2000-handoff";
 import type { EditorSelection } from "../lib/editor/selection";
 
 interface Props {
   model: StructuralModel;
+  sapHandoff?: SapHandoff | null;
+  onSapMemberSelect?: (id:string|null)=>void;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
   onMultiSelect?: (selections: Array<Exclude<EditorSelection, null>>) => void;
