@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import type { SapHandoff } from "../lib/import/sap2000-handoff";
 import type { EditorSelection } from "../lib/editor/selection";
 import {
   getPublishedSelections,
@@ -44,6 +45,8 @@ import {
 
 interface Props {
   model: StructuralModel;
+  sapHandoff?: SapHandoff | null;
+  onSapMemberSelect?: (id:string|null)=>void;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
   onMultiSelect?: (
@@ -127,6 +130,8 @@ function syncSelectionHighlight(
 
 export default function ThatOpenViewportV07({
   model,
+  sapHandoff,
+  onSapMemberSelect,
   selection,
   onSelect,
   onMultiSelect,
