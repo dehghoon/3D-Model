@@ -86,3 +86,49 @@ export function projectSapGridsForGridTool(
   // Do not present the proxy as a validated or analysis-ready model.
   return {...model,grids};
 }
+
+/**
+ * Editable geometry projection. This is deliberately NOT an analytical import:
+ * the immutable source archive, engineering assignments and fidelity diagnostics
+ * remain in SapHandoff until a verified semantic mapper can reconcile edits.
+ */
+export function projectSapGeometryForEditing(
+  template: import("@linkoteq/structural-core").StructuralModel,
+  handoff: SapHandoff,
+): import("@linkoteq/structural-core").StructuralModel {
+  const ids = new Map(handoff.geometryPreview.nodes.map((node, i) => [node.sourceId, "SAP-N-" + i]));
+  const levels = [...template.levels];
+  const fallbackLevel = levels[0]?.id;
+  const materialId = template.materials[0]?.id;
+  const sectionId = template.sections[0]?.id;
+  if (!materialId || !sectionId) throw new Error("SAP_EDITABLE_PROJECTION_REQUIRES_CATALOG");
+  const nodes = handoff.geometryPreview.nodes.map(node => ({
+    id: ids.get(node.sourceId)!,
+    position: {...node.position},
+    ...(fallbackLevel ? {levelId:fallbackLevel} : {}),
+  }));
+  const members: import("@linkoteq/structural-core").StructuralModel["members"] =
+    handoff.geometryPreview.members.map((member,i) => {
+      const a = handoff.geometryPreview.nodes.find(node=>node.sourceId===member.startNodeId)?.position;
+      const b = handoff.geometryPreview.nodes.find(node=>node.sourceId===member.endNodeId)?.position;
+      const type: "beam"|"column"|"brace" = a && b && Math.abs(a.z-b.z)>Math.hypot(a.x-b.x,a.y-b.y)*2 ? "column" : "beam";
+      return {
+        id:"SAP-M-"+i, type,
+        startNodeId:ids.get(member.startNodeId)!,
+        endNodeId:ids.get(member.endNodeId)!,
+        materialId,sectionId,
+        ...(fallbackLevel ? {levelId:fallbackLevel} : {}),
+      };
+    });
+  const projected = projectSapGridsForGridTool(template,handoff);
+  return {
+    ...projected,
+    project:{...projected.project,metadata:{
+      ...projected.project.metadata,
+      sourceFormat:"SAP2000",
+      sourceHash:handoff.sourceHash,
+      importGeometryStatus:"editable-unverified",
+    }},
+    nodes,members,
+  };
+}
