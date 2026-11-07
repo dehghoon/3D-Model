@@ -54,8 +54,8 @@
 }
 .architectQuickActions strong{display:block;font-size:11px}
 .architectQuickActions small{display:block;margin-top:2px;font-size:8px;color:#798493}
-.architectViewportColumn{min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) 38px}
-.architectViewportStage{position:relative;min-width:0;min-height:0}
+.architectViewportColumn{min-width:0;min-height:0;display:grid;grid-template-rows:auto auto auto minmax(0,1fr) 38px}
+.architectViewportStage{grid-row:4;position:relative;min-width:0;min-height:0}
 .architectViewportStage .engineeringEditorStage{height:100%;padding:0}
 .mode-simple .engineeringEditorStage>.appShell{height:100%;border-radius:16px 16px 0 0}
 .mode-simple .engineeringEditorStage .workspace{grid-template-columns:minmax(0,1fr) 300px!important}
@@ -122,6 +122,7 @@
   border-radius:7px;background:#fff;font-size:8px;font-weight:900
 }
 .architectStatusbar{
+  grid-row:5;
   display:flex;
   align-items:center;
   gap:12px;
@@ -167,7 +168,7 @@
   .architectQuickIcon{width:26px;height:26px;border-radius:7px;font-size:7px}
   .architectQuickActions strong{font-size:8px}
   .architectQuickActions small{display:none}
-  .architectViewportColumn{height:100%;grid-template-rows:minmax(0,1fr) 32px}
+  .architectViewportColumn{height:100%;grid-template-rows:auto auto auto minmax(0,1fr) 32px}
   .mode-simple .engineeringEditorStage .workspace{display:block!important;position:relative!important;height:100%!important}
   .mode-simple .engineeringEditorStage .viewport{position:absolute!important;inset:0!important;width:100%!important;height:100%!important}
   .mode-simple .engineeringEditorStage .inspector{display:none!important}
