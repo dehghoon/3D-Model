@@ -341,7 +341,11 @@ export default function StructuralEditorShellV3() {
         : <span className="sfTopBadge">Automatic frame · SI / m</span>}
       </header>
 
-      {mode === "advanced" ? <>
+      {(mode === "advanced" || sapHandoff !== null) ? <>
+      {mode === "simple" && sapHandoff ? <div role="status" style={{padding:"10px 14px",background:"#eff6ff",color:"#1e3a8a"}}>
+        Simple view of imported SAP2000 source · geometry and original engineering data are preserved. Advanced editing remains unavailable until Core mapping is validated.
+        <button type="button" onClick={() => switchMode("advanced")} style={{marginLeft:12}}>Advanced Mode</button>
+      </div> : null}
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
         <label>Series <select value={joistSeries} onChange={e=>{setJoistSeries(e.target.value as typeof joistSeries);setJoistDesignation("");setJoistSectionId("");}}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
