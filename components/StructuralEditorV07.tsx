@@ -67,7 +67,7 @@ function downloadModel(model: StructuralModel): void {
   URL.revokeObjectURL(url);
 }
 
-export default function StructuralEditorV07({ model: externalModel, onModelChange, sapHandoff, onSapMemberSelect }: { model?: StructuralModel; onModelChange?: (model: StructuralModel) => void; sapHandoff?: SapHandoff | null; onSapMemberSelect?: (id:string|null)=>void } = {}) {
+export default function StructuralEditorV07({ model: externalModel, onModelChange, sapHandoff, onSapMemberSelect, simpleMode = false }: { model?: StructuralModel; onModelChange?: (model: StructuralModel) => void; sapHandoff?: SapHandoff | null; simpleMode?: boolean; onSapMemberSelect?: (id:string|null)=>void } = {}) {
   const [localModel, setLocalModel] = useState<StructuralModel>(() => createStarterModelV06());
   const model = externalModel ?? localModel;
   function setModel(next: StructuralModel) {
@@ -305,10 +305,11 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
           onContextMenu={(event) => event.preventDefault()}
           style={{ position: "relative" }}
         >
-          <PointInputPanel model={model} />
+          {!simpleMode ? <PointInputPanel model={model} /> : null}
           <ThatOpenViewportV01
             model={model}
             sapHandoff={sapHandoff}
+            simpleMode={simpleMode}
             onSapMemberSelect={onSapMemberSelect}
             selection={selection}
             onSelect={setCanonicalSelection}
