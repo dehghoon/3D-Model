@@ -191,9 +191,24 @@ function buildLevels(model: StructuralModel): THREE.Group {
   return group;
 }
 
-export function buildStructuralGuides(model: StructuralModel): THREE.Group {
+export function buildStructuralGuides(model: StructuralModel, options: { showGridLines?: boolean } = {}): THREE.Group {
   const root = new THREE.Group();
   root.name = "linkoteq-structural-guides";
+  if (options.showGridLines) {
+    const positions: number[] = [];
+    for (const grid of model.grids) {
+      const { start, end } = gridDisplayEndpoints(grid, model.nodes);
+      positions.push(start.x, start.z + 0.04, start.y, end.x, end.z + 0.04, end.y);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    const lines = new THREE.LineSegments(geometry, new THREE.LineDashedMaterial({
+      color: 0x64748b, dashSize: 0.5, gapSize: 0.3, depthTest: false,
+    }));
+    lines.computeLineDistances();
+    lines.name = "linkoteq-grid-lines";
+    root.add(lines);
+  }
   root.add(buildGridLabels(model));
   root.add(buildLevels(model));
   return root;
