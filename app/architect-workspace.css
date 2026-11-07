@@ -209,3 +209,14 @@
   .architectEditorShell .architectModeSwitch button { flex: 1; }
   .architectEditorShell .architectTopActions { min-width: 0; max-width: 100%; overflow-x: auto; }
 }
+
+/* SAP2000 imported source: simple, read-only viewport without advanced editing chrome. */
+.architectEditorShell.mode-simple .sapSimpleNotice {
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;
+  padding:10px 16px;background:#eff6ff;color:#1e3a8a;font-size:13px;
+}
+.architectEditorShell.mode-simple .architectContextbar { min-height:40px; }
+.architectEditorShell.mode-simple .architectContextHint { display:none; }
+.architectEditorShell.mode-simple .architectViewportColumn { min-width:0;width:100%; }
+.architectEditorShell.mode-simple .architectWorkspaceFrame { grid-template-columns:minmax(0,1fr); }
+.architectEditorShell.mode-simple .architectStatusbar { display:none; }
