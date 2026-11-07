@@ -687,6 +687,35 @@ export default function ThatOpenViewportV07({
       if(![a.x,a.y,a.z,b.x,b.y,b.z].every(Number.isFinite)) continue;
       coords.push(a.x,a.z,a.y,b.x,b.z,b.y);
     }
+    // Display only importer-projected GLOBAL Cartesian source grids.
+    // Unknown/deferred grids remain in the fidelity report, never guessed.
+    const gridCoords:number[]=[];
+    const gridView=sapHandoff.geometryPreview.grids;
+    const gridRecords=gridView && typeof gridView==="object" && !Array.isArray(gridView)
+      ? (gridView as {gridLines?:unknown}).gridLines : null;
+    if(Array.isArray(gridRecords) && pointCoords.length){
+      const xs:number[]=[],ys:number[]=[],zs:number[]=[];
+      for(let i=0;i<pointCoords.length;i+=3){
+        xs.push(pointCoords[i]);ys.push(pointCoords[i+1]);zs.push(pointCoords[i+2]);
+      }
+      const minX=Math.min(...xs),maxX=Math.max(...xs);
+      const minY=Math.min(...ys),maxY=Math.max(...ys);
+      const minZ=Math.min(...zs),maxZ=Math.max(...zs);
+      const margin=Math.max(maxX-minX,maxZ-minZ,1)*0.05;
+      for(const item of gridRecords){
+        if(!item || typeof item!=="object") continue;
+        const g=item as {axis?:unknown;coordinate?:unknown;coordinateSystem?:unknown};
+        if(g.coordinateSystem!=="GLOBAL" || !["X","Y","Z"].includes(String(g.axis))) continue;
+        const n=typeof g.coordinate==="string" && g.coordinate.trim()!=="" ? Number(g.coordinate) : NaN;
+        if(!Number.isFinite(n)) continue;
+        if(g.axis==="X") gridCoords.push(n,minY,minZ-margin,n,minY,maxZ+margin);
+        if(g.axis==="Y") gridCoords.push(minX-margin,minY,n,maxX+margin,minY,n);
+        if(g.axis==="Z") {
+          gridCoords.push(minX-margin,n,minZ-margin,maxX+margin,n,minZ-margin);
+          gridCoords.push(minX-margin,n,minZ-margin,minX-margin,n,maxZ+margin);
+        }
+      }
+    }
     // Render source geometry independently of the unvalidated Core model.
     // Keep points visible even when the imported file has no renderable frames.
     const geometry=new THREE.BufferGeometry();
@@ -697,7 +726,12 @@ export default function ThatOpenViewportV07({
     const points=new THREE.Points(pointsGeometry,new THREE.PointsMaterial({
       color:0x2563eb,size:5,sizeAttenuation:false,depthTest:false,
     }));
+    const gridGeometry=new THREE.BufferGeometry();
+    gridGeometry.setAttribute("position",new THREE.Float32BufferAttribute(gridCoords,3));
+    const gridLines=new THREE.LineSegments(gridGeometry,new THREE.LineDashedMaterial({color:0x9ca3af,dashSize:0.5,gapSize:0.3,depthTest:false}));
+    gridLines.computeLineDistances();
     sourceLinesRef.current=lines;
+    runtime.scene.add(gridLines);
     runtime.scene.add(lines);
     runtime.scene.add(points);
     if(runtime.build) runtime.build.root.visible=coords.length===0 && pointCoords.length===0;
@@ -717,10 +751,13 @@ export default function ThatOpenViewportV07({
     }
     return ()=>{
       runtime.scene.remove(lines);
+      runtime.scene.remove(gridLines);
       runtime.scene.remove(points);
       geometry.dispose();
+      gridGeometry.dispose();
       pointsGeometry.dispose();
       (lines.material as THREE.Material).dispose();
+      (gridLines.material as THREE.Material).dispose();
       (points.material as THREE.Material).dispose();
       if(sourceLinesRef.current===lines) sourceLinesRef.current=null;
       if(runtime.build) runtime.build.root.visible=true;
