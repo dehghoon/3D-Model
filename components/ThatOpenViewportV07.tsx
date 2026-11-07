@@ -240,7 +240,20 @@ export default function ThatOpenViewportV07({
       }
     };
     const preset = (event: Event) => { void setThatOpenView(runtime, (event as CustomEvent<ViewMode>).detail); };
-    const fit = () => { void setThatOpenView(runtime, runtime.viewMode); };
+    const fit = () => {
+      const imported = sourceHandoffRef.current;
+      if (!imported) { void setThatOpenView(runtime, runtime.viewMode); return; }
+      const bounds = new THREE.Box3();
+      for (const node of imported.geometryPreview.nodes) {
+        const p = node.position;
+        if ([p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
+      }
+      if (bounds.isEmpty()) return;
+      const center = bounds.getCenter(new THREE.Vector3());
+      const size = bounds.getSize(new THREE.Vector3());
+      const d = Math.max(size.x,size.y,size.z,8)*1.35;
+      void runtime.camera.controls.setLookAt(center.x+d,center.y+d*0.72,center.z+d,center.x,center.y,center.z,true);
+    };
 
 
     const commitSelections = (selections: ConcreteSelection[]) => {
