@@ -246,15 +246,22 @@ export default function ThatOpenViewportV07({
       const imported = sourceHandoffRef.current;
       if (!imported) { void setThatOpenView(runtime, runtime.viewMode); return; }
       const bounds = new THREE.Box3();
-      for (const node of imported.geometryPreview.nodes) {
-        const p = node.position;
-        if ([p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
+      const nodes = new Map(imported.geometryPreview.nodes.map(node => [node.sourceId, node.position]));
+      // Fit actual frame geometry, not stray/unconnected source nodes.
+      for (const member of imported.geometryPreview.members) {
+        for (const id of [member.startNodeId, member.endNodeId]) {
+          const p = nodes.get(id);
+          if (p && [p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
+        }
+      }
+      if (bounds.isEmpty()) {
+        for (const node of imported.geometryPreview.nodes) {
+          const p = node.position;
+          if ([p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
+        }
       }
       if (bounds.isEmpty()) return;
-      const center = bounds.getCenter(new THREE.Vector3());
-      const size = bounds.getSize(new THREE.Vector3());
-      const d = Math.max(size.x,size.y,size.z,8)*1.35;
-      void runtime.camera.controls.setLookAt(center.x+d,center.y+d*0.72,center.z+d,center.x,center.y,center.z,true);
+      void runtime.camera.controls.fitToBox(bounds, true, {paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
     };
 
 
@@ -724,10 +731,10 @@ export default function ThatOpenViewportV07({
     if(coords.length) bounds.expandByObject(lines);
     if(pointCoords.length) bounds.expandByObject(points);
     if(!bounds.isEmpty()){
-      const center=bounds.getCenter(new THREE.Vector3());
-      const size=bounds.getSize(new THREE.Vector3());
-      const d=Math.max(size.x,size.y,size.z,8)*1.8;
-      void runtime.camera.controls.setLookAt(center.x+d,center.y+d*0.72,center.z+d,center.x,center.y,center.z,false);
+      // CameraControls calculates the correct distance from FOV and mobile aspect ratio.
+      const frameBounds = new THREE.Box3();
+      for (let i=0;i<coords.length;i+=3) frameBounds.expandByPoint(new THREE.Vector3(coords[i],coords[i+1],coords[i+2]));
+      void runtime.camera.controls.fitToBox(frameBounds.isEmpty() ? bounds : frameBounds, false, {paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
     } else {
       console.error("SAP2000_VIEWPORT_NO_RENDERABLE_GEOMETRY",{
         nodes:sapHandoff.geometryPreview.nodes.length,
