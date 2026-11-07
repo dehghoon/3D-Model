@@ -47,6 +47,7 @@ import {
 interface Props {
   model: StructuralModel;
   sapHandoff?: SapHandoff | null;
+  simpleMode?: boolean;
   onSapMemberSelect?: (id:string|null)=>void;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
@@ -132,6 +133,7 @@ function syncSelectionHighlight(
 export default function ThatOpenViewportV07({
   model,
   sapHandoff,
+  simpleMode = false,
   onSapMemberSelect,
   selection,
   onSelect,
@@ -792,7 +794,7 @@ export default function ThatOpenViewportV07({
       }}
       aria-label="That Open structural viewport"
     >
-      {!pointTool.tool && interaction.mode === "select" ? <div className="viewportSelectionActions" style={{
+      {!simpleMode && !pointTool.tool && interaction.mode === "select" ? <div className="viewportSelectionActions" style={{
         position:"absolute", top: 56, left: 12, right: 12, zIndex: 55,
         display:"flex", flexWrap:"wrap", alignItems:"center", gap: 6, pointerEvents:"none"
       }}>
@@ -819,7 +821,7 @@ export default function ThatOpenViewportV07({
             You can still save your model.</p>
         </div>
       ) : null}
-      <div
+      {!simpleMode ? <div
         className="viewportViewTools"
         aria-label="View orientation"
       >
@@ -836,9 +838,9 @@ export default function ThatOpenViewportV07({
             {icon}
           </button>
         ))}
-      </div>
+      </div> : null}
 
-      {viewMode !== "3d" ? (
+      {viewMode !== "3d" && !simpleMode ? (
         <div
           className="viewportReferenceNavigator"
           aria-label="Reference navigation"
@@ -926,7 +928,7 @@ export default function ThatOpenViewportV07({
         />
       ) : null}
 
-      <div className="viewportInteractionStatus">
+      {!simpleMode ? <div className="viewportInteractionStatus">
         {interaction.mode === "select"
           ? toolMode === "select"
             ? `Select · Click, Ctrl/Cmd+Click, or drag window${
