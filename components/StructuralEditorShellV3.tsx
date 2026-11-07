@@ -9,7 +9,7 @@ import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { detectJoistBay, layoutJoists, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
-import { projectSapGridsForGridTool, readSapHandoff, type SapHandoff } from "../lib/import/sap2000-handoff";
+import { projectSapGridsForGridTool, projectSapGeometryForEditing, readSapHandoff, type SapHandoff } from "../lib/import/sap2000-handoff";
 
 import { MEMBER_DRAW_PICK_EVENT, MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
 import { useInteractionState } from "../lib/editor/interaction-store";
@@ -94,6 +94,8 @@ export default function StructuralEditorShellV3() {
       const raw=await response.json();
       if (!response.ok) throw new Error(typeof raw.error==="string"?raw.error:raw.detail||"SAP2000 import failed");
       const handoff=readSapHandoff(raw);
+      const editable = projectSapGeometryForEditing(modelRef.current, handoff);
+      applyModel(editable);
       setSapHandoff(handoff);
       setSapSummaryVisible(true);
       setSapImportStatus(`Imported ${handoff.geometryPreview.nodes.length} nodes and ${handoff.geometryPreview.members.length} frames from ${file.name}.`);
@@ -147,7 +149,6 @@ export default function StructuralEditorShellV3() {
     setMode(next);
   }
   function advancedChange(next: StructuralModel) {
-    if (sapHandoff) { setSapImportError("SAP_SOURCE_READ_ONLY: close imported source before editing the Core model."); return; }
     const metadata = { ...next.project.metadata };
     delete metadata.simpleFrame;
     applyModel({ ...next, project: { ...next.project, metadata } });
@@ -193,7 +194,6 @@ export default function StructuralEditorShellV3() {
   }
   function finishSurface(): void { window.dispatchEvent(new Event(SURFACE_FINISH_EVENT)); }
   function runModelTool(tool: ModelingTool): void {
-    if (sapHandoff) { setSapImportError("Imported SAP source is read-only until Core mapping is validated."); return; }
     if (tool === "Joist") { setJoistSetupOpen(true); setJoistBay(null); return; }
     setJoistSetupOpen(false);
     window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT, { detail: tool.toLowerCase() }));
@@ -264,7 +264,6 @@ export default function StructuralEditorShellV3() {
     setJoistSetupOpen(false);
   }
   function runUtilityTool(tool: UtilityTool): void {
-    if (sapHandoff && !["Select","View"].includes(tool)) { setSapImportError("Imported SAP source is read-only."); return; }
     window.dispatchEvent(new CustomEvent(UTILITY_COMMAND_EVENT, { detail: tool }));
     setActiveUtilityTool(tool);
   }
@@ -344,7 +343,7 @@ export default function StructuralEditorShellV3() {
       {(mode === "advanced" || sapHandoff !== null) ? <>
       {mode === "simple" && sapHandoff ? <div role="status" className="sapSimpleNotice">
         <strong>Imported SAP2000 model</strong>
-        <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Read-only simplified view. Source engineering data are preserved.</span>
+        <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Editable geometry · engineering source preserved; analytical mapping unverified.</span>
       </div> : null}
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
