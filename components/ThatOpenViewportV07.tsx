@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { buildStructuralGuides, disposeStructuralGuides } from "../lib/visualization/structural-guides";
 import type { StructuralModel } from "@linkoteq/structural-core";
 import type { SapHandoff } from "../lib/import/sap2000-handoff";
 import type { EditorSelection } from "../lib/editor/selection";
@@ -730,6 +731,10 @@ export default function ThatOpenViewportV07({
     gridGeometry.setAttribute("position",new THREE.Float32BufferAttribute(gridCoords,3));
     const gridLines=new THREE.LineSegments(gridGeometry,new THREE.LineDashedMaterial({color:0x9ca3af,dashSize:0.5,gapSize:0.3,depthTest:false}));
     gridLines.computeLineDistances();
+    // Use Linkoteq native grid-label generation for the projected SAP grid model.
+    // The Core scene is hidden during source preview, so mount guides separately.
+    const nativeGridGuides=buildStructuralGuides({...model,levels:[]});
+    runtime.scene.add(nativeGridGuides);
     sourceLinesRef.current=lines;
     runtime.scene.add(gridLines);
     runtime.scene.add(lines);
@@ -752,6 +757,8 @@ export default function ThatOpenViewportV07({
     return ()=>{
       runtime.scene.remove(lines);
       runtime.scene.remove(gridLines);
+      runtime.scene.remove(nativeGridGuides);
+      disposeStructuralGuides(nativeGridGuides);
       runtime.scene.remove(points);
       geometry.dispose();
       gridGeometry.dispose();
@@ -762,7 +769,7 @@ export default function ThatOpenViewportV07({
       if(sourceLinesRef.current===lines) sourceLinesRef.current=null;
       if(runtime.build) runtime.build.root.visible=true;
     };
-  },[sapHandoff]);
+  },[sapHandoff,model]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
