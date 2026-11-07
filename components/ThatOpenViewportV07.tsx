@@ -693,8 +693,16 @@ export default function ThatOpenViewportV07({
       (sourceLinesRef.current.material as THREE.Material).dispose();
       sourceLinesRef.current=null;
     }
-    if (!sapHandoff) {
+    if (!sapHandoff || model.project.metadata?.importGeometryStatus === "editable-unverified") {
       if (runtime.build) runtime.build.root.visible=true;
+      if (sapHandoff && model.nodes.length) {
+        const bounds = new THREE.Box3();
+        for (const node of model.nodes) {
+          const p=node.position;
+          if ([p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
+        }
+        if (!bounds.isEmpty()) void runtime.camera.controls.fitToBox(bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+      }
       return;
     }
     const nodes=new Map(sapHandoff.geometryPreview.nodes.map(n=>[n.sourceId,n.position]));
