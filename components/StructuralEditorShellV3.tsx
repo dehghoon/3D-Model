@@ -528,7 +528,7 @@ export default function StructuralEditorShellV3() {
       <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
         {([ ["setup", "Plan & levels"], ["tools", "Members & tools"], ["project", "Project"] ] as const).map(([panel, label]) => <button type="button" key={panel} aria-expanded={mobilePanel === panel} onClick={() => toggleMobilePanel(panel)}>{label}</button>)}
       </nav>
-      </> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} />}
+      </> : sapHandoff ? <section role="status" style={{padding:24}}><h2>SAP2000 source preserved</h2><p>Simple Mode cannot safely represent this imported source yet. All imported geometry and engineering data remain in Advanced Mode.</p><button type="button" onClick={() => switchMode("advanced")}>Return to Advanced Mode</button></section> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} />}
     </div>
   );
 }
