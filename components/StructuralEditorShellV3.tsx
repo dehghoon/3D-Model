@@ -342,9 +342,9 @@ export default function StructuralEditorShellV3() {
       </header>
 
       {(mode === "advanced" || sapHandoff !== null) ? <>
-      {mode === "simple" && sapHandoff ? <div role="status" style={{padding:"10px 14px",background:"#eff6ff",color:"#1e3a8a"}}>
-        Simple view of imported SAP2000 source · geometry and original engineering data are preserved. Advanced editing remains unavailable until Core mapping is validated.
-        <button type="button" onClick={() => switchMode("advanced")} style={{marginLeft:12}}>Advanced Mode</button>
+      {mode === "simple" && sapHandoff ? <div role="status" className="sapSimpleNotice">
+        <strong>Imported SAP2000 model</strong>
+        <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Read-only simplified view. Source engineering data are preserved.</span>
       </div> : null}
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
@@ -387,7 +387,7 @@ export default function StructuralEditorShellV3() {
       </section> : null}
       {joistFirstPoint ? <p role="status">First point: ({joistFirstPoint.x.toFixed(2)}, {joistFirstPoint.y.toFixed(2)}, {joistFirstPoint.z.toFixed(2)}) — Pick second point</p> : null}
       {!joistBay && joistBayError ? <p role="status">{joistBayError}</p> : null}
-      <nav className="architectToolstrip" aria-label="Add structural elements">
+      {mode === "advanced" ? <nav className="architectToolstrip" aria-label="Add structural elements">
         {modelingTools.map((tool) => (
           <button
             key={tool}
@@ -406,7 +406,7 @@ export default function StructuralEditorShellV3() {
         ) : null}
         {mode === "advanced" ? utilityTools.map(tool => <button key={tool} type="button" onClick={() => runUtilityTool(tool)}>{tool}</button>) : null}
         {selections.length ? <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:properties-open"))}>Properties ({selections.length})</button> : null}
-      </nav>
+      </nav> : null}
 
       <div className="architectContextbar">
         <span className="architectContextTitle">3D Workspace</span>
@@ -425,7 +425,7 @@ export default function StructuralEditorShellV3() {
         </div>
       </div>
 
-      <div className="advancedMobileControls" aria-label="Mobile viewport tools">
+      {mode === "advanced" ? <div className="advancedMobileControls" aria-label="Mobile viewport tools">
         <button type="button" onClick={() => {runUtilityTool("Select"); window.dispatchEvent(new Event("linkoteq:view-select"));}}>Select</button>
         <button type="button" onClick={() => {runUtilityTool("View"); window.dispatchEvent(new Event("linkoteq:view-cycle"));}}>Orbit</button>
         <select aria-label="Mobile view" defaultValue="3d" onChange={event => window.dispatchEvent(new CustomEvent("linkoteq:view-preset", {detail:event.target.value}))}>
@@ -433,7 +433,7 @@ export default function StructuralEditorShellV3() {
         </select>
         <button type="button" onClick={() => toggleMobilePanel("display")}>Display</button>
         <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-fit"))}>Fit</button>
-      </div>
+      </div> : null}
       <div className="architectWorkspaceFrame">
         {mode === "advanced" ? (
           <aside className="architectQuickPanel" aria-label="Setup and quick tools">
@@ -529,9 +529,9 @@ export default function StructuralEditorShellV3() {
           </div>
         </div>
       </div>
-      <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
+      {mode === "advanced" ? <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
         {([ ["setup", "Plan & levels"], ["tools", "Members & tools"], ["project", "Project"] ] as const).map(([panel, label]) => <button type="button" key={panel} aria-expanded={mobilePanel === panel} onClick={() => toggleMobilePanel(panel)}>{label}</button>)}
-      </nav>
+      </nav> : null}
       </> : sapHandoff ? <section role="status" style={{padding:24}}><h2>SAP2000 source preserved</h2><p>Simple Mode cannot safely represent this imported source yet. All imported geometry and engineering data remain in Advanced Mode.</p><button type="button" onClick={() => switchMode("advanced")}>Return to Advanced Mode</button></section> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} />}
     </div>
   );
