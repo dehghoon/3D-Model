@@ -53,10 +53,15 @@ export function projectSapGridsForGridTool(
   if(!preview || typeof preview!=="object" || Array.isArray(preview)) return model;
   const lines=(preview as {gridLines?:unknown}).gridLines;
   if(!Array.isArray(lines)) return model;
-  const positions=handoff.geometryPreview.nodes.map(n=>n.position);
+  const positions=handoff.geometryPreview.nodes;
   if(!positions.length) return model;
-  const minX=Math.min(...positions.map(p=>p.x)),maxX=Math.max(...positions.map(p=>p.x));
-  const minY=Math.min(...positions.map(p=>p.y)),maxY=Math.max(...positions.map(p=>p.y));
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for(const {position:p} of positions){
+    if(p.x<minX) minX=p.x;
+    if(p.x>maxX) maxX=p.x;
+    if(p.y<minY) minY=p.y;
+    if(p.y>maxY) maxY=p.y;
+  }
   const margin=Math.max(maxX-minX,maxY-minY,1)*0.05;
   const grids: import("@linkoteq/structural-core").GridLine[]=[];
   const usedIds=new Set<string>();
