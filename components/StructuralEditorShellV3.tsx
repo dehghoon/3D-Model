@@ -9,6 +9,7 @@ import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { detectJoistBay, layoutJoists, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
+import { readSapHandoff, type SapHandoff } from "../lib/import/sap2000-handoff";
 
 import { MEMBER_DRAW_PICK_EVENT, MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
 import { useInteractionState } from "../lib/editor/interaction-store";
@@ -72,6 +73,34 @@ export default function StructuralEditorShellV3() {
   const [joistSpacing, setJoistSpacing] = useState(1.2);
   const [joistBayError, setJoistBayError] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
+  const [sapHandoff, setSapHandoff] = useState<SapHandoff | null>(null);
+  const [sapImportError, setSapImportError] = useState("");
+  const [sapImportBusy, setSapImportBusy] = useState(false);
+  const [sapImportStatus, setSapImportStatus] = useState("Choose a .s2k or .$2k file using the file picker.");
+  const [sapSelectedMember, setSapSelectedMember] = useState<string | null>(null);
+  const sapImportFileRef = useRef<HTMLInputElement>(null);
+  async function importSap2000(file: File): Promise<void> {
+    setSapImportError("");
+    setSapImportBusy(true);
+    setSapImportStatus(`Uploading ${file.name} (${(file.size/1024).toFixed(0)} KB) to SAP2000 importer…`);
+    try {
+      if (!/\.(s2k|\$2k)$/i.test(file.name)) throw new Error("Select an SAP2000 .s2k or .$2k file.");
+      const body=new FormData();
+      body.append("file",file,file.name);
+      body.append("project_id",model.project.id);
+      const response=await fetch("/api/import/sap2000",{method:"POST",body});
+      const raw=await response.json();
+      if (!response.ok) throw new Error(typeof raw.error==="string"?raw.error:raw.detail||"SAP2000 import failed");
+      const handoff=readSapHandoff(raw);
+      setSapHandoff(handoff);
+      setSapImportStatus(`Imported ${handoff.geometryPreview.nodes.length} nodes and ${handoff.geometryPreview.members.length} frames from ${file.name}.`);
+      setSapSelectedMember(null);
+      setMode("advanced");
+    } catch(error) {
+      setSapImportError(error instanceof Error?error.message:"SAP2000 import failed");
+      setSapImportStatus(`Import failed for ${file.name}.`);
+    } finally {setSapImportBusy(false);}
+  }
   const historyRef = useRef<{ past: StructuralModel[]; future: StructuralModel[] }>({ past: [], future: [] });
   const joistDesignationRef = useRef(joistDesignation);
   joistDesignationRef.current = joistDesignation;
@@ -115,6 +144,7 @@ export default function StructuralEditorShellV3() {
     setMode(next);
   }
   function advancedChange(next: StructuralModel) {
+    if (sapHandoff) { setSapImportError("SAP_SOURCE_READ_ONLY: close imported source before editing the Core model."); return; }
     const metadata = { ...next.project.metadata };
     delete metadata.simpleFrame;
     applyModel({ ...next, project: { ...next.project, metadata } });
@@ -160,6 +190,7 @@ export default function StructuralEditorShellV3() {
   }
   function finishSurface(): void { window.dispatchEvent(new Event(SURFACE_FINISH_EVENT)); }
   function runModelTool(tool: ModelingTool): void {
+    if (sapHandoff) { setSapImportError("Imported SAP source is read-only until Core mapping is validated."); return; }
     if (tool === "Joist") { setJoistSetupOpen(true); setJoistBay(null); return; }
     setJoistSetupOpen(false);
     window.dispatchEvent(new CustomEvent(MODELING_COMMAND_EVENT, { detail: tool.toLowerCase() }));
@@ -230,6 +261,7 @@ export default function StructuralEditorShellV3() {
     setJoistSetupOpen(false);
   }
   function runUtilityTool(tool: UtilityTool): void {
+    if (sapHandoff && !["Select","View"].includes(tool)) { setSapImportError("Imported SAP source is read-only."); return; }
     window.dispatchEvent(new CustomEvent(UTILITY_COMMAND_EVENT, { detail: tool }));
     setActiveUtilityTool(tool);
   }
@@ -243,7 +275,7 @@ export default function StructuralEditorShellV3() {
           </span>
           <div>
             <strong>Structural Concept Modeler</strong>
-            <span>Core 0.5 · That Open</span>
+            <span>Core 0.6 · That Open</span>
           </div>
         </div>
         <div className="architectHistoryActions" aria-label="Edit history" style={{
@@ -291,6 +323,8 @@ export default function StructuralEditorShellV3() {
           >
             ⌑
           </button>
+          <button type="button" title="Import SAP2000 directly into Advanced Model" disabled={sapImportBusy} onClick={() => sapImportFileRef.current?.click()}>{sapImportBusy ? "Importing SAP2000…" : "Import SAP2000"}</button>
+          <input ref={sapImportFileRef} aria-label="Choose SAP2000 file (.s2k or .$2k)" type="file" accept=".s2k,.$2k,application/octet-stream,text/plain" style={{maxWidth:190,fontSize:12}} onChange={event => { const file = event.target.files?.[0]; if (file) void importSap2000(file); event.target.value = ""; }} />
           <button
             type="button"
             className="architectIconAction architectSaveAction"
@@ -451,9 +485,22 @@ export default function StructuralEditorShellV3() {
         ) : null}
 
         <div className="architectViewportColumn">
+          <p role="status" style={{fontSize:13,margin:"4px 0"}}>{sapImportStatus}</p>
+          {sapImportError ? <p role="alert">{sapImportError}</p> : null}
+          {sapHandoff ? <section aria-label="SAP2000 import summary" style={{padding:8,background:"#fff8e1",color:"#222"}}>
+            <strong>SAP2000 source geometry — NOT Core validated / NOT analysis ready</strong>
+            <span> · {sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Source units: {sapHandoff.geometryPreview.sourceUnits || "unspecified"}</span>
+            <button type="button" onClick={()=>{setSapHandoff(null);setSapSelectedMember(null);}}>Close imported source</button>
+            <details><summary>Grids, levels, engineering data, fidelity and diagnostics</summary>
+              <p>Source-defined levels: {JSON.stringify(sapHandoff.geometryPreview.sourceLevels)}</p>
+              <p>Inferred levels (not verified stories): {sapHandoff.geometryPreview.inferredLevels.length}</p>
+              <pre style={{maxHeight:220,overflow:"auto",whiteSpace:"pre-wrap"}}>{JSON.stringify({grids:sapHandoff.geometryPreview.grids,engineeringData:sapHandoff.engineeringData,importFidelity:sapHandoff.importFidelity,diagnostics:sapHandoff.diagnostics},null,2)}</pre>
+            </details>
+            {sapSelectedMember ? <details open><summary>Selected SAP member: {sapSelectedMember}</summary><pre style={{maxHeight:180,overflow:"auto"}}>{JSON.stringify({member:sapHandoff.geometryPreview.members.find(m=>m.sourceId===sapSelectedMember),propertyAssignments:sapHandoff.geometryPreview.propertyAssignments},null,2)}</pre></details> : null}
+          </section> : null}
           <div className="architectViewportStage">
             <div className="engineeringEditorStage">
-              <StructuralEditorV05 model={model} onModelChange={advancedChange} />
+              <StructuralEditorV05 model={model} onModelChange={advancedChange} sapHandoff={sapHandoff} onSapMemberSelect={setSapSelectedMember} />
             </div>
           </div>
           <div className="architectStatusbar" role="status" aria-live="polite">

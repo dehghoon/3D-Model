@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import type { SapHandoff } from "../lib/import/sap2000-handoff";
 import type { EditorSelection } from "../lib/editor/selection";
 import {
   getPublishedSelections,
@@ -44,6 +45,8 @@ import {
 
 interface Props {
   model: StructuralModel;
+  sapHandoff?: SapHandoff | null;
+  onSapMemberSelect?: (id:string|null)=>void;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
   onMultiSelect?: (
@@ -127,12 +130,19 @@ function syncSelectionHighlight(
 
 export default function ThatOpenViewportV07({
   model,
+  sapHandoff,
+  onSapMemberSelect,
   selection,
   onSelect,
   onMultiSelect,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<ThatOpenRuntime | null>(null);
+  const sourceLinesRef = useRef<THREE.LineSegments | null>(null);
+  const sourceSelectRef = useRef(onSapMemberSelect);
+  sourceSelectRef.current = onSapMemberSelect;
+  const sourceHandoffRef = useRef(sapHandoff);
+  sourceHandoffRef.current = sapHandoff;
   const modelRef = useRef(model);
   const selectionRef = useRef(selection);
   const onSelectRef = useRef(onSelect);
@@ -360,6 +370,19 @@ export default function ThatOpenViewportV07({
       start = null;
       if (!origin || origin.pointerId !== event.pointerId) return;
 
+      const source = sourceHandoffRef.current;
+      if (source && sourceLinesRef.current) {
+        const rect=canvas.getBoundingClientRect();
+        const ndc=new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
+        const raycaster=new THREE.Raycaster();
+        raycaster.params.Line={threshold:Math.max(0.12,runtime.camera.controls.distance*0.008)};
+        raycaster.setFromCamera(ndc,runtime.camera.three);
+        const hits=raycaster.intersectObject(sourceLinesRef.current,false);
+        const member=hits[0]?.index === undefined ? null : source.geometryPreview.members[hits[0].index];
+        sourceSelectRef.current?.(member?.sourceId ?? null);
+        setMarquee(null);
+        return;
+      }
       const state = getInteractionState();
       if (windowPickRef.current && state.mode === "select" && !getModelingPointTool()) {
         const point = {x:event.clientX,y:event.clientY};
@@ -637,6 +660,72 @@ export default function ThatOpenViewportV07({
     if (getModelingPointTool()) renderModelingPreview(runtime);
     else renderTransformPreview(runtime);
   }, [model, selection]);
+
+  useEffect(() => {
+    const runtime=runtimeRef.current;
+    if (!runtime) return;
+    if (sourceLinesRef.current) {
+      runtime.scene.remove(sourceLinesRef.current);
+      sourceLinesRef.current.geometry.dispose();
+      (sourceLinesRef.current.material as THREE.Material).dispose();
+      sourceLinesRef.current=null;
+    }
+    if (!sapHandoff) {
+      if (runtime.build) runtime.build.root.visible=true;
+      return;
+    }
+    const nodes=new Map(sapHandoff.geometryPreview.nodes.map(n=>[n.sourceId,n.position]));
+    const coords:number[]=[];
+    const pointCoords:number[]=[];
+    for(const n of sapHandoff.geometryPreview.nodes){
+      const p=n.position;
+      if([p.x,p.y,p.z].every(Number.isFinite)) pointCoords.push(p.x,p.z,p.y);
+    }
+    for(const m of sapHandoff.geometryPreview.members){
+      const a=nodes.get(m.startNodeId),b=nodes.get(m.endNodeId);
+      if(!a||!b) continue;
+      if(![a.x,a.y,a.z,b.x,b.y,b.z].every(Number.isFinite)) continue;
+      coords.push(a.x,a.z,a.y,b.x,b.z,b.y);
+    }
+    // Render source geometry independently of the unvalidated Core model.
+    // Keep points visible even when the imported file has no renderable frames.
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute("position",new THREE.Float32BufferAttribute(coords,3));
+    const lines=new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:0x0f766e}));
+    const pointsGeometry=new THREE.BufferGeometry();
+    pointsGeometry.setAttribute("position",new THREE.Float32BufferAttribute(pointCoords,3));
+    const points=new THREE.Points(pointsGeometry,new THREE.PointsMaterial({
+      color:0x2563eb,size:5,sizeAttenuation:false,depthTest:false,
+    }));
+    sourceLinesRef.current=lines;
+    runtime.scene.add(lines);
+    runtime.scene.add(points);
+    if(runtime.build) runtime.build.root.visible=coords.length===0 && pointCoords.length===0;
+    const bounds=new THREE.Box3();
+    if(coords.length) bounds.expandByObject(lines);
+    if(pointCoords.length) bounds.expandByObject(points);
+    if(!bounds.isEmpty()){
+      const center=bounds.getCenter(new THREE.Vector3());
+      const size=bounds.getSize(new THREE.Vector3());
+      const d=Math.max(size.x,size.y,size.z,8)*1.8;
+      void runtime.camera.controls.setLookAt(center.x+d,center.y+d*0.72,center.z+d,center.x,center.y,center.z,false);
+    } else {
+      console.error("SAP2000_VIEWPORT_NO_RENDERABLE_GEOMETRY",{
+        nodes:sapHandoff.geometryPreview.nodes.length,
+        members:sapHandoff.geometryPreview.members.length,
+      });
+    }
+    return ()=>{
+      runtime.scene.remove(lines);
+      runtime.scene.remove(points);
+      geometry.dispose();
+      pointsGeometry.dispose();
+      (lines.material as THREE.Material).dispose();
+      (points.material as THREE.Material).dispose();
+      if(sourceLinesRef.current===lines) sourceLinesRef.current=null;
+      if(runtime.build) runtime.build.root.visible=true;
+    };
+  },[sapHandoff]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;

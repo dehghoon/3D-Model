@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three";
-import { assertCanonicalV05 } from "../lib/core-v05";
-import { createStarterModelV05 } from "../lib/default-model-v05";
+import { assertCanonicalV06 } from "../lib/core-v06";
+import { createStarterModelV06 } from "../lib/default-model-v05";
 import { createMemberFromSnapPoints } from "../lib/editor/member-draw-controller";
 import { resolveSnapPoint } from "../lib/visualization/snap-resolver";
 import { copySelection } from "../lib/editor/copy-command";
@@ -14,8 +14,8 @@ const point = (x: number, y: number, z: number) => ({ point: { x, y, z }, kind: 
 
 for (const type of ["column", "beam", "brace"] as const) {
   test(`${type}: snapped points create canonical member, then copy and move preserve references`, () => {
-    const base = createStarterModelV05();
-    assertCanonicalV05(base);
+    const base = createStarterModelV06();
+    assertCanonicalV06(base);
     const start = point(30, 30, 0);
     const end = type === "column" ? point(30, 30, 3) : type === "beam" ? point(34, 30, 0) : point(34, 30, 3);
     const created = createMemberFromSnapPoints(base, { type, start, end, materialId: base.materials[0].id, sectionId: base.sections[0].id });
@@ -32,7 +32,7 @@ for (const type of ["column", "beam", "brace"] as const) {
 }
 
 test("front elevation can pick free points when the horizontal plane is parallel to the ray", () => {
-  const model = { ...createStarterModelV05(), nodes: [], members: [], grids: [] };
+  const model = { ...createStarterModelV06(), nodes: [], members: [], grids: [] };
   const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 100);
   camera.position.set(0, 0, 20);
   camera.lookAt(0, 0, 0);
@@ -45,7 +45,7 @@ test("front elevation can pick free points when the horizontal plane is parallel
 
 for (const type of ["slab", "wall"] as const) {
   test(`${type}: ordered boundary nodes survive copy and move`, () => {
-    const base = createStarterModelV05();
+    const base = createStarterModelV06();
     const nodes = [{ id: "A", position: { x: 30, y: 30, z: 0 } }, { id: "B", position: { x: 34, y: 30, z: 0 } }, { id: "C", position: type === "slab" ? { x: 34, y: 34, z: 0 } : { x: 34, y: 30, z: 3 } }];
     const created = createSurfaceFromCanonicalRefs({ ...base, nodes: [...base.nodes, ...nodes] }, { type, boundaryNodeIds: ["A", "B", "C"] });
     const copied = copySelection(created.model, { type: "surface", id: created.surface.id }, { x: 5, y: 0, z: 0 });

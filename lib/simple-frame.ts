@@ -1,6 +1,6 @@
 import type { StructuralModel } from "@linkoteq/structural-core";
-import { createStarterModelV05 } from "./default-model-v05";
-import { assertCanonicalV05 } from "./core-v05";
+import { createStarterModelV06 } from "./default-model-v05";
+import { assertCanonicalV06 } from "./core-v06";
 export type FrameAxis = "x" | "y" | "heights";
 export interface FrameBrace {
   id: string;
@@ -75,10 +75,10 @@ export function resizeBays(
 }
 export function createSimpleFrame(
   layout: FrameLayout,
-  template = createStarterModelV05(),
+  template = createStarterModelV06(),
 ): StructuralModel {
   validateLayout(layout);
-  const seed = createStarterModelV05();
+  const seed = createStarterModelV06();
   const xs = positions(layout.x),
     ys = positions(layout.y),
     zs = positions(layout.heights);
@@ -238,6 +238,6 @@ export function createSimpleFrame(
     materials: template.materials.length ? template.materials : seed.materials,
     sections: template.sections.length ? template.sections : seed.sections,
   };
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
   return model;
 }
