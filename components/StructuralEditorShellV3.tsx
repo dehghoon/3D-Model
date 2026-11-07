@@ -419,7 +419,7 @@ export default function StructuralEditorShellV3() {
               ? "Orbit / pan / zoom"
               : interaction.message}
         </span>
-        <div className="architectViewPills" aria-label="View status">
+        <div className="architectViewPills" aria-label="View status" style={mode === "simple" && sapHandoff ? {display:"none"} : undefined}>
           <span>That Open</span>
           <span>Snap: ON</span>
         </div>
