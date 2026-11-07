@@ -699,7 +699,7 @@ export default function ThatOpenViewportV07({
       color:0x2563eb,size:5,sizeAttenuation:false,depthTest:false,
     }));
     // Grid lines and labels share the same Linkoteq guide geometry and endpoints.
-    const nativeGridGuides=buildStructuralGuides({...model,levels:[]},{showGridLines:true});
+    const nativeGridGuides=buildStructuralGuides({...model,levels:[]},{showGridLines:true,sourceGridOnly:true});
     runtime.scene.add(nativeGridGuides);
     sourceLinesRef.current=lines;
     runtime.scene.add(lines);
