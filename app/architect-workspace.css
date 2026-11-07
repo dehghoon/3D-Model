@@ -178,3 +178,34 @@
   .architectStatusbar{gap:6px;padding:0 8px;font-size:8px}
   .architectStatusbar span:nth-of-type(n+3){display:none}
 }
+
+/* Keep the workspace switch accessible even when advanced toolbars overflow. */
+.architectEditorShell .architectTopbar {
+  display: flex;
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 56px;
+  overflow: visible;
+}
+.architectEditorShell .architectModeSwitch {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex: 0 0 auto;
+  order: -1;
+  position: relative;
+  z-index: 60;
+}
+.architectEditorShell .architectModeSwitch button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .architectEditorShell .architectTopbar { gap: 6px; padding: 6px; }
+  .architectEditorShell .architectModeSwitch { width: 100%; order: -1; }
+  .architectEditorShell .architectModeSwitch button { flex: 1; }
+  .architectEditorShell .architectTopActions { min-width: 0; max-width: 100%; overflow-x: auto; }
+}
