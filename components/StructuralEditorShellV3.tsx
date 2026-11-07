@@ -291,7 +291,7 @@ export default function StructuralEditorShellV3() {
             disabled={!historyRef.current.future.length} onClick={redo}
             style={{minWidth:36, minHeight:40, padding:"4px 7px", flexShrink:0}}>↷</button>
         </div>
-        <div className="architectModeSwitch" aria-label="Workspace mode">
+        <div className="architectModeSwitch" aria-label="Workspace mode" style={{display:"flex",flexShrink:0,alignItems:"center",gap:4,position:"relative",zIndex:30,visibility:"visible"}}>
           <button
             type="button"
             className={mode === "simple" ? "active" : ""}
