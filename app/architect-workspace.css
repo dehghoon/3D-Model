@@ -239,3 +239,9 @@
 .architectEditorShell.mode-simple .sapSimpleViewControls button { border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#1e293b;padding:8px 12px;min-height:38px; }
 
 .architectEditorShell.mode-simple .engineeringEditorStage .loadManagerLauncher { display:none !important; }
+
+/* Imported SAP Simple viewport: compact mobile controls and clear drawing area. */
+.architectEditorShell.mode-simple .sapSimpleViewControls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:6px 8px}
+.architectEditorShell.mode-simple .sapSimpleViewControls button{min-width:0;padding:7px 2px;font-size:clamp(10px,2.6vw,13px);min-height:34px;white-space:nowrap}
+.architectEditorShell.mode-simple .engineeringEditorStage .viewport{overflow:hidden}
+.architectEditorShell.mode-simple .engineeringEditorStage .loadManagerLauncher,.architectEditorShell.mode-simple .engineeringEditorStage .loadManager{display:none!important}
