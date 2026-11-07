@@ -428,7 +428,7 @@ export default function StructuralEditorShellV3() {
       {mode === "simple" && sapHandoff ? <nav className="sapSimpleViewControls" aria-label="Simple model view">
         <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-fit"))}>Fit model</button>
         <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("linkoteq:view-preset",{detail:"3d"}))}>3D</button>
-        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("linkoteq:view-preset",{detail:"top"}))}>Plan</button>
+        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("linkoteq:view-preset",{detail:"bottom"}))}>Plan</button>
         <button type="button" onClick={() => {window.dispatchEvent(new Event("linkoteq:view-cycle"));}}>Orbit / Pan</button>
         <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-select"))}>Select</button>
       </nav> : null}
