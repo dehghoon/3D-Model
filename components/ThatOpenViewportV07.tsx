@@ -941,7 +941,7 @@ export default function ThatOpenViewportV07({
         {interaction.preview
           ? ` · ${interaction.preview.label}`
           : ""}
-      </div>
+      </div> : null}
     </div>
   );
 }
