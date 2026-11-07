@@ -74,6 +74,7 @@ export default function StructuralEditorShellV3() {
   const [joistBayError, setJoistBayError] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
   const [sapHandoff, setSapHandoff] = useState<SapHandoff | null>(null);
+  const [sapSummaryVisible, setSapSummaryVisible] = useState(true);
   const [sapImportError, setSapImportError] = useState("");
   const [sapImportBusy, setSapImportBusy] = useState(false);
   const [sapImportStatus, setSapImportStatus] = useState("Choose a .s2k or .$2k file using the file picker.");
@@ -93,6 +94,7 @@ export default function StructuralEditorShellV3() {
       if (!response.ok) throw new Error(typeof raw.error==="string"?raw.error:raw.detail||"SAP2000 import failed");
       const handoff=readSapHandoff(raw);
       setSapHandoff(handoff);
+      setSapSummaryVisible(true);
       setSapImportStatus(`Imported ${handoff.geometryPreview.nodes.length} nodes and ${handoff.geometryPreview.members.length} frames from ${file.name}.`);
       setSapSelectedMember(null);
       setMode("advanced");
@@ -487,10 +489,10 @@ export default function StructuralEditorShellV3() {
         <div className="architectViewportColumn">
           <p role="status" style={{fontSize:13,margin:"4px 0"}}>{sapImportStatus}</p>
           {sapImportError ? <p role="alert">{sapImportError}</p> : null}
-          {sapHandoff ? <section aria-label="SAP2000 import summary" style={{padding:8,background:"#fff8e1",color:"#222"}}>
+          {sapHandoff && sapSummaryVisible ? <section aria-label="SAP2000 import summary" style={{padding:8,background:"#fff8e1",color:"#222"}}>
             <strong>SAP2000 source geometry — NOT Core validated / NOT analysis ready</strong>
             <span> · {sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Source units: {sapHandoff.geometryPreview.sourceUnits || "unspecified"}</span>
-            <button type="button" onClick={()=>{setSapHandoff(null);setSapSelectedMember(null);}}>Close imported source</button>
+            <button type="button" onClick={()=>setSapSummaryVisible(false)}>Close summary</button>
             <details><summary>Grids, levels, engineering data, fidelity and diagnostics</summary>
               <p>Source-defined levels: {JSON.stringify(sapHandoff.geometryPreview.sourceLevels)}</p>
               <p>Inferred levels (not verified stories): {sapHandoff.geometryPreview.inferredLevels.length}</p>
