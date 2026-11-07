@@ -670,31 +670,58 @@ export default function ThatOpenViewportV07({
       (sourceLinesRef.current.material as THREE.Material).dispose();
       sourceLinesRef.current=null;
     }
-    if (runtime.build) runtime.build.root.visible=!sapHandoff;
-    if (!sapHandoff) return;
+    if (!sapHandoff) {
+      if (runtime.build) runtime.build.root.visible=true;
+      return;
+    }
     const nodes=new Map(sapHandoff.geometryPreview.nodes.map(n=>[n.sourceId,n.position]));
     const coords:number[]=[];
+    const pointCoords:number[]=[];
+    for(const n of sapHandoff.geometryPreview.nodes){
+      const p=n.position;
+      if([p.x,p.y,p.z].every(Number.isFinite)) pointCoords.push(p.x,p.z,p.y);
+    }
     for(const m of sapHandoff.geometryPreview.members){
       const a=nodes.get(m.startNodeId),b=nodes.get(m.endNodeId);
       if(!a||!b) continue;
+      if(![a.x,a.y,a.z,b.x,b.y,b.z].every(Number.isFinite)) continue;
       coords.push(a.x,a.z,a.y,b.x,b.z,b.y);
     }
+    // Render source geometry independently of the unvalidated Core model.
+    // Keep points visible even when the imported file has no renderable frames.
     const geometry=new THREE.BufferGeometry();
     geometry.setAttribute("position",new THREE.Float32BufferAttribute(coords,3));
     const lines=new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:0x0f766e}));
+    const pointsGeometry=new THREE.BufferGeometry();
+    pointsGeometry.setAttribute("position",new THREE.Float32BufferAttribute(pointCoords,3));
+    const points=new THREE.Points(pointsGeometry,new THREE.PointsMaterial({
+      color:0x2563eb,size:5,sizeAttenuation:false,depthTest:false,
+    }));
     sourceLinesRef.current=lines;
     runtime.scene.add(lines);
-    const bounds=new THREE.Box3().setFromObject(lines);
+    runtime.scene.add(points);
+    if(runtime.build) runtime.build.root.visible=coords.length===0 && pointCoords.length===0;
+    const bounds=new THREE.Box3();
+    if(coords.length) bounds.expandByObject(lines);
+    if(pointCoords.length) bounds.expandByObject(points);
     if(!bounds.isEmpty()){
       const center=bounds.getCenter(new THREE.Vector3());
       const size=bounds.getSize(new THREE.Vector3());
       const d=Math.max(size.x,size.y,size.z,8)*1.8;
-      void runtime.camera.controls.setLookAt(center.x+d,center.y+d*0.72,center.z+d,center.x,center.y,center.z,true);
+      void runtime.camera.controls.setLookAt(center.x+d,center.y+d*0.72,center.z+d,center.x,center.y,center.z,false);
+    } else {
+      console.error("SAP2000_VIEWPORT_NO_RENDERABLE_GEOMETRY",{
+        nodes:sapHandoff.geometryPreview.nodes.length,
+        members:sapHandoff.geometryPreview.members.length,
+      });
     }
     return ()=>{
       runtime.scene.remove(lines);
+      runtime.scene.remove(points);
       geometry.dispose();
+      pointsGeometry.dispose();
       (lines.material as THREE.Material).dispose();
+      (points.material as THREE.Material).dispose();
       if(sourceLinesRef.current===lines) sourceLinesRef.current=null;
       if(runtime.build) runtime.build.root.visible=true;
     };
