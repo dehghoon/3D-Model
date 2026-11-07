@@ -97,6 +97,7 @@ export function projectSapGeometryForEditing(
   handoff: SapHandoff,
 ): import("@linkoteq/structural-core").StructuralModel {
   const ids = new Map(handoff.geometryPreview.nodes.map((node, i) => [node.sourceId, "SAP-N-" + i]));
+  const sourcePositions = new Map(handoff.geometryPreview.nodes.map(node => [node.sourceId,node.position]));
   const levels = [...template.levels];
   const fallbackLevel = levels[0]?.id;
   const materialId = template.materials[0]?.id;
@@ -109,8 +110,8 @@ export function projectSapGeometryForEditing(
   }));
   const members: import("@linkoteq/structural-core").StructuralModel["members"] =
     handoff.geometryPreview.members.map((member,i) => {
-      const a = handoff.geometryPreview.nodes.find(node=>node.sourceId===member.startNodeId)?.position;
-      const b = handoff.geometryPreview.nodes.find(node=>node.sourceId===member.endNodeId)?.position;
+      const a = sourcePositions.get(member.startNodeId);
+      const b = sourcePositions.get(member.endNodeId);
       const type: "beam"|"column"|"brace" = a && b && Math.abs(a.z-b.z)>Math.hypot(a.x-b.x,a.y-b.y)*2 ? "column" : "beam";
       return {
         id:"SAP-M-"+i, type,
