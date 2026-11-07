@@ -514,7 +514,7 @@ export default function StructuralEditorShellV3() {
           </section> : null}
           <div className="architectViewportStage">
             <div className="engineeringEditorStage">
-              <StructuralEditorV05 model={gridToolModel} onModelChange={advancedChange} sapHandoff={sapHandoff} onSapMemberSelect={setSapSelectedMember} />
+              <StructuralEditorV05 model={gridToolModel} onModelChange={advancedChange} sapHandoff={sapHandoff} simpleMode={mode === "simple" && !!sapHandoff} onSapMemberSelect={setSapSelectedMember} />
             </div>
           </div>
           <div className="architectStatusbar" role="status" aria-live="polite">
