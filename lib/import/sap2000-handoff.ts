@@ -39,3 +39,45 @@ export function readSapHandoff(raw:unknown):SapHandoff {
   }
   return v as SapHandoff;
 }
+
+/**
+ * Source-only projection for the existing Grid tool. This is NOT a validated
+ * analytical Core import: source units and original metadata stay in SapHandoff.
+ * Only GLOBAL Cartesian X/Y lines can be represented by the offset Grid tool.
+ */
+export function projectSapGridsForGridTool(
+  model: import("@linkoteq/structural-core").StructuralModel,
+  handoff: SapHandoff,
+): import("@linkoteq/structural-core").StructuralModel {
+  const preview=handoff.geometryPreview.grids;
+  if(!preview || typeof preview!=="object" || Array.isArray(preview)) return model;
+  const lines=(preview as {gridLines?:unknown}).gridLines;
+  if(!Array.isArray(lines)) return model;
+  const positions=handoff.geometryPreview.nodes.map(n=>n.position);
+  if(!positions.length) return model;
+  const minX=Math.min(...positions.map(p=>p.x)),maxX=Math.max(...positions.map(p=>p.x));
+  const minY=Math.min(...positions.map(p=>p.y)),maxY=Math.max(...positions.map(p=>p.y));
+  const margin=Math.max(maxX-minX,maxY-minY,1)*0.05;
+  const grids: import("@linkoteq/structural-core").GridLine[]=[];
+  const usedIds=new Set<string>();
+  for(const [index,item] of lines.entries()){
+    if(!item || typeof item!=="object") continue;
+    const g=item as {id?:unknown;axis?:unknown;coordinate?:unknown;coordinateSystem?:unknown};
+    if(g.coordinateSystem!=="GLOBAL" || (g.axis!=="X" && g.axis!=="Y") ||
+      typeof g.id!=="string" || !g.id.trim()) continue;
+    if(typeof g.coordinate!=="string" || !g.coordinate.trim()) continue;
+    const coordinate=Number(g.coordinate);
+    if(!Number.isFinite(coordinate)) continue;
+    const id="sap-source-grid-"+index;
+    if(usedIds.has(id)) continue;
+    usedIds.add(id);
+    grids.push({
+      id,label:g.id,
+      start:g.axis==="X"?{x:coordinate,y:minY-margin,z:0}:{x:minX-margin,y:coordinate,z:0},
+      end:g.axis==="X"?{x:coordinate,y:maxY+margin,z:0}:{x:maxX+margin,y:coordinate,z:0},
+    });
+  }
+  // Preserve all source grids (including deferred/Z grids) in handoff.
+  // Do not present the proxy as a validated or analysis-ready model.
+  return {...model,grids};
+}
