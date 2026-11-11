@@ -15,8 +15,8 @@ function normalizeRequest(input: Record<string, unknown>) {
 // federated before this guard can replace the existing production route.
 async function authorizeCustomerSnow(request: NextRequest): Promise<401 | 403 | 503 | null> {
   const authorization = request.headers.get("authorization") ?? "";
-  if (!/^Bearer\\s+\\S+$/i.test(authorization)) return 401;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\\/$/, "");
+  if (!/^Bearer\s+\S+$/i.test(authorization)) return 401;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return 503;
   const headers = { apikey: key, authorization, "Content-Type": "application/json" };
