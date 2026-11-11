@@ -23,6 +23,11 @@ async function authorizeCustomerSnow(request: NextRequest): Promise<401 | 403 | 
   try {
     const user = await fetch(url + "/auth/v1/user", { headers, cache: "no-store" });
     if (!user.ok) return user.status >= 500 ? 503 : 401;
+    const internal = await fetch(url + "/rest/v1/rpc/has_internal_engineering_tool_access", {
+      method: "POST", headers, body: JSON.stringify({ p_tool_key: "snow_load" }), cache: "no-store"
+    });
+    if (!internal.ok) return 503;
+    if (await internal.json() === true) return null;
     const grant = await fetch(url + "/rest/v1/rpc/has_active_customer_tool_trial", {
       method: "POST", headers, body: JSON.stringify({ p_tool_key: "snow_load" }), cache: "no-store"
     });
