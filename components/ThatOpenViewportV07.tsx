@@ -761,7 +761,7 @@ export default function ThatOpenViewportV07({
       if(sourceLinesRef.current===lines) sourceLinesRef.current=null;
       if(runtime.build) runtime.build.root.visible=true;
     };
-  },[sapHandoff,model]);
+  },[sapHandoff,model.project.metadata?.sourceHash]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
