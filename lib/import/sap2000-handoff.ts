@@ -98,27 +98,39 @@ export function projectSapGeometryForEditing(
 ): import("@linkoteq/structural-core").StructuralModel {
   const ids = new Map(handoff.geometryPreview.nodes.map((node, i) => [node.sourceId, "SAP-N-" + i]));
   const sourcePositions = new Map(handoff.geometryPreview.nodes.map(node => [node.sourceId,node.position]));
-  const levels = [...template.levels];
-  const fallbackLevel = levels[0]?.id;
+  // Imported geometry must never inherit unrelated default-frame storeys.
+  const elevations = [...new Set(handoff.geometryPreview.nodes.map(n => n.position.z))]
+    .filter(Number.isFinite).sort((a,b) => a-b);
+  const levels = elevations.map((elevation,i) => ({
+    id:"SAP-L-"+i,
+    name:i===0?"Base":"Level "+i,
+    elevation,
+  }));
+  const nearestLevel = (z:number) => levels.reduce((best,level) =>
+    Math.abs(level.elevation-z)<Math.abs(best.elevation-z)?level:best,levels[0]).id;
   const materialId = template.materials[0]?.id;
   const sectionId = template.sections[0]?.id;
-  if (!materialId || !sectionId) throw new Error("SAP_EDITABLE_PROJECTION_REQUIRES_CATALOG");
+  if (!materialId || !sectionId || !levels.length) throw new Error("SAP_EDITABLE_PROJECTION_REQUIRES_CATALOG_AND_LEVELS");
   const nodes = handoff.geometryPreview.nodes.map(node => ({
     id: ids.get(node.sourceId)!,
     position: {...node.position},
-    ...(fallbackLevel ? {levelId:fallbackLevel} : {}),
+    levelId:nearestLevel(node.position.z),
   }));
   const members: import("@linkoteq/structural-core").StructuralModel["members"] =
     handoff.geometryPreview.members.map((member,i) => {
-      const a = sourcePositions.get(member.startNodeId);
-      const b = sourcePositions.get(member.endNodeId);
-      const type: "beam"|"column"|"brace" = a && b && Math.abs(a.z-b.z)>Math.hypot(a.x-b.x,a.y-b.y)*2 ? "column" : "beam";
+      const a = sourcePositions.get(member.startNodeId)!;
+      const b = sourcePositions.get(member.endNodeId)!;
+      const vertical = Math.abs(a.z-b.z);
+      const horizontal = Math.hypot(a.x-b.x,a.y-b.y);
+      const type: "beam"|"column"|"brace" =
+        vertical > 1e-7 && horizontal > 1e-7 ? "brace" :
+        vertical > horizontal ? "column" : "beam";
       return {
         id:"SAP-M-"+i, type,
         startNodeId:ids.get(member.startNodeId)!,
         endNodeId:ids.get(member.endNodeId)!,
         materialId,sectionId,
-        ...(fallbackLevel ? {levelId:fallbackLevel} : {}),
+        levelId:nearestLevel(Math.max(a.z,b.z)),
       };
     });
   const projected = projectSapGridsForGridTool(template,handoff);
@@ -130,6 +142,6 @@ export function projectSapGeometryForEditing(
       sourceHash:handoff.sourceHash,
       importGeometryStatus:"editable-unverified",
     }},
-    nodes,members,
+    nodes,members,levels,
   };
 }
