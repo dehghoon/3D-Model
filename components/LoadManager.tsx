@@ -300,7 +300,7 @@ export default function LoadManager({
     <>
       {createPortal(
         <>
-          <button className="loadManagerLauncher" onClick={() => { onEndTargetSelection(); setOpen(true); }}>Loads</button>
+          <div className="loadManagerLauncherGroup"><button type="button" className="loadManagerLauncher" aria-label="Open Loads panel" onClick={() => { onEndTargetSelection(); setOpen(true); }}>Loads</button></div>
           {open && (
             <div className="loadManagerBackdrop" onClick={() => setOpen(false)}>
               <aside className="loadManagerDrawer" onClick={(event) => event.stopPropagation()}>
