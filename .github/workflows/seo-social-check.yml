@@ -1,22 +1,22 @@
 name: SEO and social baseline
 on:
-  pull_request:
-  push:
+          pull_request:
+          push:
     branches: [main]
-  workflow_dispatch:
+          workflow_dispatch:
 jobs:
-  seo:
+          seo:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Validate public tool metadata and discovery files
         run: |
           python3 - <<'PY'
-  from pathlib import Path
-  p=Path('app/layout.tsx')
-  s=p.read_text().lower()
-  checks={'title':'<title>' in s or 'title:' in s,'description':'description' in s,'canonical':'canonical' in s,'open graph':'og:title' in s or 'opengraph' in s,'domain':'3dmodel.linkoteq.com' in s,'robots':Path('public/robots.txt').exists(),'sitemap':Path('public/sitemap.xml').exists()}
-  for name,ok in checks.items(): print(('PASS' if ok else 'FAIL')+' '+name)
-  assert all(checks.values()), 'SEO contract baseline failed'
-  
+          from pathlib import Path
+          p=Path('app/layout.tsx')
+          s=p.read_text().lower()
+          checks={'title':'<title>' in s or 'title:' in s,'description':'description' in s,'canonical':'canonical' in s,'open graph':'og:title' in s or 'opengraph' in s,'domain':'3dmodel.linkoteq.com' in s,'robots':Path('public/robots.txt').exists(),'sitemap':Path('public/sitemap.xml').exists()}
+          for name,ok in checks.items(): print(('PASS' if ok else 'FAIL')+' '+name)
+          assert all(checks.values()), 'SEO contract baseline failed'
+          
           PY
