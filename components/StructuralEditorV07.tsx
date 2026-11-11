@@ -35,7 +35,7 @@ type ConcreteSelection = Exclude<EditorSelection, null>;
 
 function emptyModel(): StructuralModel {
   return {
-    schemaVersion: "0.6",
+    schemaVersion: "0.6" as StructuralModel["schemaVersion"],
     project: { id: "PROJECT001", name: "3D Model", units: "SI" },
     levels: [],
     grids: [],
