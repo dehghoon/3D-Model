@@ -2,14 +2,14 @@
 
 import { getJoistDesignationCandidates, SJI_LOAD_TABLE_SOURCE } from "../lib/catalogs/sji-joist-designations";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import StructuralEditorV05 from "./StructuralEditorV05";
 import SimpleFrameModeler from "./SimpleFrameModeler";
 import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { detectJoistBay, layoutJoists, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
-import { projectSapGridsForGridTool, projectSapGeometryForEditing, readSapHandoff, type SapHandoff } from "../lib/import/sap2000-handoff";
+import { projectSapGeometryForEditing, readSapHandoff, type SapHandoff } from "../lib/import/sap2000-handoff";
 
 import { MEMBER_DRAW_PICK_EVENT, MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
 import { useInteractionState } from "../lib/editor/interaction-store";
@@ -74,7 +74,7 @@ export default function StructuralEditorShellV3() {
   const [joistBayError, setJoistBayError] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
   const [sapHandoff, setSapHandoff] = useState<SapHandoff | null>(null);
-  const gridToolModel = useMemo(() => sapHandoff ? projectSapGridsForGridTool(model,sapHandoff) : model,[model,sapHandoff]);
+  const gridToolModel = model; // Imported grids are already part of editable Core geometry.
   const [sapSummaryVisible, setSapSummaryVisible] = useState(true);
   const [sapImportError, setSapImportError] = useState("");
   const [sapImportBusy, setSapImportBusy] = useState(false);
