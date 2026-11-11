@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://3dmodel.linkoteq.com/sitemap.xml

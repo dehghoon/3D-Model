@@ -20,8 +20,11 @@ import "./point-input.css";
 import "./simple-frame.css";
 
 export const metadata = {
-  title: "LinkoTeq 3D Structural Model",
-  description: "Create, load, and prepare structural models for connected engineering analysis."
+  title: "3D Structural Modeling Editor (Beta) | Linkoteq",
+  description: "Explore Linkoteq's beta 3D structural modeling editor for grids, beams, columns and model import. Features are under development and require appropriate access.",
+  alternates: { canonical: "https://3dmodel.linkoteq.com/" },
+  robots: { index: true, follow: true },
+  openGraph: { title: "3D Structural Modeling Editor (Beta) | Linkoteq", description: "Explore Linkoteq's beta 3D structural modeling editor for grids, beams, columns and model import. Features are under development and require appropriate access.", url: "https://3dmodel.linkoteq.com/", type: "website" as const },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
