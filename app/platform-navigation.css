@@ -28,3 +28,7 @@
  .platformNav .mobileGroupLabel {padding:12px 12px 4px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#56718b}
 }
 @media(prefers-reduced-motion:reduce) {.platformNav * {transition:none!important}}
+
+/* Reserve viewport height for the two-row site header without changing editor tools. */
+.modelEditorArea {height:calc(100dvh - 120px)!important;min-height:0!important}
+@media(max-width:900px){.modelEditorArea {height:calc(100dvh - 66px)!important}}
