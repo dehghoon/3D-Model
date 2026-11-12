@@ -1,24 +1,30 @@
-/* Isolated platform navigation; does not alter the modeling toolbar or canvas. */
-.platformNav {height:56px;flex:0 0 56px;display:flex;align-items:center;gap:24px;padding:0 clamp(14px,2vw,32px);background:#fff;border-bottom:1px solid #dce6ee;color:#102b49;position:relative;z-index:1250;font-family:Inter,"Segoe UI",Arial,sans-serif;box-shadow:0 3px 14px rgba(16,43,73,.06)}
-.platformNav a {color:inherit;text-decoration:none;font-size:14px;font-weight:650}
-.platformNav a:hover {color:#1765bb}
-.platformBrand {font-size:18px!important;font-weight:850!important;letter-spacing:.06em;white-space:nowrap}
-.platformBrand span {font-size:11px;color:#67809a;letter-spacing:.03em}
-.platformDesktopLinks {display:flex;gap:clamp(12px,2vw,28px);align-items:center;margin-left:auto}
-.platformDesktopLinks a[aria-current="page"] {color:#1765bb;border-bottom:2px solid #1765bb;padding:17px 0}
-.platformAccount {padding:9px 15px;border-radius:10px;background:#102b49;color:white!important}
-.platformMobileToggle {display:none;border:1px solid #dce6ee;border-radius:9px;background:white;padding:9px 12px;font-size:14px;font-weight:700}
-.platformMobileLinks {display:none}
-.platformNav a:focus-visible,.platformNav button:focus-visible {outline:3px solid #14a9b4;outline-offset:3px}
-.modelEditorArea {height:calc(100dvh - 56px)!important;min-height:0!important}
-@media(max-width:850px) {
- .platformNav {height:52px;flex-basis:52px;gap:10px}
- .platformBrand {font-size:15px!important}
- .platformDesktopLinks,.platformAccount {display:none}
- .platformMobileToggle {display:block;margin-left:auto}
- .platformMobileLinks.isOpen {display:grid;position:absolute;top:100%;left:0;right:0;background:#fff;padding:12px 16px;box-shadow:0 16px 30px rgba(16,43,73,.16);max-height:calc(100dvh - 52px);overflow:auto}
- .platformMobileLinks a {padding:12px 10px;min-height:44px;border-radius:8px;font-size:15px}
- .platformMobileLinks a:hover {background:#edf5ff}
- .platformMobileLinks small {font-size:11px;color:#527493;margin-left:10px}
- .modelEditorArea {height:calc(100dvh - 52px)!important;min-height:0!important}
+/* Linkoteq navigation shell aligned with Main-website platform-refresh.css.
+   Scoped to avoid altering the 3D modeling controls. */
+.platformNav {--brand-navy:#102b49;--brand-blue:#1765bb;--brand-cyan:#14a9b4;--brand-border:#dce6ee;display:block;position:relative;z-index:1250;background:white;color:var(--brand-navy);font-family:Inter,"Segoe UI",Arial,sans-serif;border-bottom:1px solid var(--brand-border);box-shadow:0 6px 24px rgba(16,43,73,.07)}
+.platformNav * {box-sizing:border-box}
+.platformNav a {color:inherit;text-decoration:none}
+.platformNav .utilityBar {min-height:76px;max-width:1500px;margin:auto;display:flex;align-items:center;gap:24px;padding:0 24px}
+.platformNav .utilityBrand {display:inline-flex;align-items:center;white-space:nowrap;font-size:20px;font-weight:800;letter-spacing:.03em}
+.platformNav .utilityBrand small {font-size:11px;color:#56718b;margin-left:8px}
+.platformNav .utilityNav {display:flex;align-items:center;gap:24px;margin-left:auto;font-size:14px;font-weight:650}
+.platformNav .navMenu {position:relative}
+.platformNav .navMenuButton {font:inherit;color:inherit;background:transparent;border:0;padding:16px 0;cursor:pointer}
+.platformNav .navDropdown {display:none;position:absolute;top:100%;left:0;min-width:225px;padding:8px;background:white;border:1px solid var(--brand-border);border-radius:12px;box-shadow:0 16px 35px rgba(16,43,73,.16)}
+.platformNav .navMenu:hover .navDropdown,.platformNav .navMenu:focus-within .navDropdown {display:grid}
+.platformNav .navDropdown a {display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 12px;border-radius:8px}
+.platformNav .navDropdown a:hover,.platformNav .mobileMenuPanel a:hover {background:#eef6ff}
+.platformNav .toolStatus {font-size:11px;font-weight:750;color:#38618b;background:#edf5ff;border-radius:100px;padding:4px 7px}
+.platformNav .navCta {padding:10px 16px;border-radius:100px;background:var(--brand-navy);color:white;font-size:14px;font-weight:700}
+.platformNav .primaryBar {display:flex;align-items:center;gap:30px;padding:12px max(24px,calc((100vw - 1452px)/2));background:#f7fafc;font-size:14px;font-weight:650;border-top:1px solid var(--brand-border)}
+.platformNav .mobileMenuToggle,.platformNav .mobileMenuPanel {display:none}
+.platformNav a:focus-visible,.platformNav button:focus-visible {outline:3px solid var(--brand-cyan);outline-offset:3px;border-radius:6px}
+@media(max-width:900px) {
+ .platformNav .utilityBar {min-height:66px;padding:10px 18px;gap:12px}
+ .platformNav .utilityBrand {font-size:17px}
+ .platformNav .utilityNav,.platformNav .primaryBar,.platformNav .navCta {display:none}
+ .platformNav .mobileMenuToggle {display:inline-flex;margin-left:auto;align-items:center;gap:8px;padding:10px 12px;background:white;border:1px solid var(--brand-border);border-radius:10px;color:var(--brand-navy);font-size:14px;font-weight:700}
+ .platformNav .mobileMenuPanel.isOpen {display:grid;gap:4px;padding:12px 18px 22px;max-height:calc(100dvh - 66px);overflow:auto;border-top:1px solid var(--brand-border)}
+ .platformNav .mobileMenuPanel a {display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:10px 12px;border-radius:9px;font-size:15px;font-weight:650}
+ .platformNav .mobileGroupLabel {padding:12px 12px 4px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#56718b}
 }
+@media(prefers-reduced-motion:reduce) {.platformNav * {transition:none!important}}
