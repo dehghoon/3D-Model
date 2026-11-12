@@ -32,6 +32,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head><link rel="stylesheet" href="https://linkoteq.com/design-system/linkoteq-shell-v1.css" /></head>
       <body><PlatformNavigation />{children}</body>
     </html>
   );
