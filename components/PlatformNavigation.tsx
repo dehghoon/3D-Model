@@ -11,7 +11,7 @@ export default function PlatformNavigation(){
  const [open,setOpen]=useState(false);
  return <header className="platformNav">
   <div className="utilityBar">
-   <a className="utilityBrand" href={home+"/"} aria-label="Linkoteq home">LINKOTEQ <small>3D MODEL</small></a>
+   <a className="utilityBrand" href={home+"/"} aria-label="Linkoteq home"><img src={home+"/linko-logo-final.svg"} alt="LinkoTech Engineering Technology" width={220} height={55} /></a>
    <nav className="utilityNav" aria-label="Linkoteq utility navigation">
     <a href={home+"/"}>Home</a>
     <div className="navMenu"><button className="navMenuButton" type="button" aria-haspopup="true">Contact ▾</button><div className="navDropdown"><a href={home+"/contact"}>Contact Us</a><a href="https://discovery.linkoteq.com/">Customer Discovery</a><a href={home+"/contact/support"}>Support</a></div></div>
