@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import "./globals.css";
 import "./load-manager-fix.css";
 import "./overrides.css";
@@ -33,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head><script defer src="https://linkoteq.com/design-system/linkoteq-header-v1.js" /></head>
-      <body><linkoteq-header />{children}</body>
+      <body>{createElement('linkoteq-header')}{children}</body>
     </html>
   );
 }
