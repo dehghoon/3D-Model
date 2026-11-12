@@ -19,7 +19,7 @@ import "./engineering-properties-v05.css";
 import "./point-input.css";
 import "./simple-frame.css";
 import "./platform-navigation.css";
-import PlatformNavigation from "../components/PlatformNavigation";
+
 
 export const metadata = {
   title: "3D Structural Modeling Editor (Beta) | Linkoteq",
@@ -32,8 +32,8 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head><link rel="stylesheet" href="https://linkoteq.com/design-system/linkoteq-shell-v1.css" /></head>
-      <body><PlatformNavigation />{children}</body>
+      <head><script defer src="https://linkoteq.com/design-system/linkoteq-header-v1.js" /></head>
+      <body><linkoteq-header />{children}</body>
     </html>
   );
 }
