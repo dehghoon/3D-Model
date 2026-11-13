@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import FrameCatalogToolbar, { FrameSectionPicker } from "./FrameCatalogToolbar";
 import FrameBraceControls from "./FrameBraceControls";
 import {
@@ -160,7 +160,7 @@ export default function SimpleFrameModeler({
   const [surfaceNodePickMode, setSurfaceNodePickMode] = useState(false);
   const [newSurfaceType, setNewSurfaceType] = useState<"slab"|"wall"|null>(null);
   const [filter, setFilter] = useState("all");
-  const nodeById = new Map(model.nodes.map(node=>[node.id,node]));
+  const nodeById = useMemo(() => new Map(model.nodes.map(node=>[node.id,node])), [model.nodes]);
   const current = useRef({ model, layout, onChange });
   current.current = { model, layout, onChange };
   useEffect(() => {
@@ -986,8 +986,8 @@ export default function SimpleFrameModeler({
                   strokeWidth={selectedSurfaceId===surface.id ? 3 : 1}
                   role="button" tabIndex={0}
                   aria-label={`Select ${surface.type} area ${surface.metadata?.sourceAreaId ?? surface.id}`}
-                  onClick={(e)=>{e.stopPropagation();setSelectedSurfaceId(surface.id);setSurfaceBoundaryDraft(surface.boundaryNodeIds.join(", "));setSurfaceEditError("");setSelectedId(null);}}
-                  onKeyDown={(e)=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();setSelectedSurfaceId(surface.id);setSurfaceBoundaryDraft(surface.boundaryNodeIds.join(", "));setSurfaceEditError("");setSelectedId(null);}}}>
+                  onClick={(e)=>{e.stopPropagation();if(newSurfaceType || surfaceNodePickMode) return;setSelectedSurfaceId(surface.id);setSurfaceBoundaryDraft(surface.boundaryNodeIds.join(", "));setSurfaceEditError("");setSelectedId(null);}}
+                  onKeyDown={(e)=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();if(newSurfaceType || surfaceNodePickMode) return;setSelectedSurfaceId(surface.id);setSurfaceBoundaryDraft(surface.boundaryNodeIds.join(", "));setSurfaceEditError("");setSelectedId(null);}}}>
                   <title>{surface.type} · {surface.metadata?.sourceAreaId ?? surface.id} · unverified geometry</title>
                 </polygon>
               );
