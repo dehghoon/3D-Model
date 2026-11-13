@@ -267,6 +267,10 @@ export default function SimpleFrameModeler({
   }
   const generated = typeof model.project.metadata?.simpleFrame === "string";
   function update(next: FrameLayout, replace = false, template = model) {
+    if (importedGeometry) {
+      setError("Imported SAP2000 geometry cannot be regenerated with Quick Frame controls. Use Advanced for geometry changes.");
+      return;
+    }
     if (!generated && !replace) {
       setError(
         "Create a quick frame first, or continue in Advanced to keep the current model.",
@@ -963,7 +967,7 @@ export default function SimpleFrameModeler({
                 .filter(
                   (m) =>
                     (filter === "all" || m.type === filter) &&
-                    (!plan ||
+                    (!plan || importedGeometry ||
                       m.type !== "column" ||
                       m.levelId === model.levels.at(-1)?.id),
                 )
