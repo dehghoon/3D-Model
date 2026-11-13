@@ -394,7 +394,7 @@ export default function ThatOpenViewportV07({
       if (!origin || origin.pointerId !== event.pointerId) return;
 
       const source = sourceHandoffRef.current;
-      if (source && sourceLinesRef.current && !getModelingPointTool() && getInteractionState().mode === "select") {
+      if (source && sourceLinesRef.current && !getModelingPointTool() && getInteractionState().mode === "select" && isTapGesture(origin.x, origin.y, event.clientX, event.clientY, origin.pointerType)) {
         const rect=canvas.getBoundingClientRect();
         const ndc=new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
         const raycaster=new THREE.Raycaster();
@@ -403,8 +403,7 @@ export default function ThatOpenViewportV07({
         const hits=raycaster.intersectObject(sourceLinesRef.current,false);
         const member=hits[0]?.index === undefined ? null : source.geometryPreview.members[hits[0].index];
         sourceSelectRef.current?.(member?.sourceId ?? null);
-        setMarquee(null);
-        return;
+        // Source inspection must not consume native member selection, marquee, or editing.
       }
       const state = getInteractionState();
       if (windowPickRef.current && state.mode === "select" && !getModelingPointTool()) {
