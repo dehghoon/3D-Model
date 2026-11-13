@@ -394,7 +394,7 @@ export default function ThatOpenViewportV07({
       if (!origin || origin.pointerId !== event.pointerId) return;
 
       const source = sourceHandoffRef.current;
-      if (source && sourceLinesRef.current) {
+      if (source && sourceLinesRef.current && !getModelingPointTool() && getInteractionState().mode === "select") {
         const rect=canvas.getBoundingClientRect();
         const ndc=new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
         const raycaster=new THREE.Raycaster();
