@@ -52,6 +52,25 @@ function validateSurfaceGeometry(model: StructuralModel, ids: string[]): void {
   }
   const norm=Math.hypot(nx,ny,nz);
   if(norm<=tolerance*tolerance) throw new Error("SURFACE_ZERO_PROJECTED_AREA");
+  // Project to the plane with the largest normal component, then reject crossing edges.
+  const axis=Math.abs(nx)>=Math.abs(ny) && Math.abs(nx)>=Math.abs(nz) ? "x" :
+    Math.abs(ny)>=Math.abs(nz) ? "y" : "z";
+  const projected=vertices.map(p=>axis==="x" ? {u:p.y,v:p.z} :
+    axis==="y" ? {u:p.x,v:p.z} : {u:p.x,v:p.y});
+  const orient=(a:{u:number;v:number},b:{u:number;v:number},p:{u:number;v:number})=>
+    (b.u-a.u)*(p.v-a.v)-(b.v-a.v)*(p.u-a.u);
+  const intersects=(a:{u:number;v:number},b:{u:number;v:number},p:{u:number;v:number},q:{u:number;v:number})=>{
+    const abp=orient(a,b,p),abq=orient(a,b,q),pqa=orient(p,q,a),pqb=orient(p,q,b);
+    const eps=tolerance*tolerance;
+    return ((abp>eps && abq< -eps)||(abp< -eps && abq>eps)) &&
+      ((pqa>eps && pqb< -eps)||(pqa< -eps && pqb>eps));
+  };
+  for(let i=0;i<projected.length;i++) for(let j=i+1;j<projected.length;j++){
+    if(j===i+1 || (i===0 && j===projected.length-1)) continue;
+    if(intersects(projected[i],projected[(i+1)%projected.length],
+      projected[j],projected[(j+1)%projected.length]))
+      throw new Error("SURFACE_SELF_INTERSECTING_BOUNDARY");
+  }
   const planeTolerance=Math.max(1e-8,scale*1e-7);
   for(const point of vertices){
     const distance=Math.abs((point.x-origin.x)*nx+(point.y-origin.y)*ny+(point.z-origin.z)*nz)/norm;
