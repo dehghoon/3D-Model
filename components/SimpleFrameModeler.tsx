@@ -22,7 +22,7 @@ import {
   subscribeDisplayOptions,
 } from "../lib/visualization/display-options-store";
 import type { StructuralModel } from "@linkoteq/structural-core";
-import {deleteSurfaceFromCanonicalRefs, updateSurfaceBoundaryFromCanonicalRefs} from "../lib/editor-surface-v05";
+import {createSurfaceFromCanonicalRefs, deleteSurfaceFromCanonicalRefs, updateSurfaceBoundaryFromCanonicalRefs} from "../lib/editor-surface-v05";
 import {
   createSimpleFrame,
   DEFAULT_FRAME,
@@ -158,6 +158,7 @@ export default function SimpleFrameModeler({
   const [surfaceBoundaryDraft, setSurfaceBoundaryDraft] = useState("");
   const [surfaceEditError, setSurfaceEditError] = useState("");
   const [surfaceNodePickMode, setSurfaceNodePickMode] = useState(false);
+  const [newSurfaceType, setNewSurfaceType] = useState<"slab"|"wall"|null>(null);
   const [filter, setFilter] = useState("all");
   const current = useRef({ model, layout, onChange });
   current.current = { model, layout, onChange };
@@ -990,7 +991,7 @@ export default function SimpleFrameModeler({
                 </polygon>
               );
             })}
-            {surfaceNodePickMode && selectedSurfaceId && model.nodes.map(node=>{
+            {surfaceNodePickMode && (selectedSurfaceId || newSurfaceType) && model.nodes.map(node=>{
               const point=p(node.position.x,node.position.y,node.position.z);
               return <circle key={node.id} cx={point.x} cy={point.y} r={7}
                 fill="rgba(255, 183, 0, 0.8)" stroke="currentColor" strokeWidth={1}
@@ -1211,6 +1212,36 @@ export default function SimpleFrameModeler({
                 ),
               )}
           </svg>
+          <div role="group" aria-label="Draw Area controls">
+            <button type="button" onClick={()=>{
+              setNewSurfaceType("slab");setSelectedSurfaceId(null);
+              setSurfaceBoundaryDraft("");setSurfaceEditError("");setSurfaceNodePickMode(true);
+            }}>Draw Slab Area</button>
+            <button type="button" onClick={()=>{
+              setNewSurfaceType("wall");setSelectedSurfaceId(null);
+              setSurfaceBoundaryDraft("");setSurfaceEditError("");setSurfaceNodePickMode(true);
+            }}>Draw Wall Area</button>
+            {newSurfaceType ? <>
+              <span>Pick boundary nodes in order ({newSurfaceType})</span>
+              <button type="button" onClick={()=>{
+                try {
+                  const ids=surfaceBoundaryDraft.split(",").map(id=>id.trim());
+                  const result=createSurfaceFromCanonicalRefs(model,{type:newSurfaceType,boundaryNodeIds:ids});
+                  onChange(result.model);
+                  setNewSurfaceType(null);setSurfaceNodePickMode(false);
+                  setSurfaceBoundaryDraft("");setSurfaceEditError("");
+                } catch(error){
+                  setSurfaceEditError(error instanceof Error ? error.message : "Unable to draw Area");
+                }
+              }}>Finish Area</button>
+              <button type="button" onClick={()=>{
+                setNewSurfaceType(null);setSurfaceNodePickMode(false);
+                setSurfaceBoundaryDraft("");setSurfaceEditError("");
+              }}>Cancel Drawing</button>
+              <span>Boundary: {surfaceBoundaryDraft || "none"}</span>
+            </> : null}
+            {surfaceEditError && newSurfaceType ? <span role="alert">{surfaceEditError}</span> : null}
+          </div>
           {selectedSurfaceId && model.surfaces.some(s=>s.id===selectedSurfaceId) ? (
             <div role="group" aria-label="Selected area controls">
               <span>Area: {model.surfaces.find(s=>s.id===selectedSurfaceId)?.metadata?.sourceAreaId ?? selectedSurfaceId}</span>
