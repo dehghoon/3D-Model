@@ -67,7 +67,7 @@ test("SAP import never inherits unrelated native surfaces or loads", () => {
     loadCases:[{id:"legacy-load-case",name:"Old load"}],
     loads:[{id:"legacy-load"}],
     loadCombinations:[{id:"legacy-combination",name:"Old combination"}],
-  } as typeof template;
+  } as unknown as typeof template;
   const imported=projectSapGeometryForEditing(contaminated,handoff());
   assertCanonicalV06(imported);
   assert.deepEqual(imported.surfaces,[]);
