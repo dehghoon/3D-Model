@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { StructuralModel, SurfaceType } from "@linkoteq/structural-core";
-import { createSurfaceFromCanonicalRefs, updateSurfaceBoundaryFromCanonicalRefs } from "../lib/editor-surface-v05";
+import { createSurfaceFromCanonicalRefs, updateSurfaceBoundaryFromCanonicalRefs, deleteSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
 
 interface Props {
   model: StructuralModel;
@@ -102,6 +102,18 @@ export default function SurfaceCreatorV05({
     }
   }
 
+  function deleteSelectedSurface() {
+    if (!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)) return;
+    if (!window.confirm(`Delete Area ${editingSurfaceId}? This removes its geometry from the current model.`)) return;
+    try {
+      const updated=deleteSurfaceFromCanonicalRefs(model,editingSurfaceId);
+      onModelChange(updated,`Area ${editingSurfaceId} deleted. Verify dependent engineering assignments.`);
+      cancelBoundaryEdit();
+    } catch(error) {
+      onModelChange(model,error instanceof Error?error.message:"Area deletion failed.");
+    }
+  }
+
   function createSurface() {
     try {
       const result = createSurfaceFromCanonicalRefs(model, {
@@ -184,6 +196,9 @@ export default function SurfaceCreatorV05({
       </button>
       <button onClick={updateSelectedSurface} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId) || boundaryNodeIds.length < 3}>
         Update Selected Area Boundary
+      </button>
+      <button onClick={deleteSelectedSurface} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)}>
+        Delete Selected Area
       </button>
       <button onClick={createSurface} disabled={boundaryNodeIds.length < 3}>
         Create Surface
