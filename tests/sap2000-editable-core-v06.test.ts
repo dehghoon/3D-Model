@@ -104,3 +104,16 @@ test("SAP member property edit survives Core 0.6 save/reopen without altering so
   assert.deepEqual(audit.addedNodes,[]);
   assert.deepEqual(audit.addedMembers,[]);
 });
+
+
+test("SAP projection strips stale Quick Frame metadata that could overwrite imported geometry", () => {
+  const template=createStarterModelV06();
+  const contaminated={...template,project:{...template.project,
+    metadata:{...template.project.metadata,simpleFrame:JSON.stringify({x:[5],y:[5],heights:[3]})}}};
+  const imported=projectSapGeometryForEditing(contaminated,handoff());
+  assert.equal(imported.project.metadata?.simpleFrame,undefined);
+  assert.equal(imported.nodes.length,4);
+  assert.equal(imported.members.length,1);
+  assert.equal(imported.members[0].metadata?.sourceMemberId,"F1");
+  assertCanonicalV06(imported);
+});
