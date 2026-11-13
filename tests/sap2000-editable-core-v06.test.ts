@@ -5,7 +5,7 @@ import { assertCanonicalV06, readProjectV06 } from "../lib/core-v06";
 import { auditSapGeometryEdits, projectSapGeometryForEditing, readSapHandoff } from "../lib/import/sap2000-handoff";
 import { transformGroup } from "../lib/editor/group-transform";
 import { createNodeFromGlobalCoordinates, createMemberFromCanonicalRefs } from "../lib/editor-modeling-v05";
-import { createSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
+import { createSurfaceFromCanonicalRefs, updateSurfaceBoundaryFromCanonicalRefs, deleteSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
 
 function handoff() {
   return readSapHandoff({
@@ -154,4 +154,23 @@ test("SAP area with missing or repeated boundary nodes is rejected", () => {
   assert.throws(()=>readSapHandoff(raw),/AREA_INVALID/);
   raw.geometryPreview.areas=[{sourceId:"A1",boundaryNodeIds:["1","2","2"]}];
   assert.throws(()=>readSapHandoff(raw),/AREA_INVALID/);
+});
+
+
+test("native and imported SAP areas use the same edit/delete operations",()=>{
+  const source=handoff();
+  source.geometryPreview.areas=[{sourceId:"A1",sourceGuid:"guid-1",boundaryNodeIds:["1","2","3","4"]}];
+  const imported=projectSapGeometryForEditing(createStarterModelV06(),source);
+  const edited=updateSurfaceBoundaryFromCanonicalRefs(imported,"SAP-A-0",["SAP-N-0","SAP-N-1","SAP-N-2"]);
+  assert.deepEqual(edited.surface.boundaryNodeIds,["SAP-N-0","SAP-N-1","SAP-N-2"]);
+  assert.equal(edited.surface.metadata?.sourceAreaGuid,"guid-1");
+  assert.equal(edited.surface.metadata?.engineeringValidationRequired,true);
+  assert.equal(imported.surfaces[0].boundaryNodeIds.length,4);
+  assert.throws(()=>updateSurfaceBoundaryFromCanonicalRefs(imported,"SAP-A-0",["SAP-N-0","SAP-N-1","SAP-N-1"]),/DISTINCT/);
+  const reopened=readProjectV06(JSON.parse(JSON.stringify(edited.model)));
+  assertCanonicalV06(reopened);
+  assert.equal(reopened.surfaces[0].boundaryNodeIds.length,3);
+  const deleted=deleteSurfaceFromCanonicalRefs(reopened,"SAP-A-0");
+  assert.equal(deleted.surfaces.length,0);
+  assert.equal(imported.surfaces.length,1);
 });
