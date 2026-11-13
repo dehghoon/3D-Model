@@ -5,7 +5,7 @@ import {detectJoistBay,layoutJoists,createJoistsInBay} from "../lib/editor/joist
 function fixture():StructuralModel {
  const nodes=[[0,0],[6,0],[6,4],[0,4]].map(([x,y],i)=>({id:`N${i}`,position:{x,y,z:3}}));
  const members=[0,1,2,3].map(i=>({id:`B${i}`,type:"beam" as const,startNodeId:`N${i}`,endNodeId:`N${(i+1)%4}`,materialId:"M",sectionId:"S"}));
- return {schemaVersion:"0.5",project:{id:"P",name:"P",units:"SI"},nodes,members,levels:[],grids:[],surfaces:[],diaphragms:[],materials:[],sections:[],supports:[],loadCases:[],loads:[],loadCombinations:[]};
+ return {schemaVersion:"0.6",project:{id:"P",name:"P",units:"SI"},nodes,members,levels:[],grids:[],surfaces:[],diaphragms:[],materials:[],sections:[],supports:[],loadCases:[],loads:[],loadCombinations:[]};
 }
 test("detect four-beam closed bay at active level",()=>{
  const bay=detectJoistBay(fixture(),{x:3,y:2,z:3},3);
