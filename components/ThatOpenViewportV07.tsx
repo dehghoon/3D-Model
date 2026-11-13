@@ -685,11 +685,18 @@ export default function ThatOpenViewportV07({
       runtime.fitted = false;
       lastImportedSourceHashRef.current = importedHash;
     }
-    rebuildThatOpenScene(runtime, model, selection);
+    rebuildThatOpenScene(runtime, model, selectionRef.current);
     syncSelectionHighlight(runtime, model, getPublishedSelections());
     if (getModelingPointTool()) renderModelingPreview(runtime);
     else renderTransformPreview(runtime);
-  }, [model, selection, sapHandoff?.sourceHash]);
+  }, [model, sapHandoff?.sourceHash]);
+
+  // Selecting a node or shell must not dispose and rebuild thousands of
+  // meshes. Update existing materials instead; rebuild only on model edits.
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (runtime) syncSelectionHighlight(runtime, modelRef.current, getPublishedSelections());
+  }, [selection]);
 
   useEffect(() => {
     const runtime=runtimeRef.current;
