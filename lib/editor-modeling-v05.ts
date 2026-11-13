@@ -45,8 +45,8 @@ function nextId(prefix: string, ids: string[]): string {
 }
 
 function assertV05(model: StructuralModel) {
-  if (model.schemaVersion !== "0.5") {
-    throw new Error(`CORE_V05_REQUIRED:${model.schemaVersion}`);
+  if (model.schemaVersion !== "0.6") {
+    throw new Error(`CORE_V06_REQUIRED:${model.schemaVersion}`);
   }
 }
 
