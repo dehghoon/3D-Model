@@ -160,6 +160,7 @@ export default function SimpleFrameModeler({
   const [surfaceNodePickMode, setSurfaceNodePickMode] = useState(false);
   const [newSurfaceType, setNewSurfaceType] = useState<"slab"|"wall"|null>(null);
   const [filter, setFilter] = useState("all");
+  const nodeById = new Map(model.nodes.map(node=>[node.id,node]));
   const current = useRef({ model, layout, onChange });
   current.current = { model, layout, onChange };
   useEffect(() => {
@@ -972,7 +973,7 @@ export default function SimpleFrameModeler({
                 line(p(0, y, 0), p(width, y, 0), `gy${j}`, "sfGrid"),
               )}
             {model.surfaces.map((surface) => {
-              const boundary = surface.boundaryNodeIds.map(id => model.nodes.find(n => n.id === id));
+              const boundary = surface.boundaryNodeIds.map(id => nodeById.get(id));
               if (boundary.length < 3 || boundary.some(n => !n)) return null;
               const points = boundary.map(n => {
                 const point = p(n!.position.x,n!.position.y,n!.position.z);
@@ -986,7 +987,7 @@ export default function SimpleFrameModeler({
                   role="button" tabIndex={0}
                   aria-label={`Select ${surface.type} area ${surface.metadata?.sourceAreaId ?? surface.id}`}
                   onClick={(e)=>{e.stopPropagation();setSelectedSurfaceId(surface.id);setSurfaceBoundaryDraft(surface.boundaryNodeIds.join(", "));setSurfaceEditError("");setSelectedId(null);}}
-                  onKeyDown={(e)=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();setSelectedSurfaceId(surface.id);setSelectedId(null);}}}>
+                  onKeyDown={(e)=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();setSelectedSurfaceId(surface.id);setSurfaceBoundaryDraft(surface.boundaryNodeIds.join(", "));setSurfaceEditError("");setSelectedId(null);}}}>
                   <title>{surface.type} · {surface.metadata?.sourceAreaId ?? surface.id} · unverified geometry</title>
                 </polygon>
               );
