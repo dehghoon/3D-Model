@@ -61,11 +61,11 @@ export function projectSapGridsForGridTool(
   handoff: SapHandoff,
 ): import("@linkoteq/structural-core").StructuralModel {
   const preview=handoff.geometryPreview.grids;
-  if(!preview || typeof preview!=="object" || Array.isArray(preview)) return model;
+  if(!preview || typeof preview!=="object" || Array.isArray(preview)) return {...model,grids:[]};
   const lines=(preview as {gridLines?:unknown}).gridLines;
-  if(!Array.isArray(lines)) return model;
+  if(!Array.isArray(lines)) return {...model,grids:[]};
   const positions=handoff.geometryPreview.nodes;
-  if(!positions.length) return model;
+  if(!positions.length) return {...model,grids:[]};
   let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
   for(const {position:p} of positions){
     if(p.x<minX) minX=p.x;
