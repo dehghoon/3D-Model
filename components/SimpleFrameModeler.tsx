@@ -1157,7 +1157,7 @@ export default function SimpleFrameModeler({
               )}
           </svg>
           {!mobile ? memberEditor : null}
-          {Object.values(layout.overrides ?? {}).some((o) => o.excluded) ? (
+          {!importedGeometry && Object.values(layout.overrides ?? {}).some((o) => o.excluded) ? (
             <button
               onClick={() => {
                 const overrides = Object.fromEntries(
@@ -1218,7 +1218,7 @@ export default function SimpleFrameModeler({
             : mobileTab === "plan"
               ? setupPanel
               : mobileTab === "project"
-                ? catalogPanel
+                ? importedGeometry ? null : catalogPanel
                 : selected
                   ? memberEditor
                   : memberBrowser}
