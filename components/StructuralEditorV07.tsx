@@ -13,6 +13,7 @@ import DiaphragmEditor from "./DiaphragmEditor";
 import ModelToolsV05 from "./ModelToolsV05";
 import NodeCreatorV05 from "./NodeCreatorV05";
 import MemberCreatorV05 from "./MemberCreatorV05";
+import SurfaceCreatorV05 from "./SurfaceCreatorV05";
 import SelectedNodeSupportV05 from "./SelectedNodeSupportV05";
 import ThatOpenViewportV01 from "./ThatOpenViewportV01";
 import { assertCanonicalV06, readProjectV06 } from "../lib/core-v06";
@@ -265,6 +266,12 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
             onModelChange={applyModelChange}
             onMemberCreated={(memberId) => setCanonicalSelection({ type: "member", id: memberId })}
           />
+          {!simpleMode ? <SurfaceCreatorV05
+            model={model}
+            selectedNodeId={selectedNode?.id}
+            onModelChange={applyModelChange}
+            onSurfaceCreated={(surfaceId) => setCanonicalSelection({ type: "surface", id: surfaceId })}
+          /> : null}
           <DiaphragmEditor
             model={model}
             selectedNodes={selectedNodes}
