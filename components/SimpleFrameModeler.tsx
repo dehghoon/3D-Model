@@ -656,7 +656,7 @@ export default function SimpleFrameModeler({
       className={`simpleFrameApp ${mobile ? "sfMobileLayout" : ""}`}
       data-panel-open={sheetOpen}
     >
-      {!mobile ? catalogPanel : null}
+      {!mobile && !importedGeometry ? catalogPanel : null}
       <main className="simpleFrameWorkspace">
         {!mobile ? setupPanel : null}
         <section className="sfCanvas">
@@ -1074,7 +1074,7 @@ export default function SimpleFrameModeler({
                     </g>
                   );
                 })}
-            {display.grids &&
+            {display.grids && !importedGeometry &&
               xs.flatMap((x, i) =>
                 [true, false].map((near) => {
                   const q = p(x, near ? 0 : depth, 0),
@@ -1099,7 +1099,7 @@ export default function SimpleFrameModeler({
                   );
                 }),
               )}
-            {display.grids &&
+            {display.grids && !importedGeometry &&
               ys.flatMap((y, j) =>
                 [true, false].map((near) => {
                   const q = p(near ? 0 : width, y, 0),
