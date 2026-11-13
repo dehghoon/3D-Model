@@ -269,6 +269,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
           {!simpleMode ? <SurfaceCreatorV05
             model={model}
             selectedNodeId={selectedNode?.id}
+            selectedSurfaceId={selectedSurface?.id}
             onModelChange={applyModelChange}
             onSurfaceCreated={(surfaceId) => setCanonicalSelection({ type: "surface", id: surfaceId })}
           /> : null}
