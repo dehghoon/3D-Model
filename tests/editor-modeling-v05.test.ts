@@ -9,7 +9,7 @@ import {
 
 function modelFixture(): StructuralModel {
   return {
-    schemaVersion: "0.5",
+    schemaVersion: "0.6",
     project: { id: "P1", name: "Editor Test", units: "SI" },
     levels: [],
     grids: [],
@@ -54,7 +54,7 @@ function modelFixture(): StructuralModel {
   };
 }
 
-test("editor creates a Core v0.5 member only from existing canonical references", () => {
+test("editor creates a Core v0.6 member only from existing canonical references", () => {
   const source = modelFixture();
   const result = createMemberFromCanonicalRefs(source, {
     type: "beam",
