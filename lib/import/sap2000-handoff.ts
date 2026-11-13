@@ -34,8 +34,12 @@ export function readSapHandoff(raw:unknown):SapHandoff {
         ![n.position.x,n.position.y,n.position.z].every(Number.isFinite)) throw new Error("SAP_HANDOFF_NODE_INVALID");
     ids.add(n.sourceId);
   }
+  const memberIds=new Set<string>();
   for (const m of v.geometryPreview.members) {
-    if (!m.sourceId || !ids.has(m.startNodeId) || !ids.has(m.endNodeId)) throw new Error("SAP_HANDOFF_FRAME_INVALID");
+    if (!m.sourceId || memberIds.has(m.sourceId) || !ids.has(m.startNodeId) ||
+        !ids.has(m.endNodeId) || m.startNodeId===m.endNodeId ||
+        typeof m.renderable!=="boolean") throw new Error("SAP_HANDOFF_FRAME_INVALID");
+    memberIds.add(m.sourceId);
   }
   return v as SapHandoff;
 }
