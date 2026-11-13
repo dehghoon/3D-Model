@@ -134,12 +134,13 @@ test("SAP import does not inherit unrelated template grid lines", () => {
 
 test("SAP source areas become editable geometry-only Core surfaces without certifying properties", () => {
   const source=handoff();
-  source.geometryPreview.areas=[{sourceId:"A1",boundaryNodeIds:["1","2","3","4"],geometryOnly:true}];
+  source.geometryPreview.areas=[{sourceId:"A1",sourceGuid:"area-guid-123",boundaryNodeIds:["1","2","3","4"],geometryOnly:true}];
   const imported=projectSapGeometryForEditing(createStarterModelV06(),source);
   assertCanonicalV06(imported);
   assert.equal(imported.surfaces.length,1);
   assert.deepEqual(imported.surfaces[0].boundaryNodeIds,["SAP-N-0","SAP-N-1","SAP-N-2","SAP-N-3"]);
   assert.equal(imported.surfaces[0].metadata?.sourceAreaId,"A1");
+  assert.equal(imported.surfaces[0].metadata?.sourceAreaGuid,"area-guid-123");
   assert.equal(imported.project.metadata?.analysisReady,false);
   const reopened=readProjectV06(JSON.parse(JSON.stringify(imported)));
   assert.equal(reopened.surfaces.length,1);
