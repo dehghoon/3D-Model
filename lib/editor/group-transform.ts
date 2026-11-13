@@ -1,6 +1,6 @@
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import type { EditorSelection } from "./selection";
-import { assertCanonicalV05 } from "../core-v05";
+import { assertCanonicalV06 } from "../core-v06";
 
 type Selection = Exclude<EditorSelection, null>;
 export interface GroupTransformResult {
@@ -34,7 +34,7 @@ export function transformGroup(
   delta: Vec3,
   operation: "move" | "copy",
 ): GroupTransformResult {
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
   if (!input.length) throw new Error("SELECTION_REQUIRED");
   if (![delta.x, delta.y, delta.z].every(Number.isFinite))
     throw new Error("TRANSFORM_DELTA_INVALID");
