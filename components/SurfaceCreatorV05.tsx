@@ -25,8 +25,8 @@ export default function SurfaceCreatorV05({
   const [pickFromViewport, setPickFromViewport] = useState(false);
 
   useEffect(() => {
-    if (!levelId && model.levels[0]) {
-      setLevelId(model.levels[0].id);
+    if (levelId && !model.levels.some((level) => level.id === levelId)) {
+      setLevelId("");
     }
   }, [levelId, model.levels]);
 
@@ -62,7 +62,7 @@ export default function SurfaceCreatorV05({
         boundaryNodeIds,
         ...(levelId ? { levelId } : {}),
       });
-      onModelChange(result.model, `Canonical Core v0.5 surface ${result.surface.id} created.`);
+      onModelChange(result.model, `Canonical Core v0.6 surface ${result.surface.id} created.`);
       setBoundaryNodeIds([]);
       setPickFromViewport(false);
       onSurfaceCreated?.(result.surface.id);
