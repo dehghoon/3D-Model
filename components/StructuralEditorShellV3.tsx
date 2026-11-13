@@ -9,7 +9,7 @@ import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { detectJoistBay, layoutJoists, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
-import { projectSapGeometryForEditing, readSapHandoff, type SapHandoff } from "../lib/import/sap2000-handoff";
+import { auditSapGeometryEdits, projectSapGeometryForEditing, readSapHandoff, type SapHandoff } from "../lib/import/sap2000-handoff";
 
 import { MEMBER_DRAW_PICK_EVENT, MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
 import { useInteractionState } from "../lib/editor/interaction-store";
@@ -74,6 +74,7 @@ export default function StructuralEditorShellV3() {
   const [joistBayError, setJoistBayError] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
   const [sapHandoff, setSapHandoff] = useState<SapHandoff | null>(null);
+  const [sapOriginalGeometry, setSapOriginalGeometry] = useState<StructuralModel | null>(null);
   const gridToolModel = model; // Imported grids are already part of editable Core geometry.
   const [sapSummaryVisible, setSapSummaryVisible] = useState(true);
   const [sapImportError, setSapImportError] = useState("");
@@ -96,6 +97,7 @@ export default function StructuralEditorShellV3() {
       const handoff=readSapHandoff(raw);
       const editable = projectSapGeometryForEditing(modelRef.current, handoff);
       applyModel(editable);
+      setSapOriginalGeometry(editable);
       setSapHandoff(handoff);
       setSapSummaryVisible(true);
       setSapImportStatus(`Imported ${handoff.geometryPreview.nodes.length} nodes and ${handoff.geometryPreview.members.length} frames from ${file.name}.`);
@@ -502,6 +504,7 @@ export default function StructuralEditorShellV3() {
           {sapImportError ? <p role="alert">{sapImportError}</p> : null}
           {sapHandoff && sapSummaryVisible ? <section aria-label="SAP2000 import summary" style={{padding:8,background:"#fff8e1",color:"#222"}}>
             <strong>SAP2000 source geometry — NOT Core validated / NOT analysis ready</strong>
+            {sapOriginalGeometry ? <p role="status">Editable workspace changes (source archive unchanged): {JSON.stringify(auditSapGeometryEdits(model,sapOriginalGeometry))}. Edits require independent engineering validation.</p> : null}
             <span> · {sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Source units: {sapHandoff.geometryPreview.sourceUnits || "unspecified"}</span>
             <button type="button" onClick={()=>setSapSummaryVisible(false)}>Close summary</button>
             <details><summary>Grids, levels, engineering data, fidelity and diagnostics</summary>
