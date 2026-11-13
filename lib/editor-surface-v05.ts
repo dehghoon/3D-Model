@@ -19,6 +19,31 @@ function optionalId(value: string | undefined): string | undefined {
   return trimmed || undefined;
 }
 
+/** Reject degenerate area boundaries before committing editable Core geometry. */
+function validateSurfaceGeometry(model: StructuralModel, ids: string[]): void {
+  const byId = new Map(model.nodes.map(node => [node.id, node.position]));
+  const points = ids.map(id => byId.get(id));
+  if (points.some(point => !point)) return; // Unknown node IDs are reported by the caller.
+  const vertices = points as Array<{x:number;y:number;z:number}>;
+  const scale = Math.max(1, ...vertices.flatMap(p => [Math.abs(p.x),Math.abs(p.y),Math.abs(p.z)]));
+  const tolerance = scale * 1e-10;
+  for (let i=0;i<vertices.length;i++) for(let j=i+1;j<vertices.length;j++) {
+    const a=vertices[i],b=vertices[j];
+    if(Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)<=tolerance)
+      throw new Error("SURFACE_COINCIDENT_BOUNDARY_NODES");
+  }
+  const origin=vertices[0];
+  let nonCollinear=false;
+  for(let i=1;i<vertices.length-1 && !nonCollinear;i++){
+    const a=vertices[i],b=vertices[i+1];
+    const ux=a.x-origin.x,uy=a.y-origin.y,uz=a.z-origin.z;
+    const vx=b.x-origin.x,vy=b.y-origin.y,vz=b.z-origin.z;
+    const area=Math.hypot(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx);
+    if(area>tolerance*tolerance) nonCollinear=true;
+  }
+  if(!nonCollinear) throw new Error("SURFACE_COLLINEAR_BOUNDARY_NODES");
+}
+
 export function createSurfaceFromCanonicalRefs(
   model: StructuralModel,
   input: CreateSurfaceInput,
@@ -43,6 +68,8 @@ export function createSurfaceFromCanonicalRefs(
       throw new Error(`UNKNOWN_SURFACE_NODE:${nodeId}`);
     }
   }
+
+  validateSurfaceGeometry(model,boundaryNodeIds);
 
   const levelId = optionalId(input.levelId);
   if (levelId && !model.levels.some((level) => level.id === levelId)) {
@@ -84,6 +111,7 @@ export function updateSurfaceBoundaryFromCanonicalRefs(
     throw new Error("SURFACE_BOUNDARY_NODES_MUST_BE_DISTINCT");
   const known=new Set(model.nodes.map(n=>n.id));
   for (const id of nodes) if (!known.has(id)) throw new Error(`UNKNOWN_SURFACE_NODE:${id}`);
+  validateSurfaceGeometry(model,nodes);
   const surface={...model.surfaces[index],boundaryNodeIds:nodes,
     metadata:{...model.surfaces[index].metadata,
       ...(model.surfaces[index].metadata?.sourceFormat==="SAP2000"
