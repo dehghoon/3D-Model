@@ -597,7 +597,7 @@ export default function SimpleFrameModeler({
   const memberBrowser = (
     <section className="sfMobileMemberBrowser" aria-label="Member browser">
       <p>Tap a member in the model, or choose one below.</p>
-      <details className="sfMobileDefaults">
+      {!importedGeometry ? <details className="sfMobileDefaults">
         <summary>Default sections</summary>
         {(["beam", "column", "brace"] as const).map((type) => (
           <FrameSectionPicker
@@ -618,7 +618,7 @@ export default function SimpleFrameModeler({
             }
           />
         ))}
-      </details>
+      </details> : null}
       <label>
         Member type
         <select
@@ -1181,7 +1181,7 @@ export default function SimpleFrameModeler({
           )}
           {error ? <p role="alert">{error}</p> : null}
           <footer>
-            {generated
+            {generated || importedGeometry
               ? `${model.nodes.length} nodes · ${model.members.filter((m) => m.type === "column").length} columns · ${model.members.filter((m) => m.type === "beam").length} beams · ${model.members.filter((m) => m.type === "brace").length} braces`
               : "Frame preview"}{" "}
             · All dimensions in metres
