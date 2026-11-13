@@ -25,14 +25,17 @@ function validateSurfaceGeometry(model: StructuralModel, ids: string[]): void {
   const points = ids.map(id => byId.get(id));
   if (points.some(point => !point)) return; // Unknown node IDs are reported by the caller.
   const vertices = points as Array<{x:number;y:number;z:number}>;
-  const scale = Math.max(1, ...vertices.flatMap(p => [Math.abs(p.x),Math.abs(p.y),Math.abs(p.z)]));
+  const origin=vertices[0];
+  // Use local extents, not absolute world coordinates: SAP models may use large offsets.
+  const scale = Math.max(1e-6, ...vertices.flatMap(p => [
+    Math.abs(p.x-origin.x),Math.abs(p.y-origin.y),Math.abs(p.z-origin.z)
+  ]));
   const tolerance = scale * 1e-10;
   for (let i=0;i<vertices.length;i++) for(let j=i+1;j<vertices.length;j++) {
     const a=vertices[i],b=vertices[j];
     if(Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)<=tolerance)
       throw new Error("SURFACE_COINCIDENT_BOUNDARY_NODES");
   }
-  const origin=vertices[0];
   let nonCollinear=false;
   for(let i=1;i<vertices.length-1 && !nonCollinear;i++){
     const a=vertices[i],b=vertices[i+1];
@@ -46,9 +49,11 @@ function validateSurfaceGeometry(model: StructuralModel, ids: string[]): void {
   let nx=0,ny=0,nz=0;
   for(let i=0;i<vertices.length;i++){
     const a=vertices[i],b=vertices[(i+1)%vertices.length];
-    nx+=(a.y-b.y)*(a.z+b.z);
-    ny+=(a.z-b.z)*(a.x+b.x);
-    nz+=(a.x-b.x)*(a.y+b.y);
+    const ax=a.x-origin.x,ay=a.y-origin.y,az=a.z-origin.z;
+    const bx=b.x-origin.x,by=b.y-origin.y,bz=b.z-origin.z;
+    nx+=(ay-by)*(az+bz);
+    ny+=(az-bz)*(ax+bx);
+    nz+=(ax-bx)*(ay+by);
   }
   const norm=Math.hypot(nx,ny,nz);
   if(norm<=tolerance*tolerance) throw new Error("SURFACE_ZERO_PROJECTED_AREA");
