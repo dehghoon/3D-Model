@@ -78,6 +78,12 @@ export default function SurfaceCreatorV05({
     setPickFromViewport(false);
   }
 
+  function replaceBoundaryFromViewport() {
+    if (!editingSurfaceId) return;
+    setBoundaryNodeIds([]);
+    setPickFromViewport(true);
+  }
+
   function updateSelectedSurface() {
     if (!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)) return;
     try {
@@ -162,6 +168,9 @@ export default function SurfaceCreatorV05({
       <div className="selectionText">Editing Area: {editingSurfaceId ?? "None"}</div>
       <button onClick={cancelBoundaryEdit} disabled={!editingSurfaceId && !boundaryNodeIds.length}>
         Cancel Boundary Draft
+      </button>
+      <button onClick={replaceBoundaryFromViewport} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)}>
+        Replace Boundary From Viewport
       </button>
       <button onClick={updateSelectedSurface} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId) || boundaryNodeIds.length < 3}>
         Update Selected Area Boundary
