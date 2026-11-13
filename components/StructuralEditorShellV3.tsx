@@ -343,7 +343,7 @@ export default function StructuralEditorShellV3() {
       </header>
 
       {mode === "advanced" ? <>
-      {mode === "simple" && sapHandoff ? <div role="status" className="sapSimpleNotice">
+      {false && sapHandoff ? <div role="status" className="sapSimpleNotice">
         <strong>Imported SAP2000 model</strong>
         <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Editable geometry · engineering source preserved; analytical mapping unverified.</span>
       </div> : null}
@@ -420,13 +420,13 @@ export default function StructuralEditorShellV3() {
               ? "Orbit / pan / zoom"
               : interaction.message}
         </span>
-        <div className="architectViewPills" aria-label="View status" style={mode === "simple" && sapHandoff ? {display:"none"} : undefined}>
+        <div className="architectViewPills" aria-label="View status" style={undefined}>
           <span>That Open</span>
           <span>Snap: ON</span>
         </div>
       </div>
 
-      {mode === "simple" && sapHandoff ? <nav className="sapSimpleViewControls" aria-label="Simple model view">
+      {false && sapHandoff ? <nav className="sapSimpleViewControls" aria-label="Simple model view">
         <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-fit"))}>Fit model</button>
         <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("linkoteq:view-preset",{detail:"3d"}))}>3D</button>
         <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("linkoteq:view-preset",{detail:"bottom"}))}>Plan</button>
@@ -516,7 +516,7 @@ export default function StructuralEditorShellV3() {
           </section> : null}
           <div className="architectViewportStage">
             <div className="engineeringEditorStage">
-              <StructuralEditorV05 model={gridToolModel} onModelChange={advancedChange} sapHandoff={sapHandoff} simpleMode={mode === "simple" && !!sapHandoff} onSapMemberSelect={setSapSelectedMember} />
+              <StructuralEditorV05 model={gridToolModel} onModelChange={advancedChange} sapHandoff={sapHandoff} simpleMode={false} onSapMemberSelect={setSapSelectedMember} />
             </div>
           </div>
           <div className="architectStatusbar" role="status" aria-live="polite">
