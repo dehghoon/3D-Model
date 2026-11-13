@@ -209,3 +209,13 @@ test("Area boundary rejects nonplanar quadrilateral",()=>{
     ["SAP-N-0","SAP-N-1","SAP-N-2","SAP-N-3"]
   ),/NON_PLANAR/);
 });
+
+
+test("Area rejects crossing boundary edges without modifying the model",()=>{
+  const imported=projectSapGeometryForEditing(createStarterModelV06(),handoff());
+  const crossing=["SAP-N-0","SAP-N-2","SAP-N-1","SAP-N-3"];
+  assert.throws(()=>createSurfaceFromCanonicalRefs(imported,{
+    type:"wall",boundaryNodeIds:crossing
+  }),/SELF_INTERSECTING|ZERO_PROJECTED_AREA/);
+  assert.equal(imported.surfaces.length,0);
+});
