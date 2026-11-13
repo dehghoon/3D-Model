@@ -9,6 +9,7 @@ export interface SapHandoff {
     sourceUnits: string | null;
     nodes: Array<{sourceId:string;position:{x:number;y:number;z:number}}>;
     members: Array<{sourceId:string;startNodeId:string;endNodeId:string;renderable:boolean}>;
+    areas?: Array<{sourceId:string;boundaryNodeIds:string[];sourceLine?:number;geometryOnly?:boolean}>;
     grids: unknown;
     sourceLevels: unknown;
     inferredLevels: Array<{id:string;name:string;elevation:number;provenance:string;sourceDefined:false}>;
@@ -48,6 +49,13 @@ export function readSapHandoff(raw:unknown):SapHandoff {
         !ids.has(m.endNodeId) || m.startNodeId===m.endNodeId ||
         typeof m.renderable!=="boolean") throw new Error("SAP_HANDOFF_FRAME_INVALID");
     memberIds.add(m.sourceId);
+  }
+  const areaIds=new Set<string>();
+  for (const area of v.geometryPreview.areas ?? []) {
+    if (!area.sourceId || areaIds.has(area.sourceId) || !Array.isArray(area.boundaryNodeIds) ||
+        area.boundaryNodeIds.length<3 || new Set(area.boundaryNodeIds).size!==area.boundaryNodeIds.length ||
+        area.boundaryNodeIds.some(id=>!ids.has(id))) throw new Error("SAP_HANDOFF_AREA_INVALID");
+    areaIds.add(area.sourceId);
   }
   return v as SapHandoff;
 }
@@ -151,6 +159,15 @@ export function projectSapGeometryForEditing(
           engineeringValidationRequired:true},
       };
     });
+  const surfaces: import("@linkoteq/structural-core").StructuralModel["surfaces"] =
+    (handoff.geometryPreview.areas ?? []).map((area,i)=>({
+      id:"SAP-A-"+i,
+      type:"slab",
+      boundaryNodeIds:area.boundaryNodeIds.map(id=>ids.get(id)!),
+      metadata:{sourceFormat:"SAP2000",sourceAreaId:area.sourceId,
+        sourceEngineeringAssignment:"unresolved",geometryOnly:true,
+        engineeringValidationRequired:true},
+    }));
   const projected = projectSapGridsForGridTool(template,handoff);
   // A template may carry Quick Frame metadata; retaining it can trigger an
   // asynchronous catalog refresh that regenerates and destroys SAP geometry.
@@ -169,7 +186,7 @@ export function projectSapGeometryForEditing(
     // unrelated native surfaces or load data from the template project.
     // SAP areas/loads must be mapped explicitly before they are editable.
     nodes,members,levels,
-    surfaces:[],
+    surfaces,
     loadCases:[],
     loads:[],
     loadCombinations:[],
