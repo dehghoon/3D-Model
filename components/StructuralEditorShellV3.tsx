@@ -343,7 +343,7 @@ export default function StructuralEditorShellV3() {
       </header>
 
       {mode === "advanced" ? <>
-      {false && sapHandoff ? <div role="status" className="sapSimpleNotice">
+      {sapHandoff ? <div role="status" className="sapSimpleNotice">
         <strong>Imported SAP2000 model</strong>
         <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Editable geometry · engineering source preserved; analytical mapping unverified.</span>
       </div> : null}
