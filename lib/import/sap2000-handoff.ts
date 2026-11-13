@@ -29,7 +29,7 @@ export function readSapHandoff(raw:unknown):SapHandoff {
       !v.sourceHash || v.sourceArchive.sha256!==v.sourceHash ||
       !v.engineeringData || !v.importFidelity || !v.diagnostics) throw new Error("SAP_HANDOFF_CONTRACT_MISMATCH");
   const archive=v.sourceArchive;
-  if (typeof archive.filename!=="string" || !/\\.(s2k|\\$2k)$/i.test(archive.filename) ||
+  if (typeof archive.filename!=="string" || !archive.filename.toLowerCase().match(/[.](s2k|[$]2k)$/) ||
       !Number.isSafeInteger(archive.byteLength) || archive.byteLength<0 ||
       typeof archive.bytesBase64!=="string" ||
       !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(archive.bytesBase64) ||
