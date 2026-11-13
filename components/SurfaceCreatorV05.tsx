@@ -25,6 +25,7 @@ export default function SurfaceCreatorV05({
   const [boundaryNodeIds, setBoundaryNodeIds] = useState<string[]>([]);
   const [levelId, setLevelId] = useState("");
   const [pickFromViewport, setPickFromViewport] = useState(false);
+  const [editingSurfaceId, setEditingSurfaceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (levelId && !model.levels.some((level) => level.id === levelId)) {
@@ -60,6 +61,7 @@ export default function SurfaceCreatorV05({
   function loadSelectedSurface() {
     const surface=model.surfaces.find(item=>item.id===selectedSurfaceId);
     if (!surface) return;
+    setEditingSurfaceId(surface.id);
     setType(surface.type);
     setBoundaryNodeIds([...surface.boundaryNodeIds]);
     setLevelId(surface.levelId ?? "");
@@ -67,10 +69,10 @@ export default function SurfaceCreatorV05({
   }
 
   function updateSelectedSurface() {
-    if (!selectedSurfaceId) return;
+    if (!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)) return;
     try {
-      const result=updateSurfaceBoundaryFromCanonicalRefs(model,selectedSurfaceId,boundaryNodeIds);
-      onModelChange(result.model,`Area ${selectedSurfaceId} boundary updated; engineering validation required.`);
+      const result=updateSurfaceBoundaryFromCanonicalRefs(model,editingSurfaceId,boundaryNodeIds);
+      onModelChange(result.model,`Area ${editingSurfaceId} boundary updated; engineering validation required.`);
       setPickFromViewport(false);
     } catch(error) {
       onModelChange(model,error instanceof Error?error.message:"Area boundary update failed.");
@@ -86,6 +88,7 @@ export default function SurfaceCreatorV05({
       });
       onModelChange(result.model, `Canonical Core v0.6 surface ${result.surface.id} created.`);
       setBoundaryNodeIds([]);
+      setEditingSurfaceId(null);
       setPickFromViewport(false);
       onSurfaceCreated?.(result.surface.id);
     } catch (error) {
@@ -143,7 +146,8 @@ export default function SurfaceCreatorV05({
       <button onClick={loadSelectedSurface} disabled={!selectedSurfaceId}>
         Load Selected Area Boundary
       </button>
-      <button onClick={updateSelectedSurface} disabled={!selectedSurfaceId || boundaryNodeIds.length < 3}>
+      <div className="selectionText">Editing Area: {editingSurfaceId ?? "None"}</div>
+      <button onClick={updateSelectedSurface} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId) || boundaryNodeIds.length < 3}>
         Update Selected Area Boundary
       </button>
       <button onClick={createSurface} disabled={boundaryNodeIds.length < 3}>
