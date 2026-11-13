@@ -965,6 +965,22 @@ export default function SimpleFrameModeler({
               ys.map((y, j) =>
                 line(p(0, y, 0), p(width, y, 0), `gy${j}`, "sfGrid"),
               )}
+            {model.surfaces.map((surface) => {
+              const boundary = surface.boundaryNodeIds.map(id => model.nodes.find(n => n.id === id));
+              if (boundary.length < 3 || boundary.some(n => !n)) return null;
+              const points = boundary.map(n => {
+                const point = p(n!.position.x,n!.position.y,n!.position.z);
+                return `${point.x},${point.y}`;
+              }).join(" ");
+              return (
+                <polygon key={surface.id} points={points}
+                  fill="rgba(61, 135, 194, 0.18)"
+                  stroke="currentColor" strokeOpacity={0.55}
+                  strokeWidth={1} pointerEvents="none">
+                  <title>{surface.type} · {surface.metadata?.sourceAreaId ?? surface.id} · unverified geometry</title>
+                </polygon>
+              );
+            })}
             {showMembers &&
               model.members
                 .filter(
