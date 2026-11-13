@@ -42,6 +42,22 @@ function validateSurfaceGeometry(model: StructuralModel, ids: string[]): void {
     if(area>tolerance*tolerance) nonCollinear=true;
   }
   if(!nonCollinear) throw new Error("SURFACE_COLLINEAR_BOUNDARY_NODES");
+  // Newell normal provides a stable best-fit plane for arbitrary 3D polygons.
+  let nx=0,ny=0,nz=0;
+  for(let i=0;i<vertices.length;i++){
+    const a=vertices[i],b=vertices[(i+1)%vertices.length];
+    nx+=(a.y-b.y)*(a.z+b.z);
+    ny+=(a.z-b.z)*(a.x+b.x);
+    nz+=(a.x-b.x)*(a.y+b.y);
+  }
+  const norm=Math.hypot(nx,ny,nz);
+  if(norm<=tolerance*tolerance) throw new Error("SURFACE_ZERO_PROJECTED_AREA");
+  const planeTolerance=Math.max(1e-8,scale*1e-7);
+  for(const point of vertices){
+    const distance=Math.abs((point.x-origin.x)*nx+(point.y-origin.y)*ny+(point.z-origin.z)*nz)/norm;
+    if(distance>planeTolerance) throw new Error("SURFACE_NON_PLANAR_BOUNDARY");
+  }
+
 }
 
 export function createSurfaceFromCanonicalRefs(
