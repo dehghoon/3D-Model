@@ -23,8 +23,8 @@ export function createSurfaceFromCanonicalRefs(
   model: StructuralModel,
   input: CreateSurfaceInput,
 ): { model: StructuralModel; surface: Surface } {
-  if (model.schemaVersion !== "0.5") {
-    throw new Error(`CORE_V05_REQUIRED:${model.schemaVersion}`);
+  if (model.schemaVersion !== "0.6") {
+    throw new Error(`CORE_V06_REQUIRED:${model.schemaVersion}`);
   }
 
   const boundaryNodeIds = input.boundaryNodeIds.map((id) => id.trim());
