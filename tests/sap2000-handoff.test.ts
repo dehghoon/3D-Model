@@ -57,3 +57,11 @@ test("rejects corrupted source archive bytes before opening editable geometry",(
   assert.throws(()=>readSapHandoff({...fixture,sourceArchive:{...fixture.sourceArchive,bytesBase64:"not-base64!"}}),/SOURCE_ARCHIVE_INVALID/);
   assert.throws(()=>readSapHandoff({...fixture,sourceArchive:{...fixture.sourceArchive,filename:"unrelated.json"}}),/SOURCE_ARCHIVE_INVALID/);
 });
+
+
+test("accepts both SAP2000 file extensions and a byte-consistent source archive",()=>{
+  const normal=readSapHandoff(fixture);
+  assert.equal(normal.sourceArchive.filename,"fixture.s2k");
+  const backup=readSapHandoff({...fixture,sourceArchive:{...fixture.sourceArchive,filename:"MODEL.$2k"}});
+  assert.equal(backup.sourceArchive.byteLength,1);
+});
