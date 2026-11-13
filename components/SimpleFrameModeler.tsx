@@ -247,8 +247,11 @@ export default function SimpleFrameModeler({
   ) {
     if (!selected) return;
     if (importedGeometry) {
-      const sections=section && !model.sections.some(s=>s.id===section.id)
-        ? [...model.sections,section] : model.sections;
+      const sections=section
+        ? model.sections.some(s=>s.id===section.id)
+          ? model.sections.map(s=>s.id===section.id ? section : s)
+          : [...model.sections,section]
+        : model.sections;
       onChange({...model,sections,members:model.members.map(member=>
         member.id===selected.id ? {...member,...patch} : member)});
       setError("");
