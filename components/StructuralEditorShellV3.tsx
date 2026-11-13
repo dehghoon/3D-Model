@@ -100,7 +100,7 @@ export default function StructuralEditorShellV3() {
       setSapOriginalGeometry(editable);
       setSapHandoff(handoff);
       setSapSummaryVisible(true);
-      setSapImportStatus(`Imported ${handoff.geometryPreview.nodes.length} nodes and ${handoff.geometryPreview.members.length} frames from ${file.name}.`);
+      setSapImportStatus(`Imported ${handoff.geometryPreview.nodes.length} nodes, ${handoff.geometryPreview.members.length} frames and ${handoff.geometryPreview.areas?.length ?? 0} areas from ${file.name}. Geometry only; engineering validation required.`);
       setSapSelectedMember(null);
       setMode("advanced");
     } catch(error) {
@@ -328,7 +328,7 @@ export default function StructuralEditorShellV3() {
             ⌑
           </button>
           <button type="button" title="Import SAP2000 directly into Advanced Model" disabled={sapImportBusy} onClick={() => sapImportFileRef.current?.click()}>{sapImportBusy ? "Importing SAP2000…" : "Import SAP2000"}</button>
-          <input ref={sapImportFileRef} aria-label="Choose SAP2000 file (.s2k or .$2k)" type="file" accept=".s2k,.$2k,application/octet-stream,text/plain" style={{maxWidth:190,fontSize:12}} onChange={event => { const file = event.target.files?.[0]; if (file) void importSap2000(file); event.target.value = ""; }} />
+          <input ref={sapImportFileRef} aria-label="Choose SAP2000 file (.s2k or .$2k)" type="file" accept=".s2k,.$2k,application/octet-stream,text/plain" style={{display:"none"}} onChange={event => { const file = event.target.files?.[0]; if (file) void importSap2000(file); event.target.value = ""; }} />
           <button
             type="button"
             className="architectIconAction architectSaveAction"
@@ -345,7 +345,7 @@ export default function StructuralEditorShellV3() {
       {mode === "advanced" ? <>
       {sapHandoff ? <div role="status" className="sapSimpleNotice">
         <strong>Imported SAP2000 model</strong>
-        <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Editable geometry · engineering source preserved; analytical mapping unverified.</span>
+        <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · {sapHandoff.geometryPreview.areas?.length ?? 0} areas · Editable geometry · engineering source preserved; analytical mapping unverified.</span>
       </div> : null}
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
