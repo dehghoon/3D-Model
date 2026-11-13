@@ -43,3 +43,10 @@ test("records SAP workspace moves, additions and deletions without rewriting the
   assert.deepEqual(result.deletedMembers,["SAP-M-0"]);
   assert.equal(original.nodes[0].position.x,0);
 });
+
+
+test("rejects duplicate source frame identifiers and zero-length connectivity",()=>{
+  const first=fixture.geometryPreview.members[0];
+  assert.throws(()=>readSapHandoff({...fixture,geometryPreview:{...fixture.geometryPreview,members:[first,{...first}]} }),/FRAME_INVALID/);
+  assert.throws(()=>readSapHandoff({...fixture,geometryPreview:{...fixture.geometryPreview,members:[{...first,endNodeId:first.startNodeId}]} }),/FRAME_INVALID/);
+});
