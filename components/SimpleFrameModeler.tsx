@@ -36,11 +36,13 @@ interface Props {
   model: StructuralModel;
   onChange: (model: StructuralModel) => void;
   onAdvanced: () => void;
+  importedGeometry?: boolean;
 }
 export default function SimpleFrameModeler({
   model,
   onChange,
   onAdvanced,
+  importedGeometry = false,
 }: Props) {
   const [layout, setLayout] = useState<FrameLayout>(() => {
     try {
@@ -80,7 +82,7 @@ export default function SimpleFrameModeler({
     setSheetOpen(true);
   }
   function pickMember(id: string) {
-    if (!generated) return;
+    if (!generated && !importedGeometry) return;
     setSelectedId(id);
     setEdit(null);
     if (mobile) showPanel("members");
@@ -244,6 +246,14 @@ export default function SimpleFrameModeler({
     section?: Section,
   ) {
     if (!selected) return;
+    if (importedGeometry) {
+      const sections=section && !model.sections.some(s=>s.id===section.id)
+        ? [...model.sections,section] : model.sections;
+      onChange({...model,sections,members:model.members.map(member=>
+        member.id===selected.id ? {...member,...patch} : member)});
+      setError("");
+      return;
+    }
     updateWithSection(
       {
         ...layout,
@@ -299,9 +309,11 @@ export default function SimpleFrameModeler({
               Math.sin(angles.tilt) -
             z * Math.cos(angles.tilt),
         };
-  const corners = [0, width].flatMap((x) =>
-    [0, depth].flatMap((y) => [0, height].map((z) => raw(x, y, z))),
-  );
+  const corners = importedGeometry && model.nodes.length
+    ? model.nodes.map(node=>raw(node.position.x,node.position.y,node.position.z))
+    : [0, width].flatMap((x) =>
+        [0, depth].flatMap((y) => [0, height].map((z) => raw(x, y, z))),
+      );
   const minX = Math.min(...corners.map((p) => p.x)),
     maxX = Math.max(...corners.map((p) => p.x)),
     minY = Math.min(...corners.map((p) => p.y)),
@@ -371,7 +383,7 @@ export default function SimpleFrameModeler({
         Set the plan, add grids and storeys. Columns and beams connect
         automatically.
       </p>
-      {!generated ? (
+      {!generated && !importedGeometry ? (
         <div className="sfNotice">
           Your existing model is kept in Advanced. Creating a quick frame
           replaces the current geometry.
@@ -517,7 +529,7 @@ export default function SimpleFrameModeler({
       >
         Omit this member
       </button>
-      <button
+      {!importedGeometry ? <button
         onClick={() => {
           const next = { ...layout.overrides };
           delete next[selected.id];
@@ -525,7 +537,7 @@ export default function SimpleFrameModeler({
         }}
       >
         Use defaults for this member
-      </button>
+      </button> : null}
     </section>
   ) : null;
   const dimensionEditor = edit ? (
