@@ -9,7 +9,7 @@ export interface SapHandoff {
     sourceUnits: string | null;
     nodes: Array<{sourceId:string;position:{x:number;y:number;z:number}}>;
     members: Array<{sourceId:string;startNodeId:string;endNodeId:string;renderable:boolean}>;
-    areas?: Array<{sourceId:string;boundaryNodeIds:string[];sourceLine?:number;sourceGuid?:string|null;geometryOnly?:boolean}>;
+    areas?: Array<{sourceId:string;boundaryNodeIds:string[];sourceLine?:number;sourceGuid?:string|null;sourceSectionAssignment?:{section?:string|null;materialProperty?:string|null;sourceLine?:number}|null;geometryOnly?:boolean}>;
     grids: unknown;
     sourceLevels: unknown;
     inferredLevels: Array<{id:string;name:string;elevation:number;provenance:string;sourceDefined:false}>;
@@ -166,6 +166,8 @@ export function projectSapGeometryForEditing(
       boundaryNodeIds:area.boundaryNodeIds.map(id=>ids.get(id)!),
       metadata:{sourceFormat:"SAP2000",sourceAreaId:area.sourceId,
         ...(area.sourceGuid ? {sourceAreaGuid:area.sourceGuid} : {}),
+        ...(area.sourceSectionAssignment?.section ? {sourceSectionName:area.sourceSectionAssignment.section} : {}),
+        ...(area.sourceSectionAssignment?.materialProperty ? {sourceMaterialProperty:area.sourceSectionAssignment.materialProperty} : {}),
         sourceEngineeringAssignment:"unresolved",geometryOnly:true,
         engineeringValidationRequired:true},
     }));
