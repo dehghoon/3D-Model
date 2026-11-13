@@ -998,12 +998,18 @@ export default function SimpleFrameModeler({
                 role="button" tabIndex={0} aria-label={`Add boundary node ${node.id}`}
                 onClick={e=>{
                   e.stopPropagation();
-                  setSurfaceBoundaryDraft(prev=>prev.trim() ? `${prev}, ${node.id}` : node.id);
+                  setSurfaceBoundaryDraft(prev=>{
+                    const ids=prev.split(",").map(id=>id.trim()).filter(Boolean);
+                    return ids.includes(node.id) ? prev : [...ids,node.id].join(", ");
+                  });
                 }}
                 onKeyDown={e=>{
                   if(e.key==="Enter" || e.key===" "){
                     e.preventDefault();
-                    setSurfaceBoundaryDraft(prev=>prev.trim() ? `${prev}, ${node.id}` : node.id);
+                    setSurfaceBoundaryDraft(prev=>{
+                    const ids=prev.split(",").map(id=>id.trim()).filter(Boolean);
+                    return ids.includes(node.id) ? prev : [...ids,node.id].join(", ");
+                  });
                   }
                 }}>
                 <title>{node.id}</title>
@@ -1238,6 +1244,13 @@ export default function SimpleFrameModeler({
                 setNewSurfaceType(null);setSurfaceNodePickMode(false);
                 setSurfaceBoundaryDraft("");setSurfaceEditError("");
               }}>Cancel Drawing</button>
+              <button type="button" disabled={!surfaceBoundaryDraft.trim()} onClick={()=>{
+                setSurfaceBoundaryDraft(prev=>prev.split(",").map(id=>id.trim()).filter(Boolean).slice(0,-1).join(", "));
+                setSurfaceEditError("");
+              }}>Undo Last Node</button>
+              <button type="button" disabled={!surfaceBoundaryDraft.trim()} onClick={()=>{
+                setSurfaceBoundaryDraft("");setSurfaceEditError("");
+              }}>Clear Nodes</button>
               <span>Boundary: {surfaceBoundaryDraft || "none"}</span>
             </> : null}
             {surfaceEditError && newSurfaceType ? <span role="alert">{surfaceEditError}</span> : null}
