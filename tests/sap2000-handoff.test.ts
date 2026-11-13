@@ -65,3 +65,8 @@ test("accepts both SAP2000 file extensions and a byte-consistent source archive"
   const backup=readSapHandoff({...fixture,sourceArchive:{...fixture.sourceArchive,filename:"MODEL.$2k"}});
   assert.equal(backup.sourceArchive.byteLength,1);
 });
+
+
+test("rejects empty SAP geometry instead of opening a misleading blank model",()=>{
+  assert.throws(()=>readSapHandoff({...fixture,geometryPreview:{...fixture.geometryPreview,nodes:[],members:[]}}),/EMPTY_GEOMETRY/);
+});
