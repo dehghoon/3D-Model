@@ -150,7 +150,14 @@ export function projectSapGeometryForEditing(
       importedSectionMaterialAssignments:"unresolved-proxy-only",
       analysisReady:false,
     }},
+    // A new SAP import replaces the previous model geometry. Never retain
+    // unrelated native surfaces or load data from the template project.
+    // SAP areas/loads must be mapped explicitly before they are editable.
     nodes,members,levels,
+    surfaces:[],
+    loadCases:[],
+    loads:[],
+    loadCombinations:[],
   };
 }
 
