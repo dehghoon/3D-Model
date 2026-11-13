@@ -144,6 +144,7 @@ export default function ThatOpenViewportV07({
   const sourceLinesRef = useRef<THREE.LineSegments | null>(null);
   const sourceSelectRef = useRef(onSapMemberSelect);
   sourceSelectRef.current = onSapMemberSelect;
+  const lastImportedSourceHashRef = useRef<string | null>(null);
   const sourceHandoffRef = useRef(sapHandoff);
   sourceHandoffRef.current = sapHandoff;
   const modelRef = useRef(model);
@@ -677,11 +678,18 @@ export default function ThatOpenViewportV07({
     const runtime = runtimeRef.current;
     if (!runtime) return;
 
+    // The initial Quick Frame has already fitted the camera. A subsequent SAP
+    // import replaces the geometry, so fit again exactly once per source file.
+    const importedHash = sapHandoff?.sourceHash ?? null;
+    if (importedHash && importedHash !== lastImportedSourceHashRef.current) {
+      runtime.fitted = false;
+      lastImportedSourceHashRef.current = importedHash;
+    }
     rebuildThatOpenScene(runtime, model, selection);
     syncSelectionHighlight(runtime, model, getPublishedSelections());
     if (getModelingPointTool()) renderModelingPreview(runtime);
     else renderTransformPreview(runtime);
-  }, [model, selection]);
+  }, [model, selection, sapHandoff?.sourceHash]);
 
   useEffect(() => {
     const runtime=runtimeRef.current;
