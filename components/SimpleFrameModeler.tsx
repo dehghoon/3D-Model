@@ -393,7 +393,8 @@ export default function SimpleFrameModeler({
           <button onClick={onAdvanced}>Keep editing in Advanced</button>
         </div>
       ) : null}
-      <h2>
+      {importedGeometry ? <p role="status" className="sfNotice">SAP2000 geometry is preserved. Select a member to edit its section, material or rotation. Quick-frame dimensions and grids do not apply to imported geometry.</p> : null}
+      {!importedGeometry ? <><h2>
         Plan size <small>metres</small>
       </h2>
       {(["x", "y"] as const).map((axis) => (
@@ -476,6 +477,7 @@ export default function SimpleFrameModeler({
         plus the remaining distance. Click any dimension to customize it.
       </p>
       <FrameBraceControls layout={layout} onChange={(next) => update(next)} />
+      </> : null}
       <button className="sfAdvanced" onClick={onAdvanced}>
         Continue in Advanced →
       </button>
@@ -521,14 +523,14 @@ export default function SimpleFrameModeler({
           onBlur={(e) => editMember({ rotationDeg: Number(e.target.value) })}
         />
       </label>
-      <button
+      {!importedGeometry ? <button
         onClick={() => {
           editMember({ excluded: true });
           setSelectedId(null);
         }}
       >
         Omit this member
-      </button>
+      </button> : null}
       {!importedGeometry ? <button
         onClick={() => {
           const next = { ...layout.overrides };
@@ -943,11 +945,11 @@ export default function SimpleFrameModeler({
             aria-label="Interactive structural frame: click dimensions to edit"
             role="group"
           >
-            {display.grids &&
+            {display.grids && !importedGeometry &&
               xs.map((x, i) =>
                 line(p(x, 0, 0), p(x, depth, 0), `gx${i}`, "sfGrid"),
               )}
-            {display.grids &&
+            {display.grids && !importedGeometry &&
               ys.map((y, j) =>
                 line(p(0, y, 0), p(width, y, 0), `gy${j}`, "sfGrid"),
               )}
