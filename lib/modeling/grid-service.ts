@@ -1,6 +1,6 @@
 import type { GridLine, StructuralModel, Vec3 } from "@linkoteq/structural-core";
 
-import { assertCanonicalV05 } from "../core-v05";
+import { assertCanonicalV06 } from "../core-v06";
 
 export interface CreateGridLineInput {
   label: string;
@@ -70,7 +70,7 @@ export function createGridLine(
   model: StructuralModel,
   input: CreateGridLineInput,
 ): GridMutationResult {
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
 
   const grid: GridLine = {
     id: nextGridId(model),
@@ -81,7 +81,7 @@ export function createGridLine(
     ...model,
     grids: [...model.grids, grid],
   };
-  assertCanonicalV05(nextModel);
+  assertCanonicalV06(nextModel);
 
   return { model: nextModel, grid };
 }
@@ -91,7 +91,7 @@ export function updateGridLine(
   gridId: string,
   input: UpdateGridLineInput,
 ): GridMutationResult {
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
 
   const id = requireGridId(gridId);
   const existing = model.grids.find((grid) => grid.id === id);
@@ -106,7 +106,7 @@ export function updateGridLine(
     ...model,
     grids: model.grids.map((item) => (item.id === id ? grid : item)),
   };
-  assertCanonicalV05(nextModel);
+  assertCanonicalV06(nextModel);
 
   return { model: nextModel, grid };
 }
@@ -115,7 +115,7 @@ export function deleteGridLine(
   model: StructuralModel,
   gridId: string,
 ): StructuralModel {
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
 
   const id = requireGridId(gridId);
   if (!model.grids.some((grid) => grid.id === id)) {
@@ -126,7 +126,7 @@ export function deleteGridLine(
     ...model,
     grids: model.grids.filter((grid) => grid.id !== id),
   };
-  assertCanonicalV05(nextModel);
+  assertCanonicalV06(nextModel);
 
   return nextModel;
 }
