@@ -22,6 +22,7 @@ import {
   subscribeDisplayOptions,
 } from "../lib/visualization/display-options-store";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import {deleteSurfaceFromCanonicalRefs} from "../lib/editor-surface-v05";
 import {
   createSimpleFrame,
   DEFAULT_FRAME,
@@ -153,6 +154,7 @@ export default function SimpleFrameModeler({
   const [catalogError, setCatalogError] = useState("");
   const [retry, setRetry] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedSurfaceId, setSelectedSurfaceId] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const current = useRef({ model, layout, onChange });
   current.current = { model, layout, onChange };
@@ -976,7 +978,11 @@ export default function SimpleFrameModeler({
                 <polygon key={surface.id} points={points}
                   fill="rgba(61, 135, 194, 0.18)"
                   stroke="currentColor" strokeOpacity={0.55}
-                  strokeWidth={1} pointerEvents="none">
+                  strokeWidth={selectedSurfaceId===surface.id ? 3 : 1}
+                  role="button" tabIndex={0}
+                  aria-label={`Select ${surface.type} area ${surface.metadata?.sourceAreaId ?? surface.id}`}
+                  onClick={(e)=>{e.stopPropagation();setSelectedSurfaceId(surface.id);setSelectedId(null);}}
+                  onKeyDown={(e)=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();setSelectedSurfaceId(surface.id);setSelectedId(null);}}}>
                   <title>{surface.type} · {surface.metadata?.sourceAreaId ?? surface.id} · unverified geometry</title>
                 </polygon>
               );
@@ -1184,6 +1190,16 @@ export default function SimpleFrameModeler({
                 ),
               )}
           </svg>
+          {selectedSurfaceId && model.surfaces.some(s=>s.id===selectedSurfaceId) ? (
+            <div role="group" aria-label="Selected area controls">
+              <span>Area: {model.surfaces.find(s=>s.id===selectedSurfaceId)?.metadata?.sourceAreaId ?? selectedSurfaceId}</span>
+              <button type="button" onClick={()=>{
+                onChange(deleteSurfaceFromCanonicalRefs(model,selectedSurfaceId));
+                setSelectedSurfaceId(null);
+              }}>Delete Area</button>
+              <button type="button" onClick={()=>setSelectedSurfaceId(null)}>Deselect Area</button>
+            </div>
+          ) : null}
           {!mobile ? memberEditor : null}
           {!importedGeometry && Object.values(layout.overrides ?? {}).some((o) => o.excluded) ? (
             <button
