@@ -50,3 +50,10 @@ test("rejects duplicate source frame identifiers and zero-length connectivity",(
   assert.throws(()=>readSapHandoff({...fixture,geometryPreview:{...fixture.geometryPreview,members:[first,{...first}]} }),/FRAME_INVALID/);
   assert.throws(()=>readSapHandoff({...fixture,geometryPreview:{...fixture.geometryPreview,members:[{...first,endNodeId:first.startNodeId}]} }),/FRAME_INVALID/);
 });
+
+
+test("rejects corrupted source archive bytes before opening editable geometry",()=>{
+  assert.throws(()=>readSapHandoff({...fixture,sourceArchive:{...fixture.sourceArchive,byteLength:2}}),/SOURCE_ARCHIVE_INVALID/);
+  assert.throws(()=>readSapHandoff({...fixture,sourceArchive:{...fixture.sourceArchive,bytesBase64:"not-base64!"}}),/SOURCE_ARCHIVE_INVALID/);
+  assert.throws(()=>readSapHandoff({...fixture,sourceArchive:{...fixture.sourceArchive,filename:"unrelated.json"}}),/SOURCE_ARCHIVE_INVALID/);
+});
