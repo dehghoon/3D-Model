@@ -108,6 +108,9 @@ export function projectSapGeometryForEditing(
   }));
   const nearestLevel = (z:number) => levels.reduce((best,level) =>
     Math.abs(level.elevation-z)<Math.abs(best.elevation-z)?level:best,levels[0]).id;
+  // The editor needs catalog IDs for geometry tools, but these are NOT SAP assignments.
+  // Mark every proxy member explicitly so downstream analysis cannot mistake them
+  // for validated imported engineering properties.
   const materialId = template.materials[0]?.id;
   const sectionId = template.sections[0]?.id;
   if (!materialId || !sectionId || !levels.length) throw new Error("SAP_EDITABLE_PROJECTION_REQUIRES_CATALOG_AND_LEVELS");
@@ -131,6 +134,9 @@ export function projectSapGeometryForEditing(
         endNodeId:ids.get(member.endNodeId)!,
         materialId,sectionId,
         levelId:nearestLevel(Math.max(a.z,b.z)),
+        metadata:{sourceFormat:"SAP2000",sourceMemberId:member.sourceId,
+          sourceEngineeringAssignment:"unresolved",geometryOnly:true,
+          engineeringValidationRequired:true},
       };
     });
   const projected = projectSapGridsForGridTool(template,handoff);
@@ -141,6 +147,8 @@ export function projectSapGeometryForEditing(
       sourceFormat:"SAP2000",
       sourceHash:handoff.sourceHash,
       importGeometryStatus:"editable-unverified",
+      importedSectionMaterialAssignments:"unresolved-proxy-only",
+      analysisReady:false,
     }},
     nodes,members,levels,
   };
