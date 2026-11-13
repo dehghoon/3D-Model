@@ -342,7 +342,7 @@ export default function StructuralEditorShellV3() {
         : <span className="sfTopBadge">Automatic frame · SI / m</span>}
       </header>
 
-      {(mode === "advanced" || sapHandoff !== null) ? <>
+      {mode === "advanced" ? <>
       {mode === "simple" && sapHandoff ? <div role="status" className="sapSimpleNotice">
         <strong>Imported SAP2000 model</strong>
         <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Editable geometry · engineering source preserved; analytical mapping unverified.</span>
@@ -541,7 +541,7 @@ export default function StructuralEditorShellV3() {
       {mode === "advanced" ? <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
         {([ ["setup", "Plan & levels"], ["tools", "Members & tools"], ["project", "Project"] ] as const).map(([panel, label]) => <button type="button" key={panel} aria-expanded={mobilePanel === panel} onClick={() => toggleMobilePanel(panel)}>{label}</button>)}
       </nav> : null}
-      </> : sapHandoff ? <section role="status" style={{padding:24}}><h2>SAP2000 source preserved</h2><p>Simple Mode cannot safely represent this imported source yet. All imported geometry and engineering data remain in Advanced Mode.</p><button type="button" onClick={() => switchMode("advanced")}>Return to Advanced Mode</button></section> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} />}
+      </> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} importedGeometry={!!sapHandoff} />}
     </div>
   );
 }
