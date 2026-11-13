@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readSapHandoff} from "../lib/import/sap2000-handoff";
+import {auditSapGeometryEdits, readSapHandoff} from "../lib/import/sap2000-handoff";
 
 const fixture={
   format:"linkoteq-sap2000-gpt3-handoff-v1",
@@ -29,4 +29,17 @@ test("rejects forged analysis-ready package",()=>{
 });
 test("rejects unresolved frame connectivity",()=>{
   assert.throws(()=>readSapHandoff({...fixture,geometryPreview:{...fixture.geometryPreview,members:[{sourceId:"F1",startNodeId:"missing",endNodeId:"2",renderable:false}]}}),/FRAME_INVALID/);
+});
+
+test("records SAP workspace moves, additions and deletions without rewriting the source",()=>{
+  const original={nodes:[{id:"SAP-N-0",position:{x:0,y:0,z:0}},{id:"SAP-N-1",position:{x:0,y:0,z:10}}],members:[{id:"SAP-M-0",startNodeId:"SAP-N-0",endNodeId:"SAP-N-1"}]};
+  const current={nodes:[{id:"SAP-N-0",position:{x:2,y:0,z:0}},{id:"NEW",position:{x:3,y:0,z:0}}],members:[{id:"NEW-M",startNodeId:"SAP-N-0",endNodeId:"NEW"}]};
+  type Model=import("@linkoteq/structural-core").StructuralModel;
+  const result=auditSapGeometryEdits(current as unknown as Model,original as unknown as Model);
+  assert.deepEqual(result.movedNodes,["SAP-N-0"]);
+  assert.deepEqual(result.addedNodes,["NEW"]);
+  assert.deepEqual(result.deletedNodes,["SAP-N-1"]);
+  assert.deepEqual(result.addedMembers,["NEW-M"]);
+  assert.deepEqual(result.deletedMembers,["SAP-M-0"]);
+  assert.equal(original.nodes[0].position.x,0);
 });
