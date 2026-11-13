@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { StructuralModel, SurfaceType } from "@linkoteq/structural-core";
-import { createSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
+import { createSurfaceFromCanonicalRefs, updateSurfaceBoundaryFromCanonicalRefs } from "../lib/editor-surface-v05";
 
 interface Props {
   model: StructuralModel;
   selectedNodeId?: string;
+  selectedSurfaceId?: string;
   onModelChange: (model: StructuralModel, status: string) => void;
   onSurfaceCreated?: (surfaceId: string) => void;
 }
@@ -16,6 +17,7 @@ const SURFACE_TYPES: SurfaceType[] = ["slab", "wall"];
 export default function SurfaceCreatorV05({
   model,
   selectedNodeId,
+  selectedSurfaceId,
   onModelChange,
   onSurfaceCreated,
 }: Props) {
@@ -53,6 +55,26 @@ export default function SurfaceCreatorV05({
   function clearBoundary() {
     setBoundaryNodeIds([]);
     setPickFromViewport(false);
+  }
+
+  function loadSelectedSurface() {
+    const surface=model.surfaces.find(item=>item.id===selectedSurfaceId);
+    if (!surface) return;
+    setType(surface.type);
+    setBoundaryNodeIds([...surface.boundaryNodeIds]);
+    setLevelId(surface.levelId ?? "");
+    setPickFromViewport(false);
+  }
+
+  function updateSelectedSurface() {
+    if (!selectedSurfaceId) return;
+    try {
+      const result=updateSurfaceBoundaryFromCanonicalRefs(model,selectedSurfaceId,boundaryNodeIds);
+      onModelChange(result.model,`Area ${selectedSurfaceId} boundary updated; engineering validation required.`);
+      setPickFromViewport(false);
+    } catch(error) {
+      onModelChange(model,error instanceof Error?error.message:"Area boundary update failed.");
+    }
   }
 
   function createSurface() {
@@ -118,6 +140,12 @@ export default function SurfaceCreatorV05({
         </button>
       ))}
 
+      <button onClick={loadSelectedSurface} disabled={!selectedSurfaceId}>
+        Load Selected Area Boundary
+      </button>
+      <button onClick={updateSelectedSurface} disabled={!selectedSurfaceId || boundaryNodeIds.length < 3}>
+        Update Selected Area Boundary
+      </button>
       <button onClick={createSurface} disabled={boundaryNodeIds.length < 3}>
         Create Surface
       </button>
