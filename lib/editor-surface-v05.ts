@@ -62,6 +62,13 @@ function validateSurfaceGeometry(model: StructuralModel, ids: string[]): void {
   const intersects=(a:{u:number;v:number},b:{u:number;v:number},p:{u:number;v:number},q:{u:number;v:number})=>{
     const abp=orient(a,b,p),abq=orient(a,b,q),pqa=orient(p,q,a),pqb=orient(p,q,b);
     const eps=tolerance*tolerance;
+    const onSegment=(s:{u:number;v:number},t:{u:number;v:number},v:{u:number;v:number})=>
+      Math.min(s.u,t.u)-tolerance<=v.u && v.u<=Math.max(s.u,t.u)+tolerance &&
+      Math.min(s.v,t.v)-tolerance<=v.v && v.v<=Math.max(s.v,t.v)+tolerance;
+    if(Math.abs(abp)<=eps && onSegment(a,b,p)) return true;
+    if(Math.abs(abq)<=eps && onSegment(a,b,q)) return true;
+    if(Math.abs(pqa)<=eps && onSegment(p,q,a)) return true;
+    if(Math.abs(pqb)<=eps && onSegment(p,q,b)) return true;
     return ((abp>eps && abq< -eps)||(abp< -eps && abq>eps)) &&
       ((pqa>eps && pqb< -eps)||(pqa< -eps && pqb>eps));
   };
