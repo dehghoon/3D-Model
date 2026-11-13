@@ -117,3 +117,16 @@ test("SAP projection strips stale Quick Frame metadata that could overwrite impo
   assert.equal(imported.members[0].metadata?.sourceMemberId,"F1");
   assertCanonicalV06(imported);
 });
+
+
+test("SAP import does not inherit unrelated template grid lines", () => {
+  const template=createStarterModelV06();
+  const contaminated={...template,grids:[{
+    id:"unrelated-grid",label:"OLD",
+    start:{x:0,y:0,z:0},end:{x:0,y:10,z:0},
+  }]};
+  const imported=projectSapGeometryForEditing(contaminated,handoff());
+  assert.deepEqual(imported.grids,[]);
+  assert.equal(imported.members.length,1);
+  assertCanonicalV06(imported);
+});
