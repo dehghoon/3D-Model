@@ -98,3 +98,24 @@ test("editor rejects unknown optional surface references", () => {
     /UNKNOWN_SURFACE_MATERIAL:MISSING/,
   );
 });
+
+
+test("Area validation remains stable with large SAP coordinate offsets", () => {
+  const original=fixture();
+  const shifted={...original,nodes:original.nodes.map(node=>({
+    ...node,position:{
+      x:node.position.x+1_000_000,
+      y:node.position.y-2_000_000,
+      z:node.position.z+3_000_000,
+    },
+  }))};
+  const boundaryNodeIds=["N1","N2","N3","N4"];
+  const created=createSurfaceFromCanonicalRefs(shifted,{type:"slab",boundaryNodeIds});
+  assert.deepEqual(created.surface.boundaryNodeIds,boundaryNodeIds);
+  assert.equal(shifted.surfaces.length,0);
+  const warped={...shifted,nodes:shifted.nodes.map(node=>
+    node.id==="N3" ? {...node,position:{...node.position,z:node.position.z+0.5}} : node)};
+  assert.throws(()=>createSurfaceFromCanonicalRefs(warped,{
+    type:"slab",boundaryNodeIds
+  }),/NON_PLANAR/);
+});
