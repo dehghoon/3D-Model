@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { buildStructuralGuides, disposeStructuralGuides } from "../lib/visualization/structural-guides";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import type { SapHandoff } from "../lib/import/sap2000-handoff";
 import type { EditorSelection } from "../lib/editor/selection";
 import {
   getPublishedSelections,
@@ -44,6 +46,9 @@ import {
 
 interface Props {
   model: StructuralModel;
+  sapHandoff?: SapHandoff | null;
+  simpleMode?: boolean;
+  onSapMemberSelect?: (id:string|null)=>void;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
   onMultiSelect?: (
@@ -127,12 +132,21 @@ function syncSelectionHighlight(
 
 export default function ThatOpenViewportV07({
   model,
+  sapHandoff,
+  simpleMode = false,
+  onSapMemberSelect,
   selection,
   onSelect,
   onMultiSelect,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<ThatOpenRuntime | null>(null);
+  const sourceLinesRef = useRef<THREE.LineSegments | null>(null);
+  const sourceSelectRef = useRef(onSapMemberSelect);
+  sourceSelectRef.current = onSapMemberSelect;
+  const lastImportedSourceHashRef = useRef<string | null>(null);
+  const sourceHandoffRef = useRef(sapHandoff);
+  sourceHandoffRef.current = sapHandoff;
   const modelRef = useRef(model);
   const selectionRef = useRef(selection);
   const onSelectRef = useRef(onSelect);
@@ -229,7 +243,27 @@ export default function ThatOpenViewportV07({
       }
     };
     const preset = (event: Event) => { void setThatOpenView(runtime, (event as CustomEvent<ViewMode>).detail); };
-    const fit = () => { void setThatOpenView(runtime, runtime.viewMode); };
+    const fit = () => {
+      const imported = sourceHandoffRef.current;
+      if (!imported) { void setThatOpenView(runtime, runtime.viewMode); return; }
+      const bounds = new THREE.Box3();
+      const nodes = new Map(imported.geometryPreview.nodes.map(node => [node.sourceId, node.position]));
+      // Fit actual frame geometry, not stray/unconnected source nodes.
+      for (const member of imported.geometryPreview.members) {
+        for (const id of [member.startNodeId, member.endNodeId]) {
+          const p = nodes.get(id);
+          if (p && [p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
+        }
+      }
+      if (bounds.isEmpty()) {
+        for (const node of imported.geometryPreview.nodes) {
+          const p = node.position;
+          if ([p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
+        }
+      }
+      if (bounds.isEmpty()) return;
+      void runtime.camera.controls.fitToBox(bounds, true, {paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+    };
 
 
     const commitSelections = (selections: ConcreteSelection[]) => {
@@ -360,6 +394,18 @@ export default function ThatOpenViewportV07({
       start = null;
       if (!origin || origin.pointerId !== event.pointerId) return;
 
+      const source = sourceHandoffRef.current;
+      if (source && sourceLinesRef.current && !getModelingPointTool() && getInteractionState().mode === "select" && isTapGesture(origin.x, origin.y, event.clientX, event.clientY, origin.pointerType)) {
+        const rect=canvas.getBoundingClientRect();
+        const ndc=new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
+        const raycaster=new THREE.Raycaster();
+        raycaster.params.Line={threshold:Math.max(0.12,runtime.camera.controls.distance*0.008)};
+        raycaster.setFromCamera(ndc,runtime.camera.three);
+        const hits=raycaster.intersectObject(sourceLinesRef.current,false);
+        const member=hits[0]?.index === undefined ? null : source.geometryPreview.members[hits[0].index];
+        sourceSelectRef.current?.(member?.sourceId ?? null);
+        // Source inspection must not consume native member selection, marquee, or editing.
+      }
       const state = getInteractionState();
       if (windowPickRef.current && state.mode === "select" && !getModelingPointTool()) {
         const point = {x:event.clientX,y:event.clientY};
@@ -632,11 +678,104 @@ export default function ThatOpenViewportV07({
     const runtime = runtimeRef.current;
     if (!runtime) return;
 
-    rebuildThatOpenScene(runtime, model, selection);
+    // The initial Quick Frame has already fitted the camera. A subsequent SAP
+    // import replaces the geometry, so fit again exactly once per source file.
+    const importedHash = sapHandoff?.sourceHash ?? null;
+    if (importedHash && importedHash !== lastImportedSourceHashRef.current) {
+      runtime.fitted = false;
+      lastImportedSourceHashRef.current = importedHash;
+    }
+    rebuildThatOpenScene(runtime, model, selectionRef.current);
     syncSelectionHighlight(runtime, model, getPublishedSelections());
     if (getModelingPointTool()) renderModelingPreview(runtime);
     else renderTransformPreview(runtime);
-  }, [model, selection]);
+  }, [model, sapHandoff?.sourceHash]);
+
+  // Selecting a node or shell must not dispose and rebuild thousands of
+  // meshes. Update existing materials instead; rebuild only on model edits.
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (runtime) syncSelectionHighlight(runtime, modelRef.current, getPublishedSelections());
+  }, [selection]);
+
+  useEffect(() => {
+    const runtime=runtimeRef.current;
+    if (!runtime) return;
+    if (sourceLinesRef.current) {
+      runtime.scene.remove(sourceLinesRef.current);
+      sourceLinesRef.current.geometry.dispose();
+      (sourceLinesRef.current.material as THREE.Material).dispose();
+      sourceLinesRef.current=null;
+    }
+    if (!sapHandoff || model.project.metadata?.importGeometryStatus === "editable-unverified") {
+      if (runtime.build) runtime.build.root.visible=true;
+      if (sapHandoff && model.nodes.length) {
+        const bounds = new THREE.Box3();
+        for (const node of model.nodes) {
+          const p=node.position;
+          if ([p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
+        }
+        if (!bounds.isEmpty()) void runtime.camera.controls.fitToBox(bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+      }
+      return;
+    }
+    const nodes=new Map(sapHandoff.geometryPreview.nodes.map(n=>[n.sourceId,n.position]));
+    const coords:number[]=[];
+    const pointCoords:number[]=[];
+    for(const n of sapHandoff.geometryPreview.nodes){
+      const p=n.position;
+      if([p.x,p.y,p.z].every(Number.isFinite)) pointCoords.push(p.x,p.z,p.y);
+    }
+    for(const m of sapHandoff.geometryPreview.members){
+      const a=nodes.get(m.startNodeId),b=nodes.get(m.endNodeId);
+      if(!a||!b) continue;
+      if(![a.x,a.y,a.z,b.x,b.y,b.z].every(Number.isFinite)) continue;
+      coords.push(a.x,a.z,a.y,b.x,b.z,b.y);
+    }
+    // Render source geometry independently of the unvalidated Core model.
+    // Keep points visible even when the imported file has no renderable frames.
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute("position",new THREE.Float32BufferAttribute(coords,3));
+    const lines=new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:0x0f766e}));
+    const pointsGeometry=new THREE.BufferGeometry();
+    pointsGeometry.setAttribute("position",new THREE.Float32BufferAttribute(pointCoords,3));
+    const points=new THREE.Points(pointsGeometry,new THREE.PointsMaterial({
+      color:0x2563eb,size:5,sizeAttenuation:false,depthTest:false,
+    }));
+    // Grid lines and labels share the same Linkoteq guide geometry and endpoints.
+    const nativeGridGuides=buildStructuralGuides({...model,levels:[]},{showGridLines:true,sourceGridOnly:true});
+    runtime.scene.add(nativeGridGuides);
+    sourceLinesRef.current=lines;
+    runtime.scene.add(lines);
+    runtime.scene.add(points);
+    if(runtime.build) runtime.build.root.visible=coords.length===0 && pointCoords.length===0;
+    const bounds=new THREE.Box3();
+    if(coords.length) bounds.expandByObject(lines);
+    if(pointCoords.length) bounds.expandByObject(points);
+    if(!bounds.isEmpty()){
+      // CameraControls calculates the correct distance from FOV and mobile aspect ratio.
+      const frameBounds = new THREE.Box3();
+      for (let i=0;i<coords.length;i+=3) frameBounds.expandByPoint(new THREE.Vector3(coords[i],coords[i+1],coords[i+2]));
+      void runtime.camera.controls.fitToBox(frameBounds.isEmpty() ? bounds : frameBounds, false, {paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+    } else {
+      console.error("SAP2000_VIEWPORT_NO_RENDERABLE_GEOMETRY",{
+        nodes:sapHandoff.geometryPreview.nodes.length,
+        members:sapHandoff.geometryPreview.members.length,
+      });
+    }
+    return ()=>{
+      runtime.scene.remove(lines);
+      runtime.scene.remove(nativeGridGuides);
+      disposeStructuralGuides(nativeGridGuides);
+      runtime.scene.remove(points);
+      geometry.dispose();
+      pointsGeometry.dispose();
+      (lines.material as THREE.Material).dispose();
+      (points.material as THREE.Material).dispose();
+      if(sourceLinesRef.current===lines) sourceLinesRef.current=null;
+      if(runtime.build) runtime.build.root.visible=true;
+    };
+  },[sapHandoff,model.project.metadata?.sourceHash]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
@@ -684,7 +823,7 @@ export default function ThatOpenViewportV07({
       }}
       aria-label="That Open structural viewport"
     >
-      {!pointTool.tool && interaction.mode === "select" ? <div className="viewportSelectionActions" style={{
+      {!simpleMode && !pointTool.tool && interaction.mode === "select" ? <div className="viewportSelectionActions" style={{
         position:"absolute", top: 56, left: 12, right: 12, zIndex: 55,
         display:"flex", flexWrap:"wrap", alignItems:"center", gap: 6, pointerEvents:"none"
       }}>
@@ -711,7 +850,7 @@ export default function ThatOpenViewportV07({
             You can still save your model.</p>
         </div>
       ) : null}
-      <div
+      {!simpleMode ? <div
         className="viewportViewTools"
         aria-label="View orientation"
       >
@@ -728,9 +867,9 @@ export default function ThatOpenViewportV07({
             {icon}
           </button>
         ))}
-      </div>
+      </div> : null}
 
-      {viewMode !== "3d" ? (
+      {viewMode !== "3d" && !simpleMode ? (
         <div
           className="viewportReferenceNavigator"
           aria-label="Reference navigation"
@@ -818,7 +957,7 @@ export default function ThatOpenViewportV07({
         />
       ) : null}
 
-      <div className="viewportInteractionStatus">
+      {!simpleMode ? <div className="viewportInteractionStatus">
         {interaction.mode === "select"
           ? toolMode === "select"
             ? `Select · Click, Ctrl/Cmd+Click, or drag window${
@@ -831,7 +970,7 @@ export default function ThatOpenViewportV07({
         {interaction.preview
           ? ` · ${interaction.preview.label}`
           : ""}
-      </div>
+      </div> : null}
     </div>
   );
 }

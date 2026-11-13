@@ -50,9 +50,10 @@ function memberObject(
   model: StructuralModel,
   member: StructuralModel["members"][number],
   selection: EditorSelection,
+  nodeById: ReadonlyMap<string, Node>,
 ): THREE.Group | null {
-  const startNode = model.nodes.find((node) => node.id === member.startNodeId);
-  const endNode = model.nodes.find((node) => node.id === member.endNodeId);
+  const startNode = nodeById.get(member.startNodeId);
+  const endNode = nodeById.get(member.endNodeId);
   if (!startNode || !endNode) return null;
 
   const start = toThree(startNode);
@@ -113,9 +114,10 @@ function surfaceObject(
   model: StructuralModel,
   surface: StructuralModel["surfaces"][number],
   selection: EditorSelection,
+  nodeById: ReadonlyMap<string, Node>,
 ): THREE.Mesh | null {
   const nodes = surface.boundaryNodeIds
-    .map((id) => model.nodes.find((node) => node.id === id))
+    .map((id) => nodeById.get(id))
     .filter((node): node is Node => Boolean(node));
 
   if (nodes.length < 3) return null;
@@ -206,6 +208,9 @@ export function buildCoreScene(
   const root = new THREE.Group();
   root.name = "linkoteq-core-scene";
   const pickables: THREE.Object3D[] = [];
+  // Large SAP imports contain thousands of areas; avoid linear node searches
+  // for every shell vertex and frame endpoint during each scene rebuild.
+  const nodeById = new Map(model.nodes.map(node => [node.id, node]));
 
   root.add(new THREE.AmbientLight(0xffffff, 1.15));
   const key = new THREE.DirectionalLight(0xffffff, 1.8);
@@ -214,14 +219,14 @@ export function buildCoreScene(
   root.add(gridObject(model.grids, model.nodes));
 
   for (const surface of model.surfaces) {
-    const object = surfaceObject(model, surface, selection);
+    const object = surfaceObject(model, surface, selection, nodeById);
     if (!object) continue;
     root.add(object);
     pickables.push(object);
   }
 
   for (const member of model.members) {
-    const object = memberObject(model, member, selection);
+    const object = memberObject(model, member, selection, nodeById);
     if (!object) continue;
     root.add(object);
     for (const child of object.children) pickables.push(child);

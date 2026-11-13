@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { StructuralModel, SurfaceType } from "@linkoteq/structural-core";
-import { createSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
+import { createSurfaceFromCanonicalRefs, updateSurfaceBoundaryFromCanonicalRefs, deleteSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
 
 interface Props {
   model: StructuralModel;
   selectedNodeId?: string;
+  selectedSurfaceId?: string;
   onModelChange: (model: StructuralModel, status: string) => void;
   onSurfaceCreated?: (surfaceId: string) => void;
 }
@@ -16,6 +17,7 @@ const SURFACE_TYPES: SurfaceType[] = ["slab", "wall"];
 export default function SurfaceCreatorV05({
   model,
   selectedNodeId,
+  selectedSurfaceId,
   onModelChange,
   onSurfaceCreated,
 }: Props) {
@@ -23,10 +25,11 @@ export default function SurfaceCreatorV05({
   const [boundaryNodeIds, setBoundaryNodeIds] = useState<string[]>([]);
   const [levelId, setLevelId] = useState("");
   const [pickFromViewport, setPickFromViewport] = useState(false);
+  const [editingSurfaceId, setEditingSurfaceId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!levelId && model.levels[0]) {
-      setLevelId(model.levels[0].id);
+    if (levelId && !model.levels.some((level) => level.id === levelId)) {
+      setLevelId("");
     }
   }, [levelId, model.levels]);
 
@@ -55,6 +58,62 @@ export default function SurfaceCreatorV05({
     setPickFromViewport(false);
   }
 
+  function cancelBoundaryEdit() {
+    setEditingSurfaceId(null);
+    setBoundaryNodeIds([]);
+    setPickFromViewport(false);
+  }
+
+  function undoLastBoundaryNode() {
+    setBoundaryNodeIds(current=>current.slice(0,-1));
+  }
+
+  function loadSelectedSurface() {
+    const surface=model.surfaces.find(item=>item.id===selectedSurfaceId);
+    if (!surface) return;
+    setEditingSurfaceId(surface.id);
+    setType(surface.type);
+    setBoundaryNodeIds([...surface.boundaryNodeIds]);
+    setLevelId(surface.levelId ?? "");
+    setPickFromViewport(false);
+  }
+
+  function restoreOriginalBoundary() {
+    const surface=model.surfaces.find(item=>item.id===editingSurfaceId);
+    if (!surface) return;
+    setBoundaryNodeIds([...surface.boundaryNodeIds]);
+    setPickFromViewport(false);
+  }
+
+  function replaceBoundaryFromViewport() {
+    if (!editingSurfaceId) return;
+    setBoundaryNodeIds([]);
+    setPickFromViewport(true);
+  }
+
+  function updateSelectedSurface() {
+    if (!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)) return;
+    try {
+      const result=updateSurfaceBoundaryFromCanonicalRefs(model,editingSurfaceId,boundaryNodeIds);
+      onModelChange(result.model,`Area ${editingSurfaceId} boundary updated; engineering validation required.`);
+      setPickFromViewport(false);
+    } catch(error) {
+      onModelChange(model,error instanceof Error?error.message:"Area boundary update failed.");
+    }
+  }
+
+  function deleteSelectedSurface() {
+    if (!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)) return;
+    if (!window.confirm(`Delete Area ${editingSurfaceId}? This removes its geometry from the current model.`)) return;
+    try {
+      const updated=deleteSurfaceFromCanonicalRefs(model,editingSurfaceId);
+      onModelChange(updated,`Area ${editingSurfaceId} deleted. Verify dependent engineering assignments.`);
+      cancelBoundaryEdit();
+    } catch(error) {
+      onModelChange(model,error instanceof Error?error.message:"Area deletion failed.");
+    }
+  }
+
   function createSurface() {
     try {
       const result = createSurfaceFromCanonicalRefs(model, {
@@ -62,14 +121,18 @@ export default function SurfaceCreatorV05({
         boundaryNodeIds,
         ...(levelId ? { levelId } : {}),
       });
-      onModelChange(result.model, `Canonical Core v0.5 surface ${result.surface.id} created.`);
+      onModelChange(result.model, `Canonical Core v0.6 surface ${result.surface.id} created.`);
       setBoundaryNodeIds([]);
+      setEditingSurfaceId(null);
       setPickFromViewport(false);
       onSurfaceCreated?.(result.surface.id);
     } catch (error) {
       onModelChange(model, error instanceof Error ? error.message : "Surface creation failed.");
     }
   }
+
+  const editingSurface=model.surfaces.find(surface=>surface.id===editingSurfaceId);
+  const sourceMetadata=editingSurface?.metadata;
 
   return (
     <section className="panelBlock">
@@ -108,6 +171,9 @@ export default function SurfaceCreatorV05({
       <button onClick={addSelectedNode} disabled={!selectedNodeId}>
         Add Selected Node
       </button>
+      <button onClick={undoLastBoundaryNode} disabled={!boundaryNodeIds.length}>
+        Undo Last Boundary Node
+      </button>
       <button onClick={clearBoundary} disabled={!boundaryNodeIds.length}>
         Clear Boundary
       </button>
@@ -118,6 +184,32 @@ export default function SurfaceCreatorV05({
         </button>
       ))}
 
+      <button onClick={loadSelectedSurface} disabled={!selectedSurfaceId}>
+        Load Selected Area Boundary
+      </button>
+      <div className="selectionText">Editing Area: {editingSurfaceId ?? "None"}</div>
+      {editingSurface && (
+        <div className="selectionText">
+          {sourceMetadata?.sourceFormat==="SAP2000"
+            ? `SAP2000 Area ${sourceMetadata.sourceAreaId ?? editingSurface.id}; GUID: ${sourceMetadata.sourceGuid ?? "unavailable"}; Section: ${sourceMetadata.sourceSectionName ?? "unavailable"}. Geometry edits require engineering revalidation.`
+            : `Native ${editingSurface.type} Area; boundary editing only.`}
+        </div>
+      )}
+      <button onClick={cancelBoundaryEdit} disabled={!editingSurfaceId && !boundaryNodeIds.length}>
+        Cancel Boundary Draft
+      </button>
+      <button onClick={restoreOriginalBoundary} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)}>
+        Restore Saved Area Boundary
+      </button>
+      <button onClick={replaceBoundaryFromViewport} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)}>
+        Replace Boundary From Viewport
+      </button>
+      <button onClick={updateSelectedSurface} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId) || boundaryNodeIds.length < 3}>
+        Update Selected Area Boundary
+      </button>
+      <button onClick={deleteSelectedSurface} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId)}>
+        Delete Selected Area
+      </button>
       <button onClick={createSurface} disabled={boundaryNodeIds.length < 3}>
         Create Surface
       </button>

@@ -7,10 +7,10 @@ import {
   resizeBays,
   total,
 } from "../lib/simple-frame";
-import { assertCanonicalV05 } from "../lib/core-v05";
+import { assertCanonicalV06 } from "../lib/core-v06";
 test("quick frame creates connected columns at every intersection and beams at each elevated level", () => {
   const m = createSimpleFrame(DEFAULT_FRAME);
-  assertCanonicalV05(m);
+  assertCanonicalV06(m);
   assert.equal(m.project.metadata?.defaultModel,"simple-frame");
   assert.equal(m.nodes.length, 36);
   assert.equal(m.members.filter((x) => x.type === "column").length, 24);
@@ -53,7 +53,7 @@ test("spacing changes update shared nodes once, retain IDs and regenerate comple
     b.levels.map((l) => l.elevation),
     [0, 4, 7],
   );
-  assertCanonicalV05(b);
+  assertCanonicalV06(b);
 });
 test("plan dimensions, counts and defaults have explicit exact behavior", () => {
   assert.deepEqual(fitDimension(12), [5, 5, 2]);
@@ -68,7 +68,7 @@ test("plan dimensions, counts and defaults have explicit exact behavior", () => 
 test("frame setup metadata round trips as canonical project metadata", () => {
   const model = createSimpleFrame(DEFAULT_FRAME);
   const saved = JSON.parse(JSON.stringify(model));
-  assertCanonicalV05(saved);
+  assertCanonicalV06(saved);
   assert.deepEqual(
     JSON.parse(String(saved.project.metadata?.simpleFrame)),
     DEFAULT_FRAME,

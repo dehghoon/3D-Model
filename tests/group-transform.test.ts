@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStarterModelV05 } from "../lib/default-model-v05";
+import { createStarterModelV06 } from "../lib/default-model-v05";
 import { transformGroup } from "../lib/editor/group-transform";
 import { pointFromCoordinates, columnPointAtLevel } from "../lib/editor/point-input";
 import { createSurfaceFromPoints } from "../lib/editor/surface-draw-controller";
-import { assertCanonicalV05 } from "../lib/core-v05";
+import { assertCanonicalV06 } from "../lib/core-v06";
 
 const delta={x:10,y:2,z:3};
 function connectedFixture(){
-  const model=createStarterModelV05();
+  const model=createStarterModelV06();
   model.surfaces=[{id:"TEST-SURFACE",type:"wall",boundaryNodeIds:model.nodes.map(node=>node.id)}];
   return model;
 }
@@ -21,7 +21,7 @@ for(const operation of ["move","copy"] as const){
     assert.equal(result.nodeIds.length,model.nodes.length);
     assert.equal(new Set(result.nodeIds).size,model.nodes.length);
     assert.equal(result.selections.length,selections.length);
-    assertCanonicalV05(result.model);
+    assertCanonicalV06(result.model);
     for(const [index,node] of model.nodes.entries()){
       const transformed=result.model.nodes.find(item=>item.id===result.nodeIds[index])!;
       // Node-map order is traversal order; resolve by original ID on move and suffix on copy.
@@ -60,7 +60,7 @@ test("invalid group member and zero/non-finite displacement never partially muta
 test("absolute, relative and column-level input preserve global XYZ",()=>{
   assert.deepEqual(pointFromCoordinates({x:"2",y:"3",z:"4"},"absolute",null).point,{x:2,y:3,z:4});
   assert.deepEqual(pointFromCoordinates({x:"-2",y:"3",z:"4"},"relative",{x:5,y:6,z:7}).point,{x:3,y:9,z:11});
-  const model=createStarterModelV05();
+  const model=createStarterModelV06();
   const level=model.levels.find(item=>item.elevation!==0)!;
   assert.deepEqual(columnPointAtLevel(model,{x:8,y:9,z:0},level.id).point,{x:8,y:9,z:level.elevation});
   assert.throws(()=>pointFromCoordinates({x:"",y:"0",z:"1"},"absolute",null),/all three/);
@@ -68,7 +68,7 @@ test("absolute, relative and column-level input preserve global XYZ",()=>{
   assert.throws(()=>columnPointAtLevel(model,{x:0,y:0,z:level.elevation},level.id),/differ/);
 });
 test("surface completion is atomic and rejects crossing, non-planar and collinear boundaries",()=>{
-  const model=createStarterModelV05(),before=structuredClone(model);
+  const model=createStarterModelV06(),before=structuredClone(model);
   const p=(x:number,y:number,z=0)=>({x,y,z});
   assert.throws(()=>createSurfaceFromPoints(model,"slab",[p(20,20),p(24,24),p(20,24),p(24,20)]),/cross/);
   assert.throws(()=>createSurfaceFromPoints(model,"slab",[p(20,20),p(24,20),p(24,24),p(20,24,1)]),/plane/);
@@ -77,11 +77,11 @@ test("surface completion is atomic and rejects crossing, non-planar and collinea
   const result=createSurfaceFromPoints(model,"slab",[p(20,20),p(24,20),p(24,24),p(20,24)]);
   assert.equal(result.model.nodes.length,model.nodes.length+4);
   assert.equal(result.surface.boundaryNodeIds.length,4);
-  assertCanonicalV05(result.model);
+  assertCanonicalV06(result.model);
 });
 
 test("moving a shared node cannot collapse an unselected connected member",()=>{
-  const model=createStarterModelV05(),member=model.members[0];
+  const model=createStarterModelV06(),member=model.members[0];
   const start=model.nodes.find(node=>node.id===member.startNodeId)!;
   const end=model.nodes.find(node=>node.id===member.endNodeId)!;
   assert.throws(()=>transformGroup(model,[{type:"node",id:end.id}],{

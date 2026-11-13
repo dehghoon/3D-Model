@@ -37,14 +37,16 @@ function Axis({title,axis,lines,setLines}:{title:string;axis:"x"|"y";lines:GridO
 }
 
 export default function GridOffsetEditorV07({model,onModelChange}:{model:StructuralModel;onModelChange:(m:StructuralModel,s:string)=>void}){
-  const initial=useMemo(()=>valid(model)?readGridOffsetSystem(model):defaults(),[model.project.id]);
+  const initial=useMemo(()=>model.grids.length ? readGridOffsetSystem(model) : defaults(),[model.project.id,model.grids]);
   const [system,setSystem]=useState<GridOffsetSystem>(initial);
   const initialized=useRef(false);
+
+  useEffect(()=>setSystem(initial),[initial]);
 
   useEffect(()=>{
     if(initialized.current) return;
     initialized.current=true;
-    if(!valid(model)) onModelChange(applyGridOffsetSystem(model,initial),"Canonical Grid system initialized.");
+    if(!model.grids.length) onModelChange(applyGridOffsetSystem(model,initial),"Canonical Grid system initialized.");
   },[initial,model,onModelChange]);
 
   const save=()=>{

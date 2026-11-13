@@ -36,7 +36,7 @@ import {
   setPointToolMessage,
   usePointToolState,
 } from "../lib/editor/member-draw-events";
-import { assertCanonicalV05 } from "../lib/core-v05";
+import { assertCanonicalV06 } from "../lib/core-v06";
 
 type Tool = "select" | "beam" | "column" | "brace" | "joist" | "wall" | "slab";
 interface Props {
@@ -146,7 +146,7 @@ export default function ModelToolsV05({
     ignoredSelectionRef.current = null;
   }
   function commit(next: StructuralModel, message: string) {
-    assertCanonicalV05(next);
+    assertCanonicalV06(next);
     modelRef.current = next;
     onModelChange(next, message);
     setStatus(message);

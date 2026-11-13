@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import FrameCatalogToolbar, { FrameSectionPicker } from "./FrameCatalogToolbar";
 import FrameBraceControls from "./FrameBraceControls";
 import {
@@ -22,6 +22,7 @@ import {
   subscribeDisplayOptions,
 } from "../lib/visualization/display-options-store";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import {createSurfaceFromCanonicalRefs, deleteSurfaceFromCanonicalRefs, updateSurfaceBoundaryFromCanonicalRefs} from "../lib/editor-surface-v05";
 import {
   createSimpleFrame,
   DEFAULT_FRAME,
@@ -36,11 +37,13 @@ interface Props {
   model: StructuralModel;
   onChange: (model: StructuralModel) => void;
   onAdvanced: () => void;
+  importedGeometry?: boolean;
 }
 export default function SimpleFrameModeler({
   model,
   onChange,
   onAdvanced,
+  importedGeometry = false,
 }: Props) {
   const [layout, setLayout] = useState<FrameLayout>(() => {
     try {
@@ -80,7 +83,7 @@ export default function SimpleFrameModeler({
     setSheetOpen(true);
   }
   function pickMember(id: string) {
-    if (!generated) return;
+    if (!generated && !importedGeometry) return;
     setSelectedId(id);
     setEdit(null);
     if (mobile) showPanel("members");
@@ -151,7 +154,13 @@ export default function SimpleFrameModeler({
   const [catalogError, setCatalogError] = useState("");
   const [retry, setRetry] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedSurfaceId, setSelectedSurfaceId] = useState<string | null>(null);
+  const [surfaceBoundaryDraft, setSurfaceBoundaryDraft] = useState("");
+  const [surfaceEditError, setSurfaceEditError] = useState("");
+  const [surfaceNodePickMode, setSurfaceNodePickMode] = useState(false);
+  const [newSurfaceType, setNewSurfaceType] = useState<"slab"|"wall"|null>(null);
   const [filter, setFilter] = useState("all");
+  const nodeById = useMemo(() => new Map(model.nodes.map(node=>[node.id,node])), [model.nodes]);
   const current = useRef({ model, layout, onChange });
   current.current = { model, layout, onChange };
   useEffect(() => {
@@ -244,6 +253,17 @@ export default function SimpleFrameModeler({
     section?: Section,
   ) {
     if (!selected) return;
+    if (importedGeometry) {
+      const sections=section
+        ? model.sections.some(s=>s.id===section.id)
+          ? model.sections.map(s=>s.id===section.id ? section : s)
+          : [...model.sections,section]
+        : model.sections;
+      onChange({...model,sections,members:model.members.map(member=>
+        member.id===selected.id ? {...member,...patch} : member)});
+      setError("");
+      return;
+    }
     updateWithSection(
       {
         ...layout,
@@ -257,6 +277,10 @@ export default function SimpleFrameModeler({
   }
   const generated = typeof model.project.metadata?.simpleFrame === "string";
   function update(next: FrameLayout, replace = false, template = model) {
+    if (importedGeometry) {
+      setError("Imported SAP2000 geometry cannot be regenerated with Quick Frame controls. Use Advanced for geometry changes.");
+      return;
+    }
     if (!generated && !replace) {
       setError(
         "Create a quick frame first, or continue in Advanced to keep the current model.",
@@ -289,6 +313,11 @@ export default function SimpleFrameModeler({
   const width = total(layout.x),
     depth = total(layout.y),
     height = total(layout.heights);
+  const importedBounds = importedGeometry && model.nodes.length ? {
+    x: Math.max(...model.nodes.map(n=>n.position.x))-Math.min(...model.nodes.map(n=>n.position.x)),
+    y: Math.max(...model.nodes.map(n=>n.position.y))-Math.min(...model.nodes.map(n=>n.position.y)),
+    z: Math.max(...model.nodes.map(n=>n.position.z))-Math.min(...model.nodes.map(n=>n.position.z)),
+  } : null;
   const raw = (x: number, y: number, z: number) =>
     plan
       ? { x, y: -y }
@@ -299,9 +328,11 @@ export default function SimpleFrameModeler({
               Math.sin(angles.tilt) -
             z * Math.cos(angles.tilt),
         };
-  const corners = [0, width].flatMap((x) =>
-    [0, depth].flatMap((y) => [0, height].map((z) => raw(x, y, z))),
-  );
+  const corners = importedGeometry && model.nodes.length
+    ? model.nodes.map(node=>raw(node.position.x,node.position.y,node.position.z))
+    : [0, width].flatMap((x) =>
+        [0, depth].flatMap((y) => [0, height].map((z) => raw(x, y, z))),
+      );
   const minX = Math.min(...corners.map((p) => p.x)),
     maxX = Math.max(...corners.map((p) => p.x)),
     minY = Math.min(...corners.map((p) => p.y)),
@@ -371,7 +402,7 @@ export default function SimpleFrameModeler({
         Set the plan, add grids and storeys. Columns and beams connect
         automatically.
       </p>
-      {!generated ? (
+      {!generated && !importedGeometry ? (
         <div className="sfNotice">
           Your existing model is kept in Advanced. Creating a quick frame
           replaces the current geometry.
@@ -381,7 +412,8 @@ export default function SimpleFrameModeler({
           <button onClick={onAdvanced}>Keep editing in Advanced</button>
         </div>
       ) : null}
-      <h2>
+      {importedGeometry ? <p role="status" className="sfNotice">SAP2000 geometry is preserved. Select a member to edit its section, material or rotation. Quick-frame dimensions and grids do not apply to imported geometry.</p> : null}
+      {!importedGeometry ? <><h2>
         Plan size <small>metres</small>
       </h2>
       {(["x", "y"] as const).map((axis) => (
@@ -464,6 +496,7 @@ export default function SimpleFrameModeler({
         plus the remaining distance. Click any dimension to customize it.
       </p>
       <FrameBraceControls layout={layout} onChange={(next) => update(next)} />
+      </> : null}
       <button className="sfAdvanced" onClick={onAdvanced}>
         Continue in Advanced →
       </button>
@@ -509,15 +542,15 @@ export default function SimpleFrameModeler({
           onBlur={(e) => editMember({ rotationDeg: Number(e.target.value) })}
         />
       </label>
-      <button
+      {!importedGeometry ? <button
         onClick={() => {
           editMember({ excluded: true });
           setSelectedId(null);
         }}
       >
         Omit this member
-      </button>
-      <button
+      </button> : null}
+      {!importedGeometry ? <button
         onClick={() => {
           const next = { ...layout.overrides };
           delete next[selected.id];
@@ -525,7 +558,7 @@ export default function SimpleFrameModeler({
         }}
       >
         Use defaults for this member
-      </button>
+      </button> : null}
     </section>
   ) : null;
   const dimensionEditor = edit ? (
@@ -583,7 +616,7 @@ export default function SimpleFrameModeler({
   const memberBrowser = (
     <section className="sfMobileMemberBrowser" aria-label="Member browser">
       <p>Tap a member in the model, or choose one below.</p>
-      <details className="sfMobileDefaults">
+      {!importedGeometry ? <details className="sfMobileDefaults">
         <summary>Default sections</summary>
         {(["beam", "column", "brace"] as const).map((type) => (
           <FrameSectionPicker
@@ -604,7 +637,7 @@ export default function SimpleFrameModeler({
             }
           />
         ))}
-      </details>
+      </details> : null}
       <label>
         Member type
         <select
@@ -642,7 +675,7 @@ export default function SimpleFrameModeler({
       className={`simpleFrameApp ${mobile ? "sfMobileLayout" : ""}`}
       data-panel-open={sheetOpen}
     >
-      {!mobile ? catalogPanel : null}
+      {!mobile && !importedGeometry ? catalogPanel : null}
       <main className="simpleFrameWorkspace">
         {!mobile ? setupPanel : null}
         <section className="sfCanvas">
@@ -650,7 +683,7 @@ export default function SimpleFrameModeler({
             <div>
               <strong>{mobile ? model.project.name : "Live model"}</strong>
               <span>
-                {width.toFixed(1)} × {depth.toFixed(1)} m · {height.toFixed(1)}{" "}
+                {(importedBounds?.x ?? width).toFixed(1)} × {(importedBounds?.y ?? depth).toFixed(1)} m · {(importedBounds?.z ?? height).toFixed(1)}{" "}
                 m high
               </span>
             </div>
@@ -931,20 +964,75 @@ export default function SimpleFrameModeler({
             aria-label="Interactive structural frame: click dimensions to edit"
             role="group"
           >
-            {display.grids &&
+            {display.grids && !importedGeometry &&
               xs.map((x, i) =>
                 line(p(x, 0, 0), p(x, depth, 0), `gx${i}`, "sfGrid"),
               )}
-            {display.grids &&
+            {display.grids && !importedGeometry &&
               ys.map((y, j) =>
                 line(p(0, y, 0), p(width, y, 0), `gy${j}`, "sfGrid"),
               )}
+            {model.surfaces.map((surface) => {
+              const boundary = surface.boundaryNodeIds.map(id => nodeById.get(id));
+              if (boundary.length < 3 || boundary.some(n => !n)) return null;
+              const points = boundary.map(n => {
+                const point = p(n!.position.x,n!.position.y,n!.position.z);
+                return `${point.x},${point.y}`;
+              }).join(" ");
+              return (
+                <polygon key={surface.id} points={points}
+                  fill="rgba(61, 135, 194, 0.18)"
+                  stroke="currentColor" strokeOpacity={0.55}
+                  strokeWidth={selectedSurfaceId===surface.id ? 3 : 1}
+                  role="button" tabIndex={0}
+                  aria-label={`Select ${surface.type} area ${surface.metadata?.sourceAreaId ?? surface.id}`}
+                  onClick={(e)=>{e.stopPropagation();if(newSurfaceType || surfaceNodePickMode) return;setSelectedSurfaceId(surface.id);setSurfaceBoundaryDraft(surface.boundaryNodeIds.join(", "));setSurfaceEditError("");setSelectedId(null);}}
+                  onKeyDown={(e)=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();if(newSurfaceType || surfaceNodePickMode) return;setSelectedSurfaceId(surface.id);setSurfaceBoundaryDraft(surface.boundaryNodeIds.join(", "));setSurfaceEditError("");setSelectedId(null);}}}>
+                  <title>{surface.type} · {surface.metadata?.sourceAreaId ?? surface.id} · unverified geometry</title>
+                </polygon>
+              );
+            })}
+            {newSurfaceType && surfaceBoundaryDraft.split(",").map(id=>id.trim()).filter(Boolean).length >= 2 ? (() => {
+              const draftNodes=surfaceBoundaryDraft.split(",").map(id=>nodeById.get(id.trim())).filter((node):node is NonNullable<typeof node>=>Boolean(node));
+              return draftNodes.length >= 2 ? <polyline
+                points={draftNodes.map(node=>{
+                  const point=p(node.position.x,node.position.y,node.position.z);
+                  return `${point.x},${point.y}`;
+                }).join(" ")}
+                fill="none" stroke="#f59e0b" strokeWidth={2}
+                strokeDasharray="6 4" pointerEvents="none"
+                aria-label="Area boundary drawing preview"/> : null;
+            })() : null}
+            {surfaceNodePickMode && (selectedSurfaceId || newSurfaceType) && model.nodes.map(node=>{
+              const point=p(node.position.x,node.position.y,node.position.z);
+              return <circle key={node.id} cx={point.x} cy={point.y} r={7}
+                fill="rgba(255, 183, 0, 0.8)" stroke="currentColor" strokeWidth={1}
+                role="button" tabIndex={0} aria-label={`Add boundary node ${node.id}`}
+                onClick={e=>{
+                  e.stopPropagation();
+                  setSurfaceBoundaryDraft(prev=>{
+                    const ids=prev.split(",").map(id=>id.trim()).filter(Boolean);
+                    return ids.includes(node.id) ? prev : [...ids,node.id].join(", ");
+                  });
+                }}
+                onKeyDown={e=>{
+                  if(e.key==="Enter" || e.key===" "){
+                    e.preventDefault();
+                    setSurfaceBoundaryDraft(prev=>{
+                    const ids=prev.split(",").map(id=>id.trim()).filter(Boolean);
+                    return ids.includes(node.id) ? prev : [...ids,node.id].join(", ");
+                  });
+                  }
+                }}>
+                <title>{node.id}</title>
+              </circle>;
+            })}
             {showMembers &&
               model.members
                 .filter(
                   (m) =>
                     (filter === "all" || m.type === filter) &&
-                    (!plan ||
+                    (!plan || importedGeometry ||
                       m.type !== "column" ||
                       m.levelId === model.levels.at(-1)?.id),
                 )
@@ -1060,7 +1148,7 @@ export default function SimpleFrameModeler({
                     </g>
                   );
                 })}
-            {display.grids &&
+            {display.grids && !importedGeometry &&
               xs.flatMap((x, i) =>
                 [true, false].map((near) => {
                   const q = p(x, near ? 0 : depth, 0),
@@ -1085,7 +1173,7 @@ export default function SimpleFrameModeler({
                   );
                 }),
               )}
-            {display.grids &&
+            {display.grids && !importedGeometry &&
               ys.flatMap((y, j) =>
                 [true, false].map((near) => {
                   const q = p(near ? 0 : width, y, 0),
@@ -1142,8 +1230,75 @@ export default function SimpleFrameModeler({
                 ),
               )}
           </svg>
+          <div role="group" aria-label="Draw Area controls">
+            <button type="button" onClick={()=>{
+              setNewSurfaceType("slab");setSelectedSurfaceId(null);
+              setSurfaceBoundaryDraft("");setSurfaceEditError("");setSurfaceNodePickMode(true);
+            }}>Draw Slab Area</button>
+            <button type="button" onClick={()=>{
+              setNewSurfaceType("wall");setSelectedSurfaceId(null);
+              setSurfaceBoundaryDraft("");setSurfaceEditError("");setSurfaceNodePickMode(true);
+            }}>Draw Wall Area</button>
+            {newSurfaceType ? <>
+              <span>Pick boundary nodes in order ({newSurfaceType})</span>
+              <button type="button" onClick={()=>{
+                try {
+                  const ids=surfaceBoundaryDraft.split(",").map(id=>id.trim());
+                  const result=createSurfaceFromCanonicalRefs(model,{type:newSurfaceType,boundaryNodeIds:ids});
+                  onChange(result.model);
+                  setNewSurfaceType(null);setSurfaceNodePickMode(false);
+                  setSurfaceBoundaryDraft("");setSurfaceEditError("");
+                } catch(error){
+                  setSurfaceEditError(error instanceof Error ? error.message : "Unable to draw Area");
+                }
+              }}>Finish Area</button>
+              <button type="button" onClick={()=>{
+                setNewSurfaceType(null);setSurfaceNodePickMode(false);
+                setSurfaceBoundaryDraft("");setSurfaceEditError("");
+              }}>Cancel Drawing</button>
+              <button type="button" disabled={!surfaceBoundaryDraft.trim()} onClick={()=>{
+                setSurfaceBoundaryDraft(prev=>prev.split(",").map(id=>id.trim()).filter(Boolean).slice(0,-1).join(", "));
+                setSurfaceEditError("");
+              }}>Undo Last Node</button>
+              <button type="button" disabled={!surfaceBoundaryDraft.trim()} onClick={()=>{
+                setSurfaceBoundaryDraft("");setSurfaceEditError("");
+              }}>Clear Nodes</button>
+              <span>Boundary: {surfaceBoundaryDraft || "none"}</span>
+            </> : null}
+            {surfaceEditError && newSurfaceType ? <span role="alert">{surfaceEditError}</span> : null}
+          </div>
+          {selectedSurfaceId && model.surfaces.some(s=>s.id===selectedSurfaceId) ? (
+            <div role="group" aria-label="Selected area controls">
+              <span>Area: {model.surfaces.find(s=>s.id===selectedSurfaceId)?.metadata?.sourceAreaId ?? selectedSurfaceId}</span>
+              <button type="button" onClick={()=>{
+                setSurfaceNodePickMode(value=>!value);
+                setSurfaceEditError("");
+              }}>{surfaceNodePickMode ? "Stop Picking Nodes" : "Pick Boundary Nodes"}</button>
+              {surfaceNodePickMode ? <button type="button" onClick={()=>setSurfaceBoundaryDraft("")}>Clear Boundary Draft</button> : null}
+              <label htmlFor="area-boundary-node-ids">Boundary node IDs (in order)</label>
+              <input id="area-boundary-node-ids" value={surfaceBoundaryDraft}
+                onChange={e=>setSurfaceBoundaryDraft(e.target.value)}
+                aria-label="Area boundary node IDs"/>
+              <button type="button" onClick={()=>{
+                try {
+                  const ids=surfaceBoundaryDraft.split(",").map(id=>id.trim());
+                  const result=updateSurfaceBoundaryFromCanonicalRefs(model,selectedSurfaceId,ids);
+                  onChange(result.model);
+                  setSurfaceEditError("");
+                } catch(error) {
+                  setSurfaceEditError(error instanceof Error ? error.message : "Unable to update Area");
+                }
+              }}>Update Area Boundary</button>
+              {surfaceEditError ? <span role="alert">{surfaceEditError}</span> : null}
+              <button type="button" onClick={()=>{
+                onChange(deleteSurfaceFromCanonicalRefs(model,selectedSurfaceId));
+                setSelectedSurfaceId(null);
+              }}>Delete Area</button>
+              <button type="button" onClick={()=>setSelectedSurfaceId(null)}>Deselect Area</button>
+            </div>
+          ) : null}
           {!mobile ? memberEditor : null}
-          {Object.values(layout.overrides ?? {}).some((o) => o.excluded) ? (
+          {!importedGeometry && Object.values(layout.overrides ?? {}).some((o) => o.excluded) ? (
             <button
               onClick={() => {
                 const overrides = Object.fromEntries(
@@ -1167,7 +1322,7 @@ export default function SimpleFrameModeler({
           )}
           {error ? <p role="alert">{error}</p> : null}
           <footer>
-            {generated
+            {generated || importedGeometry
               ? `${model.nodes.length} nodes · ${model.members.filter((m) => m.type === "column").length} columns · ${model.members.filter((m) => m.type === "beam").length} beams · ${model.members.filter((m) => m.type === "brace").length} braces`
               : "Frame preview"}{" "}
             · All dimensions in metres
@@ -1204,7 +1359,7 @@ export default function SimpleFrameModeler({
             : mobileTab === "plan"
               ? setupPanel
               : mobileTab === "project"
-                ? catalogPanel
+                ? importedGeometry ? null : catalogPanel
                 : selected
                   ? memberEditor
                   : memberBrowser}

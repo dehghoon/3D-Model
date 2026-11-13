@@ -1,6 +1,6 @@
 import type { Level, StructuralModel } from "@linkoteq/structural-core";
 
-import { assertCanonicalV05 } from "../core-v05";
+import { assertCanonicalV06 } from "../core-v06";
 
 export interface CreateLevelInput {
   name: string;
@@ -45,7 +45,7 @@ export function createLevel(
   model: StructuralModel,
   input: CreateLevelInput,
 ): LevelMutationResult {
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
 
   const level: Level = {
     id: nextLevelId(model),
@@ -57,7 +57,7 @@ export function createLevel(
     ...model,
     levels: [...model.levels, level],
   };
-  assertCanonicalV05(nextModel);
+  assertCanonicalV06(nextModel);
 
   return { model: nextModel, level };
 }
@@ -67,7 +67,7 @@ export function updateLevel(
   levelId: string,
   input: UpdateLevelInput,
 ): LevelMutationResult {
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
 
   const id = requireLevelId(levelId);
   const existing = model.levels.find((level) => level.id === id);
@@ -83,7 +83,7 @@ export function updateLevel(
     ...model,
     levels: model.levels.map((item) => (item.id === id ? level : item)),
   };
-  assertCanonicalV05(nextModel);
+  assertCanonicalV06(nextModel);
 
   return { model: nextModel, level };
 }
@@ -92,7 +92,7 @@ export function deleteLevel(
   model: StructuralModel,
   levelId: string,
 ): StructuralModel {
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
 
   const id = requireLevelId(levelId);
   if (!model.levels.some((level) => level.id === id)) {
@@ -103,7 +103,7 @@ export function deleteLevel(
     ...model,
     levels: model.levels.filter((level) => level.id !== id),
   };
-  assertCanonicalV05(nextModel);
+  assertCanonicalV06(nextModel);
 
   return nextModel;
 }
