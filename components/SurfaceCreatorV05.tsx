@@ -58,6 +58,16 @@ export default function SurfaceCreatorV05({
     setPickFromViewport(false);
   }
 
+  function cancelBoundaryEdit() {
+    setEditingSurfaceId(null);
+    setBoundaryNodeIds([]);
+    setPickFromViewport(false);
+  }
+
+  function undoLastBoundaryNode() {
+    setBoundaryNodeIds(current=>current.slice(0,-1));
+  }
+
   function loadSelectedSurface() {
     const surface=model.surfaces.find(item=>item.id===selectedSurfaceId);
     if (!surface) return;
@@ -133,6 +143,9 @@ export default function SurfaceCreatorV05({
       <button onClick={addSelectedNode} disabled={!selectedNodeId}>
         Add Selected Node
       </button>
+      <button onClick={undoLastBoundaryNode} disabled={!boundaryNodeIds.length}>
+        Undo Last Boundary Node
+      </button>
       <button onClick={clearBoundary} disabled={!boundaryNodeIds.length}>
         Clear Boundary
       </button>
@@ -147,6 +160,9 @@ export default function SurfaceCreatorV05({
         Load Selected Area Boundary
       </button>
       <div className="selectionText">Editing Area: {editingSurfaceId ?? "None"}</div>
+      <button onClick={cancelBoundaryEdit} disabled={!editingSurfaceId && !boundaryNodeIds.length}>
+        Cancel Boundary Draft
+      </button>
       <button onClick={updateSelectedSurface} disabled={!editingSurfaceId || !model.surfaces.some(surface=>surface.id===editingSurfaceId) || boundaryNodeIds.length < 3}>
         Update Selected Area Boundary
       </button>
