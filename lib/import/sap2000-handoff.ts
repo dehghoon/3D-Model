@@ -145,3 +145,25 @@ export function projectSapGeometryForEditing(
     nodes,members,levels,
   };
 }
+
+/**
+ * Compare the editable workspace against the immutable SAP source projection.
+ * Edits do not mutate the source archive and cannot certify an analytical model.
+ */
+export function auditSapGeometryEdits(
+  current: import("@linkoteq/structural-core").StructuralModel,
+  original: import("@linkoteq/structural-core").StructuralModel,
+): { movedNodes:string[]; changedMembers:string[]; addedNodes:string[]; addedMembers:string[]; deletedNodes:string[]; deletedMembers:string[] } {
+  const previousNodes=new Map(original.nodes.map(n=>[n.id,n]));
+  const currentNodes=new Map(current.nodes.map(n=>[n.id,n]));
+  const previousMembers=new Map(original.members.map(m=>[m.id,m]));
+  const currentMembers=new Map(current.members.map(m=>[m.id,m]));
+  return {
+    movedNodes:current.nodes.filter(n=>{const old=previousNodes.get(n.id);return old && (old.position.x!==n.position.x || old.position.y!==n.position.y || old.position.z!==n.position.z);}).map(n=>n.id),
+    changedMembers:current.members.filter(m=>{const old=previousMembers.get(m.id);return old && JSON.stringify(old)!==JSON.stringify(m);}).map(m=>m.id),
+    addedNodes:current.nodes.filter(n=>!previousNodes.has(n.id)).map(n=>n.id),
+    addedMembers:current.members.filter(m=>!previousMembers.has(m.id)).map(m=>m.id),
+    deletedNodes:original.nodes.filter(n=>!currentNodes.has(n.id)).map(n=>n.id),
+    deletedMembers:original.members.filter(m=>!currentMembers.has(m.id)).map(m=>m.id),
+  };
+}
