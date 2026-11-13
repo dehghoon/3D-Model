@@ -22,7 +22,7 @@ import {
   subscribeDisplayOptions,
 } from "../lib/visualization/display-options-store";
 import type { StructuralModel } from "@linkoteq/structural-core";
-import {deleteSurfaceFromCanonicalRefs} from "../lib/editor-surface-v05";
+import {deleteSurfaceFromCanonicalRefs, updateSurfaceBoundaryFromCanonicalRefs} from "../lib/editor-surface-v05";
 import {
   createSimpleFrame,
   DEFAULT_FRAME,
@@ -155,6 +155,8 @@ export default function SimpleFrameModeler({
   const [retry, setRetry] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedSurfaceId, setSelectedSurfaceId] = useState<string | null>(null);
+  const [surfaceBoundaryDraft, setSurfaceBoundaryDraft] = useState("");
+  const [surfaceEditError, setSurfaceEditError] = useState("");
   const [filter, setFilter] = useState("all");
   const current = useRef({ model, layout, onChange });
   current.current = { model, layout, onChange };
@@ -981,7 +983,7 @@ export default function SimpleFrameModeler({
                   strokeWidth={selectedSurfaceId===surface.id ? 3 : 1}
                   role="button" tabIndex={0}
                   aria-label={`Select ${surface.type} area ${surface.metadata?.sourceAreaId ?? surface.id}`}
-                  onClick={(e)=>{e.stopPropagation();setSelectedSurfaceId(surface.id);setSelectedId(null);}}
+                  onClick={(e)=>{e.stopPropagation();setSelectedSurfaceId(surface.id);setSurfaceBoundaryDraft(surface.boundaryNodeIds.join(", "));setSurfaceEditError("");setSelectedId(null);}}
                   onKeyDown={(e)=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();setSelectedSurfaceId(surface.id);setSelectedId(null);}}}>
                   <title>{surface.type} · {surface.metadata?.sourceAreaId ?? surface.id} · unverified geometry</title>
                 </polygon>
@@ -1193,6 +1195,21 @@ export default function SimpleFrameModeler({
           {selectedSurfaceId && model.surfaces.some(s=>s.id===selectedSurfaceId) ? (
             <div role="group" aria-label="Selected area controls">
               <span>Area: {model.surfaces.find(s=>s.id===selectedSurfaceId)?.metadata?.sourceAreaId ?? selectedSurfaceId}</span>
+              <label htmlFor="area-boundary-node-ids">Boundary node IDs (in order)</label>
+              <input id="area-boundary-node-ids" value={surfaceBoundaryDraft}
+                onChange={e=>setSurfaceBoundaryDraft(e.target.value)}
+                aria-label="Area boundary node IDs"/>
+              <button type="button" onClick={()=>{
+                try {
+                  const ids=surfaceBoundaryDraft.split(",").map(id=>id.trim());
+                  const result=updateSurfaceBoundaryFromCanonicalRefs(model,selectedSurfaceId,ids);
+                  onChange(result.model);
+                  setSurfaceEditError("");
+                } catch(error) {
+                  setSurfaceEditError(error instanceof Error ? error.message : "Unable to update Area");
+                }
+              }}>Update Area Boundary</button>
+              {surfaceEditError ? <span role="alert">{surfaceEditError}</span> : null}
               <button type="button" onClick={()=>{
                 onChange(deleteSurfaceFromCanonicalRefs(model,selectedSurfaceId));
                 setSelectedSurfaceId(null);
