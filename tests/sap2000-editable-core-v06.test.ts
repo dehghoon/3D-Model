@@ -174,3 +174,20 @@ test("native and imported SAP areas use the same edit/delete operations",()=>{
   assert.equal(deleted.surfaces.length,0);
   assert.equal(imported.surfaces.length,1);
 });
+
+
+test("Area creation and editing reject coincident and collinear geometry",()=>{
+  const source=handoff();
+  const imported=projectSapGeometryForEditing(createStarterModelV06(),source);
+  const ids=["SAP-N-0","SAP-N-1","SAP-N-2"];
+  const created=createSurfaceFromCanonicalRefs(imported,{type:"wall",boundaryNodeIds:ids});
+  assert.equal(created.surface.type,"wall");
+  const coincident={...imported,nodes:imported.nodes.map(node=>
+    node.id==="SAP-N-2" ? {...node,position:{...imported.nodes.find(n=>n.id==="SAP-N-1")!.position}} : node)};
+  assert.throws(()=>createSurfaceFromCanonicalRefs(coincident,{type:"wall",boundaryNodeIds:ids}),/COINCIDENT/);
+  const collinear={...imported,nodes:imported.nodes.map(node=>
+    node.id==="SAP-N-2" ? {...node,position:{x:0,y:0,z:6}} : node)};
+  assert.throws(()=>createSurfaceFromCanonicalRefs(collinear,{type:"wall",boundaryNodeIds:ids}),/COLLINEAR/);
+  assert.throws(()=>updateSurfaceBoundaryFromCanonicalRefs({...collinear,surfaces:created.model.surfaces},created.surface.id,ids),/COLLINEAR/);
+  assert.deepEqual(imported.surfaces,[]);
+});
