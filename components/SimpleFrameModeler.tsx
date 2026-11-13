@@ -299,6 +299,11 @@ export default function SimpleFrameModeler({
   const width = total(layout.x),
     depth = total(layout.y),
     height = total(layout.heights);
+  const importedBounds = importedGeometry && model.nodes.length ? {
+    x: Math.max(...model.nodes.map(n=>n.position.x))-Math.min(...model.nodes.map(n=>n.position.x)),
+    y: Math.max(...model.nodes.map(n=>n.position.y))-Math.min(...model.nodes.map(n=>n.position.y)),
+    z: Math.max(...model.nodes.map(n=>n.position.z))-Math.min(...model.nodes.map(n=>n.position.z)),
+  } : null;
   const raw = (x: number, y: number, z: number) =>
     plan
       ? { x, y: -y }
@@ -664,7 +669,7 @@ export default function SimpleFrameModeler({
             <div>
               <strong>{mobile ? model.project.name : "Live model"}</strong>
               <span>
-                {width.toFixed(1)} × {depth.toFixed(1)} m · {height.toFixed(1)}{" "}
+                {(importedBounds?.x ?? width).toFixed(1)} × {(importedBounds?.y ?? depth).toFixed(1)} m · {(importedBounds?.z ?? height).toFixed(1)}{" "}
                 m high
               </span>
             </div>
