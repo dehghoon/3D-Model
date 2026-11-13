@@ -130,3 +130,27 @@ test("SAP import does not inherit unrelated template grid lines", () => {
   assert.equal(imported.members.length,1);
   assertCanonicalV06(imported);
 });
+
+
+test("SAP source areas become editable geometry-only Core surfaces without certifying properties", () => {
+  const source=handoff();
+  source.geometryPreview.areas=[{sourceId:"A1",boundaryNodeIds:["1","2","3","4"],geometryOnly:true}];
+  const imported=projectSapGeometryForEditing(createStarterModelV06(),source);
+  assertCanonicalV06(imported);
+  assert.equal(imported.surfaces.length,1);
+  assert.deepEqual(imported.surfaces[0].boundaryNodeIds,["SAP-N-0","SAP-N-1","SAP-N-2","SAP-N-3"]);
+  assert.equal(imported.surfaces[0].metadata?.sourceAreaId,"A1");
+  assert.equal(imported.project.metadata?.analysisReady,false);
+  const reopened=readProjectV06(JSON.parse(JSON.stringify(imported)));
+  assert.equal(reopened.surfaces.length,1);
+  assert.deepEqual(reopened.surfaces[0].boundaryNodeIds,imported.surfaces[0].boundaryNodeIds);
+});
+
+test("SAP area with missing or repeated boundary nodes is rejected", () => {
+  const source=handoff();
+  const raw={...source,geometryPreview:{...source.geometryPreview,
+    areas:[{sourceId:"A1",boundaryNodeIds:["1","2","missing"]}]}};
+  assert.throws(()=>readSapHandoff(raw),/AREA_INVALID/);
+  raw.geometryPreview.areas=[{sourceId:"A1",boundaryNodeIds:["1","2","2"]}];
+  assert.throws(()=>readSapHandoff(raw),/AREA_INVALID/);
+});
