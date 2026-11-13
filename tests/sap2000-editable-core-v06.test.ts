@@ -76,3 +76,31 @@ test("SAP import never inherits unrelated native surfaces or loads", () => {
   assert.deepEqual(imported.loadCombinations,[]);
   assert.equal(imported.project.metadata?.analysisReady,false);
 });
+
+
+test("SAP member property edit survives Core 0.6 save/reopen without altering source geometry", () => {
+  const source=handoff();
+  const imported=projectSapGeometryForEditing(createStarterModelV06(),source);
+  const originalNodes=JSON.parse(JSON.stringify(imported.nodes));
+  const originalArchive=JSON.parse(JSON.stringify(source.sourceArchive));
+  const member=imported.members[0];
+  const edited={
+    ...imported,
+    members:imported.members.map(m=>m.id===member.id
+      ? {...m,rotationDeg:37,sectionId:member.sectionId,materialId:member.materialId}
+      : m),
+  };
+  const reopened=readProjectV06(JSON.parse(JSON.stringify(edited)));
+  assertCanonicalV06(reopened);
+  assert.equal(reopened.members[0].rotationDeg,37);
+  assert.deepEqual(reopened.nodes,originalNodes);
+  assert.equal(reopened.members[0].startNodeId,member.startNodeId);
+  assert.equal(reopened.members[0].endNodeId,member.endNodeId);
+  assert.equal(reopened.members[0].metadata?.sourceEngineeringAssignment,"unresolved");
+  assert.equal(reopened.project.metadata?.analysisReady,false);
+  assert.deepEqual(source.sourceArchive,originalArchive);
+  const audit=auditSapGeometryEdits(reopened,imported);
+  assert.deepEqual(audit.movedNodes,[]);
+  assert.deepEqual(audit.addedNodes,[]);
+  assert.deepEqual(audit.addedMembers,[]);
+});
