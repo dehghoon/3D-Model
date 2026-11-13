@@ -992,6 +992,17 @@ export default function SimpleFrameModeler({
                 </polygon>
               );
             })}
+            {newSurfaceType && surfaceBoundaryDraft.split(",").map(id=>id.trim()).filter(Boolean).length >= 2 ? (() => {
+              const draftNodes=surfaceBoundaryDraft.split(",").map(id=>nodeById.get(id.trim())).filter((node):node is NonNullable<typeof node>=>Boolean(node));
+              return draftNodes.length >= 2 ? <polyline
+                points={draftNodes.map(node=>{
+                  const point=p(node.position.x,node.position.y,node.position.z);
+                  return `${point.x},${point.y}`;
+                }).join(" ")}
+                fill="none" stroke="#f59e0b" strokeWidth={2}
+                strokeDasharray="6 4" pointerEvents="none"
+                aria-label="Area boundary drawing preview"/> : null;
+            })() : null}
             {surfaceNodePickMode && (selectedSurfaceId || newSurfaceType) && model.nodes.map(node=>{
               const point=p(node.position.x,node.position.y,node.position.z);
               return <circle key={node.id} cx={point.x} cy={point.y} r={7}
