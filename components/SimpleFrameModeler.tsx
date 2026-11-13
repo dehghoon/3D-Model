@@ -157,6 +157,7 @@ export default function SimpleFrameModeler({
   const [selectedSurfaceId, setSelectedSurfaceId] = useState<string | null>(null);
   const [surfaceBoundaryDraft, setSurfaceBoundaryDraft] = useState("");
   const [surfaceEditError, setSurfaceEditError] = useState("");
+  const [surfaceNodePickMode, setSurfaceNodePickMode] = useState(false);
   const [filter, setFilter] = useState("all");
   const current = useRef({ model, layout, onChange });
   current.current = { model, layout, onChange };
@@ -989,6 +990,24 @@ export default function SimpleFrameModeler({
                 </polygon>
               );
             })}
+            {surfaceNodePickMode && selectedSurfaceId && model.nodes.map(node=>{
+              const point=p(node.position.x,node.position.y,node.position.z);
+              return <circle key={node.id} cx={point.x} cy={point.y} r={7}
+                fill="rgba(255, 183, 0, 0.8)" stroke="currentColor" strokeWidth={1}
+                role="button" tabIndex={0} aria-label={`Add boundary node ${node.id}`}
+                onClick={e=>{
+                  e.stopPropagation();
+                  setSurfaceBoundaryDraft(prev=>prev.trim() ? `${prev}, ${node.id}` : node.id);
+                }}
+                onKeyDown={e=>{
+                  if(e.key==="Enter" || e.key===" "){
+                    e.preventDefault();
+                    setSurfaceBoundaryDraft(prev=>prev.trim() ? `${prev}, ${node.id}` : node.id);
+                  }
+                }}>
+                <title>{node.id}</title>
+              </circle>;
+            })}
             {showMembers &&
               model.members
                 .filter(
@@ -1195,6 +1214,11 @@ export default function SimpleFrameModeler({
           {selectedSurfaceId && model.surfaces.some(s=>s.id===selectedSurfaceId) ? (
             <div role="group" aria-label="Selected area controls">
               <span>Area: {model.surfaces.find(s=>s.id===selectedSurfaceId)?.metadata?.sourceAreaId ?? selectedSurfaceId}</span>
+              <button type="button" onClick={()=>{
+                setSurfaceNodePickMode(value=>!value);
+                setSurfaceEditError("");
+              }}>{surfaceNodePickMode ? "Stop Picking Nodes" : "Pick Boundary Nodes"}</button>
+              {surfaceNodePickMode ? <button type="button" onClick={()=>setSurfaceBoundaryDraft("")}>Clear Boundary Draft</button> : null}
               <label htmlFor="area-boundary-node-ids">Boundary node IDs (in order)</label>
               <input id="area-boundary-node-ids" value={surfaceBoundaryDraft}
                 onChange={e=>setSurfaceBoundaryDraft(e.target.value)}
