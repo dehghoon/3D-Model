@@ -6,7 +6,7 @@ import { createSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
 
 function fixture(): StructuralModel {
   return {
-    schemaVersion: "0.5",
+    schemaVersion: "0.6",
     project: { id: "P1", name: "Surface Test", units: "SI" },
     levels: [{ id: "L1", name: "Level 1", elevation: 0 }],
     grids: [],
@@ -29,7 +29,7 @@ function fixture(): StructuralModel {
   };
 }
 
-test("editor creates canonical Core v0.5 surfaces from existing node references", () => {
+test("editor creates canonical Core v0.6 surfaces from existing node references", () => {
   const model = fixture();
   const result = createSurfaceFromCanonicalRefs(model, {
     type: "slab",
