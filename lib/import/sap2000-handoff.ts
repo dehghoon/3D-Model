@@ -35,6 +35,7 @@ export function readSapHandoff(raw:unknown):SapHandoff {
       !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(archive.bytesBase64) ||
       (archive.bytesBase64.length/4*3 - (archive.bytesBase64.endsWith("==")?2:archive.bytesBase64.endsWith("=")?1:0))!==archive.byteLength)
     throw new Error("SAP_HANDOFF_SOURCE_ARCHIVE_INVALID");
+  if (!v.geometryPreview.nodes.length) throw new Error("SAP_HANDOFF_EMPTY_GEOMETRY");
   const ids=new Set<string>();
   for (const n of v.geometryPreview.nodes) {
     if (!n.sourceId || ids.has(n.sourceId) || !n.position ||
