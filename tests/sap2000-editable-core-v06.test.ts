@@ -191,3 +191,21 @@ test("Area creation and editing reject coincident and collinear geometry",()=>{
   assert.throws(()=>updateSurfaceBoundaryFromCanonicalRefs({...collinear,surfaces:created.model.surfaces},created.surface.id,ids),/COLLINEAR/);
   assert.deepEqual(imported.surfaces,[]);
 });
+
+
+test("Area boundary rejects nonplanar quadrilateral",()=>{
+  const imported=projectSapGeometryForEditing(createStarterModelV06(),handoff());
+  const nonplanar={...imported,nodes:imported.nodes.map(node=>
+    node.id==="SAP-N-3" ? {...node,position:{x:4,y:1,z:0}} : node)};
+  assert.throws(()=>createSurfaceFromCanonicalRefs(nonplanar,{
+    type:"wall",boundaryNodeIds:["SAP-N-0","SAP-N-1","SAP-N-2","SAP-N-3"]
+  }),/NON_PLANAR/);
+  const valid=createSurfaceFromCanonicalRefs(imported,{
+    type:"wall",boundaryNodeIds:["SAP-N-0","SAP-N-1","SAP-N-2","SAP-N-3"]
+  });
+  assert.equal(valid.surface.boundaryNodeIds.length,4);
+  assert.throws(()=>updateSurfaceBoundaryFromCanonicalRefs(
+    {...nonplanar,surfaces:valid.model.surfaces},valid.surface.id,
+    ["SAP-N-0","SAP-N-1","SAP-N-2","SAP-N-3"]
+  ),/NON_PLANAR/);
+});
