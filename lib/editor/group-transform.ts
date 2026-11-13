@@ -224,7 +224,7 @@ export function transformGroup(
     if (a && b && Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-8)
       throw new Error(`TRANSFORM_COLLAPSES_MEMBER:${member.id}`);
   }
-  assertCanonicalV05(next);
+  assertCanonicalV06(next);
   return {
     model: next,
     selections: resultSelections,
