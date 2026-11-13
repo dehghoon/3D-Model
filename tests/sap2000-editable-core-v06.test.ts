@@ -58,3 +58,21 @@ test("SAP imported Core 0.6 geometry supports native move, copy, add member, wal
   assert.equal(audit.addedMembers.length,2);
   assert.equal(audit.addedNodes.length,3);
 });
+
+
+test("SAP import never inherits unrelated native surfaces or loads", () => {
+  const template=createStarterModelV06();
+  const contaminated={...template,
+    surfaces:[{id:"legacy-surface",type:"slab" as const,boundaryNodeIds:[]}],
+    loadCases:[{id:"legacy-load-case",name:"Old load"}],
+    loads:[{id:"legacy-load"}],
+    loadCombinations:[{id:"legacy-combination",name:"Old combination"}],
+  } as typeof template;
+  const imported=projectSapGeometryForEditing(contaminated,handoff());
+  assertCanonicalV06(imported);
+  assert.deepEqual(imported.surfaces,[]);
+  assert.deepEqual(imported.loadCases,[]);
+  assert.deepEqual(imported.loads,[]);
+  assert.deepEqual(imported.loadCombinations,[]);
+  assert.equal(imported.project.metadata?.analysisReady,false);
+});
