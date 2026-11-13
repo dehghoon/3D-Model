@@ -151,10 +151,13 @@ export function projectSapGeometryForEditing(
       };
     });
   const projected = projectSapGridsForGridTool(template,handoff);
+  // A template may carry Quick Frame metadata; retaining it can trigger an
+  // asynchronous catalog refresh that regenerates and destroys SAP geometry.
+  const {simpleFrame: _discardTemplateFrame, ...projectMetadata} = projected.project.metadata ?? {};
   return {
     ...projected,
     project:{...projected.project,metadata:{
-      ...projected.project.metadata,
+      ...projectMetadata,
       sourceFormat:"SAP2000",
       sourceHash:handoff.sourceHash,
       importGeometryStatus:"editable-unverified",
