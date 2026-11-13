@@ -219,3 +219,17 @@ test("Area rejects crossing boundary edges without modifying the model",()=>{
   }),/SELF_INTERSECTING|ZERO_PROJECTED_AREA/);
   assert.equal(imported.surfaces.length,0);
 });
+
+
+test("Area rejects nonadjacent edge touch and overlap",()=>{
+  const imported=projectSapGeometryForEditing(createStarterModelV06(),handoff());
+  const extra=[
+    {id:"TEST-5",position:{x:2,y:0,z:3}},
+    {id:"TEST-6",position:{x:2,y:0,z:0}},
+  ];
+  const model={...imported,nodes:[...imported.nodes,...extra]};
+  // The fourth segment returns along part of the first horizontal edge.
+  assert.throws(()=>createSurfaceFromCanonicalRefs(model,{
+    type:"wall",boundaryNodeIds:["SAP-N-0","SAP-N-1","SAP-N-2","TEST-5","SAP-N-3","TEST-6"]
+  }),/SELF_INTERSECTING|ZERO_PROJECTED_AREA/);
+});
