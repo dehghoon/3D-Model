@@ -131,6 +131,9 @@ export default function SurfaceCreatorV05({
     }
   }
 
+  const editingSurface=model.surfaces.find(surface=>surface.id===editingSurfaceId);
+  const sourceMetadata=editingSurface?.metadata;
+
   return (
     <section className="panelBlock">
       <h3>Create Surface</h3>
@@ -185,6 +188,13 @@ export default function SurfaceCreatorV05({
         Load Selected Area Boundary
       </button>
       <div className="selectionText">Editing Area: {editingSurfaceId ?? "None"}</div>
+      {editingSurface && (
+        <div className="selectionText">
+          {sourceMetadata?.sourceFormat==="SAP2000"
+            ? `SAP2000 Area ${sourceMetadata.sourceAreaId ?? editingSurface.id}; GUID: ${sourceMetadata.sourceGuid ?? "unavailable"}; Section: ${sourceMetadata.sourceSectionName ?? "unavailable"}. Geometry edits require engineering revalidation.`
+            : `Native ${editingSurface.type} Area; boundary editing only.`}
+        </div>
+      )}
       <button onClick={cancelBoundaryEdit} disabled={!editingSurfaceId && !boundaryNodeIds.length}>
         Cancel Boundary Draft
       </button>
