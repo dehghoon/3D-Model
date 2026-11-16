@@ -23,15 +23,15 @@
  .platformNav .utilityBrand {font-size:17px}
  .platformNav .utilityNav,.platformNav .primaryBar,.platformNav .navCta {display:none}
  .platformNav .mobileMenuToggle {display:inline-flex;margin-left:auto;align-items:center;gap:8px;padding:10px 12px;background:white;border:1px solid var(--brand-border);border-radius:10px;color:var(--brand-navy);font-size:14px;font-weight:700}
- .platformNav .mobileMenuPanel.isOpen {display:grid;gap:4px;padding:12px 18px 22px;max-height:calc(100dvh - 66px);overflow:auto;border-top:1px solid var(--brand-border)}
+ .platformNav .mobileMenuPanel.isOpen {display:grid;gap:4px;padding:12px 18px 22px;max-height:calc(100dvh - var(--lq-header-height, 72px));overflow:auto;border-top:1px solid var(--brand-border)}
  .platformNav .mobileMenuPanel a {display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:10px 12px;border-radius:9px;font-size:15px;font-weight:650}
  .platformNav .mobileGroupLabel {padding:12px 12px 4px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#56718b}
 }
 @media(prefers-reduced-motion:reduce) {.platformNav * {transition:none!important}}
 
 /* Reserve viewport height for the two-row site header without changing editor tools. */
-.modelEditorArea {height:calc(100dvh - 120px)!important;min-height:0!important}
-@media(max-width:900px){.modelEditorArea {height:calc(100dvh - 66px)!important}}
+.modelEditorArea {height:calc(100dvh - var(--lq-header-height, 118px))!important;min-height:0!important}
+@media(max-width:900px){.modelEditorArea {height:calc(100dvh - var(--lq-header-height, 72px))!important}}
 
 /* Canonical brand asset and mobile sizing shared with the main site's header rules. */
 .platformNav .utilityBrand img {display:block;width:220px;max-width:100%;height:auto;object-fit:contain}
@@ -42,3 +42,7 @@
  .platformNav .utilityBrand img {width:min(155px,100%);height:auto}
  .platformNav .mobileMenuToggle {flex:0 0 auto;white-space:nowrap}
 }
+
+.modelSiteShell { font-family: var(--lq-body-font,system-ui,sans-serif); }
+.modelSiteShell :is(h1,h2,h3) { font-family: var(--lq-heading-font,system-ui,sans-serif); }
+:root { --sap-panel-strong: var(--home-white,#fff); --sap-line-soft: var(--home-line,#e2ddd3); --sap-text: var(--home-heading,#14352e); --sap-muted: var(--home-muted,#5f706b); }
