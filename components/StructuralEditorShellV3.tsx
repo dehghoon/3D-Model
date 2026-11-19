@@ -405,7 +405,7 @@ export default function StructuralEditorShellV3() {
           </button>
         ))}
         {activeModelTool === "Slab" || activeModelTool === "Wall" ? (
-          <button type="button" onClick={finishSurface}>Finish {activeModelTool}</button>
+          <button type="button" disabled={pointState.points.length < 3} onClick={finishSurface}>Finish {activeModelTool}</button>
         ) : null}
         {mode === "advanced" ? utilityTools.map(tool => <button key={tool} type="button" onClick={() => runUtilityTool(tool)}>{tool}</button>) : null}
         {selections.length ? <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:properties-open"))}>Properties ({selections.length})</button> : null}
@@ -443,6 +443,10 @@ export default function StructuralEditorShellV3() {
         </select>
         <button type="button" onClick={() => toggleMobilePanel("display")}>Display</button>
         <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-fit"))}>Fit</button>
+      </div> : null}
+      {mode === "advanced" ? <div className="advancedMobileSurfaceTools" aria-label="Draw surfaces">
+        <button type="button" aria-pressed={activeModelTool === "Slab"} onClick={() => { setMobilePanel(null); runModelTool("Slab"); }}>Draw Slab</button>
+        <button type="button" aria-pressed={activeModelTool === "Wall"} onClick={() => { setMobilePanel(null); runModelTool("Wall"); }}>Draw Wall</button>
       </div> : null}
       <div className="architectWorkspaceFrame">
         {mode === "advanced" ? (

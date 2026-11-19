@@ -148,7 +148,7 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
       ? "1 · Choose base point"
       : "2 · Choose target point"
     : isSurface
-      ? `${tool.points.length + 1} · Choose boundary point`
+      ? `${tool.points.length} boundary points selected`
       : draw.start
         ? "2 · Choose end point"
         : "1 · Choose start point";
@@ -172,10 +172,19 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
       );
     }
   };
+  const coordinateForm = (
+    <CoordinateForm
+      key={`${tool.tool}:${transform.mode}:${step}:${base ? `${base.x}:${base.y}:${base.z}` : "none"}`}
+      base={base}
+      mode={base ? entryMode : "absolute"}
+      setMode={setEntryMode}
+      onPoint={submit}
+    />
+  );
   return (
     <aside
-      className="pointInputPanel"
-      aria-label="Point input"
+      className={`pointInputPanel${isSurface ? " surfacePointInput" : ""}`}
+      aria-label={isSurface ? `Draw ${title}` : "Point input"}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -201,22 +210,15 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
       <p role="status" aria-live="polite">
         <strong>{step}</strong>
       </p>
-      <p>
-        Click in the model or enter a point below. Global X / Y / Z ·{" "}
-        {model.project.units === "US" ? "ft" : "m"} · Z is vertical.
-      </p>
+      {isSurface
+        ? <p>Tap at least 3 corners in order around the perimeter, then select Finish {title}. {tool.tool === "wall" ? "Use 3D or an elevation view to pick upper and lower corners." : "Pick slab corners on the same level."}</p>
+        : <p>Click in the model or enter a point below. Global X / Y / Z · {model.project.units === "US" ? "ft" : "m"} · Z is vertical.</p>}
       {base ? (
         <p>
           {transforming ? "Base" : "Previous point"}: ({format(base)})
         </p>
       ) : null}
-      <CoordinateForm
-        key={`${tool.tool}:${transform.mode}:${step}:${base ? `${base.x}:${base.y}:${base.z}` : "none"}`}
-        base={base}
-        mode={base ? entryMode : "absolute"}
-        setMode={setEntryMode}
-        onPoint={submit}
-      />
+      {!isSurface ? coordinateForm : null}
       {tool.tool === "column" && draw.start ? (
         <form
           onSubmit={(event) => {
@@ -253,11 +255,6 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
       ) : null}
       {isSurface ? (
         <>
-          <ol aria-label="Boundary points">
-            {tool.points.map((point, index) => (
-              <li key={index}>{format(point.point)}</li>
-            ))}
-          </ol>
           <div className="pointInputActions">
             <button
               type="button"
@@ -276,6 +273,14 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
               Finish {title}
             </button>
           </div>
+          <details key={title}><summary>Enter corner coordinates (XYZ)</summary>{coordinateForm}</details>
+          {tool.points.length ? <details>
+            <summary>Review picked points</summary>
+            <ol aria-label="Boundary points">
+              {tool.points.map((point, index) => <li key={index}>{format(point.point)}</li>)}
+            </ol>
+          </details> : null}
+
         </>
       ) : null}
       <p role="status" aria-live="polite">

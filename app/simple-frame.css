@@ -682,3 +682,48 @@
  .lgPortalPanel input:not([type=checkbox]),.lgPortalPanel select{font-size:16px!important;min-height:44px}
  .lgPortalPanel button{min-height:44px}
 }
+
+.sfAreaControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #f4f8fb;
+  font-size: 12px;
+}
+.sfAreaControls button, .advancedMobileSurfaceTools button {
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid #b9c7d8;
+  border-radius: 6px;
+  background: white;
+  color: #24495f;
+}
+.sfAreaControls button[aria-pressed="true"], .advancedMobileSurfaceTools button[aria-pressed="true"] {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+.sfAreaControls button:disabled { opacity: .5; }
+.sfAreaInstructions { flex-basis: 100%; }
+.sfBoundaryNode {
+  stroke: #fff;
+  stroke-width: 10px;
+  stroke-opacity: .18;
+  fill: #f59e0b;
+  cursor: crosshair;
+  pointer-events: all;
+}
+.sfBoundaryNode[data-picked="true"] { fill: #0e7490; stroke-opacity: .55; }
+.advancedMobileSurfaceTools { display: none; }
+@media (max-width: 760px) {
+  .advancedMobileSurfaceTools {
+    display: flex;
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 0 6px 6px;
+    background: #f4f8fb;
+  }
+  .advancedMobileSurfaceTools button { flex: 1; }
+}

@@ -107,3 +107,13 @@
     display: none;
   }
 }
+
+.surfacePointInput {
+  top: auto;
+  bottom: 12px;
+  max-height: min(46%, 280px);
+}
+.surfacePointInput details { margin: 6px 0; }
+@media (max-width: 760px) {
+  .surfacePointInput { left: 8px; right: 8px; bottom: 6px; width: auto; max-width: none; padding: 8px; }
+}

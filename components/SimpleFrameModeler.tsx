@@ -162,6 +162,7 @@ export default function SimpleFrameModeler({
   const [surfaceBoundaryDraft, setSurfaceBoundaryDraft] = useState("");
   const [surfaceEditError, setSurfaceEditError] = useState("");
   const [surfaceNodePickMode, setSurfaceNodePickMode] = useState(false);
+  const [surfaceElevation, setSurfaceElevation] = useState<number | null>(null);
   const [newSurfaceType, setNewSurfaceType] = useState<"slab"|"wall"|null>(null);
   const [filter, setFilter] = useState("all");
   const nodeById = useMemo(() => new Map(model.nodes.map(node=>[node.id,node])), [model.nodes]);
@@ -348,6 +349,23 @@ export default function SimpleFrameModeler({
   const p = (x: number, y: number, z: number) => {
     const q = raw(x, y, z);
     return { x: 125 + (q.x - minX) * scale, y: 100 + (q.y - minY) * scale };
+  };
+  const boundaryIds = surfaceBoundaryDraft.split(",").map(id => id.trim()).filter(Boolean);
+  const selectedBoundaryIds = new Set(boundaryIds);
+  const surfaceElevations = [...new Set(model.nodes.map(node => node.position.z))].sort((a,b) => b-a);
+  const activeSurfaceElevation = surfaceElevation ?? surfaceElevations[0];
+  const startSurface = (type: "slab" | "wall") => {
+    setNavigationTool("select");
+    setPlan(type === "slab");
+    moveCamera(INITIAL_FRAME_VIEW);
+    setSheetOpen(false);
+    setSelectedId(null);
+    setSelectedSurfaceId(null);
+    setNewSurfaceType(type);
+    setSurfaceElevation(null);
+    setSurfaceBoundaryDraft("");
+    setSurfaceEditError("");
+    setSurfaceNodePickMode(true);
   };
   const line = (
     a: { x: number; y: number },
@@ -1007,30 +1025,6 @@ export default function SimpleFrameModeler({
                 strokeDasharray="6 4" pointerEvents="none"
                 aria-label="Area boundary drawing preview"/> : null;
             })() : null}
-            {surfaceNodePickMode && (selectedSurfaceId || newSurfaceType) && model.nodes.map(node=>{
-              const point=p(node.position.x,node.position.y,node.position.z);
-              return <circle key={node.id} cx={point.x} cy={point.y} r={7}
-                fill="rgba(255, 183, 0, 0.8)" stroke="currentColor" strokeWidth={1}
-                role="button" tabIndex={0} aria-label={`Add boundary node ${node.id}`}
-                onClick={e=>{
-                  e.stopPropagation();
-                  setSurfaceBoundaryDraft(prev=>{
-                    const ids=prev.split(",").map(id=>id.trim()).filter(Boolean);
-                    return ids.includes(node.id) ? prev : [...ids,node.id].join(", ");
-                  });
-                }}
-                onKeyDown={e=>{
-                  if(e.key==="Enter" || e.key===" "){
-                    e.preventDefault();
-                    setSurfaceBoundaryDraft(prev=>{
-                    const ids=prev.split(",").map(id=>id.trim()).filter(Boolean);
-                    return ids.includes(node.id) ? prev : [...ids,node.id].join(", ");
-                  });
-                  }
-                }}>
-                <title>{node.id}</title>
-              </circle>;
-            })}
             {showMembers &&
               model.members
                 .filter(
@@ -1233,21 +1227,53 @@ export default function SimpleFrameModeler({
                   },
                 ),
               )}
+            {surfaceNodePickMode && (selectedSurfaceId || newSurfaceType) && model.nodes
+              .filter(node => !plan || node.position.z === activeSurfaceElevation)
+              .map(node => {
+                const point = p(node.position.x, node.position.y, node.position.z);
+                const picked = selectedBoundaryIds.has(node.id);
+                const pick = () => {
+                  setSurfaceBoundaryDraft(previous => {
+                    const ids = previous.split(",").map(id => id.trim()).filter(Boolean);
+                    return ids.includes(node.id) ? previous : [...ids, node.id].join(", ");
+                  });
+                  setSurfaceEditError("");
+                };
+                return (
+                  <circle key={node.id} className="sfBoundaryNode" cx={point.x} cy={point.y} r={7}
+                    vectorEffect="non-scaling-stroke" data-picked={picked}
+                    role="button" tabIndex={0} aria-pressed={picked}
+                    aria-label={`Add boundary node ${node.id}`}
+                    onClick={event => { event.stopPropagation(); pick(); }}
+                    onKeyDown={event => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        pick();
+                      }
+                    }}>
+                    <title>{node.id} · Z {node.position.z}</title>
+                  </circle>
+                );
+              })}
           </svg>
-          <div role="group" aria-label="Draw Area controls">
-            <button type="button" onClick={()=>{
-              setNewSurfaceType("slab");setSelectedSurfaceId(null);
-              setSurfaceBoundaryDraft("");setSurfaceEditError("");setSurfaceNodePickMode(true);
-            }}>Draw Slab Area</button>
-            <button type="button" onClick={()=>{
-              setNewSurfaceType("wall");setSelectedSurfaceId(null);
-              setSurfaceBoundaryDraft("");setSurfaceEditError("");setSurfaceNodePickMode(true);
-            }}>Draw Wall Area</button>
+          <div className="sfAreaControls" role="group" aria-label="Draw Area controls">
+            <button type="button" aria-pressed={newSurfaceType === "slab"} onClick={() => startSurface("slab")}>Draw Slab Area</button>
+            <button type="button" aria-pressed={newSurfaceType === "wall"} onClick={() => startSurface("wall")}>Draw Wall Area</button>
             {newSurfaceType ? <>
-              <span>Pick boundary nodes in order ({newSurfaceType})</span>
-              <button type="button" onClick={()=>{
+              <span className="sfAreaInstructions">Tap 3 or more highlighted nodes around the perimeter, then select Finish {newSurfaceType === "slab" ? "Slab" : "Wall"}.</span>
+              {plan && surfaceElevations.length > 1 ? <label>
+                Elevation{" "}
+                <select value={activeSurfaceElevation} onChange={event => {
+                  setSurfaceElevation(Number(event.target.value));
+                  setSurfaceBoundaryDraft("");
+                  setSurfaceEditError("");
+                }}>
+                  {surfaceElevations.map(z => <option key={z} value={z}>{z.toFixed(3)}</option>)}
+                </select>
+              </label> : null}
+              <button type="button" disabled={boundaryIds.length < 3} onClick={()=>{
                 try {
-                  const ids=surfaceBoundaryDraft.split(",").map(id=>id.trim());
+                  const ids = boundaryIds;
                   const result=createSurfaceFromCanonicalRefs(model,{type:newSurfaceType,boundaryNodeIds:ids});
                   onChange(result.model);
                   setNewSurfaceType(null);setSurfaceNodePickMode(false);
@@ -1255,7 +1281,7 @@ export default function SimpleFrameModeler({
                 } catch(error){
                   setSurfaceEditError(error instanceof Error ? error.message : "Unable to draw Area");
                 }
-              }}>Finish Area</button>
+              }}>Finish {newSurfaceType === "slab" ? "Slab" : "Wall"}</button>
               <button type="button" onClick={()=>{
                 setNewSurfaceType(null);setSurfaceNodePickMode(false);
                 setSurfaceBoundaryDraft("");setSurfaceEditError("");
@@ -1267,7 +1293,7 @@ export default function SimpleFrameModeler({
               <button type="button" disabled={!surfaceBoundaryDraft.trim()} onClick={()=>{
                 setSurfaceBoundaryDraft("");setSurfaceEditError("");
               }}>Clear Nodes</button>
-              <span>Boundary: {surfaceBoundaryDraft || "none"}</span>
+              <span role="status">{boundaryIds.length} points selected</span>
             </> : null}
             {surfaceEditError && newSurfaceType ? <span role="alert">{surfaceEditError}</span> : null}
           </div>

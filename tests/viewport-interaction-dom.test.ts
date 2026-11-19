@@ -77,7 +77,9 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
       }
     });
     const inputPoint = (values: [string,string,string], relative = false) => {
-      const panel = host.querySelector('[aria-label="Point input"]')!;
+      const panel = host.querySelector('.pointInputPanel')!;
+      const coordinates = panel.querySelector('details');
+      if (coordinates) coordinates.open = true;
       harness.act(() => {
         const select = panel.querySelector("select")!;
         select.value = relative ? "relative" : "absolute";
