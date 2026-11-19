@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mapSnowWriteback, type SnowV05Writeback } from "../../../../lib/core-loads-v05";
 
+import { automaticSnowRoofFactor, type SnowRoofGeometry } from "../../../../lib/snow-model-roof";
+
 export const runtime = "nodejs";
 const accountOrigin = "https://www.linkoteq.com";
 
@@ -29,6 +31,38 @@ function normalizeRequest(input: Record<string, unknown>) {
 }
 
 class SnowInputError extends Error {}
+
+class SnowClimateError extends Error {}
+
+async function resolveProjectLocation(base: string, body: ReturnType<typeof normalizeRequest>) {
+  const request = body as { snowSite?: { province?: string; location?: string; roof?: SnowRoofGeometry } };
+  if (!request.snowSite) return body;
+  const { province, location, roof } = request.snowSite;
+  if (body.targetIds.length !== 1 || typeof province !== "string" || !province.trim() ||
+      typeof location !== "string" || !location.trim() || !roof ||
+      !Number.isFinite(roof.widthM) || !Number.isFinite(roof.lengthM) ||
+      roof.widthM <= 0 || roof.lengthM < roof.widthM ||
+      (roof.meanHeightM !== null && (!Number.isFinite(roof.meanHeightM) || roof.meanHeightM < 0))) {
+    throw new SnowInputError();
+  }
+  const query = new URLSearchParams({ province, location });
+  const response = await fetch(`${base}/api/v1/climatic/location?${query}`, { cache: "no-store", signal: AbortSignal.timeout(10000) });
+  if (response.status === 404) throw new SnowClimateError();
+  if (!response.ok) throw new Error("Snow climate lookup unavailable");
+  const climate = await response.json() as { ss: number; sr: number; source?: string };
+  if (!Number.isFinite(climate.ss) || climate.ss <= 0 || !Number.isFinite(climate.sr) || climate.sr < 0) {
+    throw new SnowClimateError();
+  }
+  const factor = automaticSnowRoofFactor(roof, climate.ss);
+  return {
+    ...body,
+    inputs: { calculation: { mode: "UNIFORM_ROOF", common: {
+      ss: climate.ss, sr_climatic: climate.sr, roof_slope_alpha: 0, roof_surface_type: "normal",
+      is: 1, cw: 1, cb: factor.cb,
+    } } },
+    siteSummary: { province, location, source: climate.source ?? "Snow Load climate lookup", ...roof, ...factor },
+  };
+}
 
 async function calculateSnow(base: string, body: ReturnType<typeof normalizeRequest>, signal: AbortSignal) {
   const response = await fetch(`${base}/api/v1/core/roof-snow/v${body.modelSchemaVersion}`, {
@@ -124,8 +158,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid_snow_request" }, { status: 400, headers });
   }
   try {
-    return NextResponse.json(await calculateSnowTargets(base, body), { headers });
+    const resolved = await resolveProjectLocation(base, body);
+    const result = await calculateSnowTargets(base, resolved);
+    if ("siteSummary" in resolved && resolved.siteSummary) {
+      result.loadSources = result.loadSources?.map(source => ({
+        ...source, summary: { ...source.summary, modelRoof: resolved.siteSummary },
+      }));
+    }
+    return NextResponse.json(result, { headers });
   } catch (error) {
+    if (error instanceof SnowClimateError) return NextResponse.json({ error: "snow_location_unavailable" }, { status: 422, headers });
     const invalid = error instanceof SnowInputError;
     return NextResponse.json({ error: invalid ? "invalid_snow_inputs" : "snow_service_unavailable" }, { status: invalid ? 422 : 502, headers });
   }

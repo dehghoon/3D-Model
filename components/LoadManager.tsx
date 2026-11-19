@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type {
   Load,
@@ -13,6 +13,7 @@ import type {
 } from "@linkoteq/structural-core";
 import { assertCanonicalLoad, mapSnowWriteback } from "../lib/core-loads-v05";
 import { requestSnowThroughAccount } from "../lib/snow-account-request";
+import { findAutomaticSnowRoof } from "../lib/snow-model-roof";
 type LoadMode = "slab" | "wall" | "beam" | "node";
 type MemberLoadKind = "distributed" | "point";
 type Props = {
@@ -32,7 +33,8 @@ const snowErrors: Record<string, string> = {
   entitlement_unavailable: "Snow access could not be verified. Try again.",
   snow_not_configured: "Snow is temporarily unavailable on this deployment.",
   invalid_snow_request: "The selected surfaces or project could not be sent to Snow.",
-  invalid_snow_inputs: "Snow rejected the calculation inputs. Check Ss and Sr.",
+  invalid_snow_inputs: "Snow rejected the roof or site data.",
+  snow_location_unavailable: "Snow Load has no usable climate data for this location.",
 };
 const button: React.CSSProperties = {
   border: "1px solid #cfd6df",
@@ -66,8 +68,12 @@ export default function LoadManager({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [snowRunning, setSnowRunning] = useState(false);
-  const [snowSs, setSnowSs] = useState("");
-  const [snowSr, setSnowSr] = useState("");
+  const [provinces, setProvinces] = useState<string[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [province, setProvince] = useState("");
+  const [location, setLocation] = useState("");
+  const [climateStatus, setClimateStatus] = useState("");
+  const [climateRetry, setClimateRetry] = useState(0);
   const currentModel = useRef(model);
   currentModel.current = model;
   const [mode, setMode] = useState<LoadMode>("slab");
@@ -186,20 +192,34 @@ export default function LoadManager({
     onModelChange(next, `${loads.length} canonical Core load(s) added.`);
   }
 
-  async function runSnow() {
-    const surfaceIds = selectedSurfaces.filter((surface) => surface.type === "slab").map((surface) => surface.id);
-    if (!surfaceIds.length) {
-      setStatus("Select one or more slab surfaces first.");
-      return;
-    }
-    const ss = Number(snowSs);
-    const sr = Number(snowSr);
-    if (!snowSs.trim() || !snowSr.trim() || !Number.isFinite(ss) || !Number.isFinite(sr) || ss <= 0 || sr < 0) {
-      setStatus("Enter a positive Ss and a nonnegative Sr in kPa.");
-      return;
-    }
+  useEffect(() => {
+    if (!open || mode !== "slab") return;
+    const controller = new AbortController();
+    const params = province ? "?" + new URLSearchParams({ province }) : "";
+    setClimateStatus("Loading Snow Load locations…");
+    fetch("/api/calculators/snow/climate" + params, { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error("Climate catalog unavailable");
+        const data = await response.json() as { provinces?: string[]; locations?: string[] };
+        const entries = province ? data.locations : data.provinces;
+        if (!Array.isArray(entries) || !entries.length) throw new Error("Climate catalog is empty");
+        if (!controller.signal.aborted) {
+          (province ? setLocations : setProvinces)(entries);
+          setClimateStatus("");
+        }
+      }).catch(() => {
+        if (!controller.signal.aborted) setClimateStatus("Snow Load locations could not be loaded.");
+      });
+    return () => controller.abort();
+  }, [open, mode, province, climateRetry]);
 
-    const runId = "snow-" + window.performance.timeOrigin + "-" + Math.floor(performance.now() * 1000);
+  async function runSnow() {
+    if (!province || !location) throw new Error("Choose the project province and location.");
+    const roof = findAutomaticSnowRoof(model, selectedSurfaces.map(surface => surface.id));
+    const surfaceIds = [roof.surfaceId];
+    const identity = new TextEncoder().encode(JSON.stringify([model.project.id, roof.surfaceId]));
+    const digest = await crypto.subtle.digest("SHA-256", identity);
+    const runId = "snow-location-" + Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
     const request = {
       modelSchemaVersion: model.schemaVersion,
       projectId: model.project.id,
@@ -207,20 +227,7 @@ export default function LoadManager({
       calculator: "snow",
       calculatorVersion: "0.1.0",
       targetIds: surfaceIds,
-      inputs: {
-        calculation: {
-          mode: "UNIFORM_ROOF",
-          common: {
-            ss,
-            sr_climatic: sr,
-            roof_slope_alpha: 0,
-            roof_surface_type: "normal",
-            is: 1,
-            cw: 1,
-            cb: 0.8,
-          },
-        },
-      },
+      snowSite: { province, location, roof: roof.geometry },
     };
 
     const response = await requestSnowThroughAccount(request);
@@ -247,9 +254,9 @@ export default function LoadManager({
         ...model.loadCases.filter((loadCase) => !(data.loadCases ?? []).some((candidate) => candidate.id === loadCase.id)),
         ...(data.loadCases ?? []),
       ],
-      loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads],
+      loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads.map(load => ({ ...load, normalSense: roof.normalSense }))],
     };
-    const message = `Snow loads added for ${surfaceIds.length} target surface(s).`;
+    const message = `Snow load applied to roof ${roof.surfaceId} for ${location}, ${province}.`;
     onModelChange(next, message);
     setStatus(message);
   }
@@ -312,14 +319,24 @@ export default function LoadManager({
       </label>
       <button style={primary} onClick={addManualLoad}>Add canonical load</button>
       {mode === "slab" && <>
-        <small>Uniform flat roof · Is 1 · Cw 1 · Cb 0.8</small>
-        <label>Ground snow load Ss (kPa)
-          <input type="number" min="0" step="any" value={snowSs} onChange={event => setSnowSs(event.target.value)} />
+        <small>Uniform flat roof · NBC 2020 · Normal importance, ULS · Unreduced wind exposure</small>
+        <label>Province or territory
+          <select value={province} disabled={!provinces.length || snowRunning} onChange={event => {
+            setProvince(event.target.value); setLocation(""); setLocations([]);
+          }}>
+            <option value="">Choose province or territory</option>
+            {provinces.map(name => <option key={name}>{name}</option>)}
+          </select>
         </label>
-        <label>Associated rain load Sr (kPa)
-          <input type="number" min="0" step="any" value={snowSr} onChange={event => setSnowSr(event.target.value)} />
+        <label>Project location
+          <select value={location} disabled={!locations.length || snowRunning} onChange={event => setLocation(event.target.value)}>
+            <option value="">Choose location</option>
+            {locations.map(name => <option key={name}>{name}</option>)}
+          </select>
         </label>
-        <button style={primary} disabled={snowRunning} onClick={() => {
+        {climateStatus && <small role="status">{climateStatus}</small>}
+        {climateStatus.endsWith("could not be loaded.") && <button type="button" style={button} onClick={() => setClimateRetry(value => value + 1)}>Retry locations</button>}
+        <button style={primary} disabled={snowRunning || !location} onClick={() => {
           setSnowRunning(true);
           setStatus("Running Snow…");
           void runSnow()

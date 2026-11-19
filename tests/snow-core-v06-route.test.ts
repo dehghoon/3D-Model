@@ -17,6 +17,7 @@ test("authenticated Snow requests preserve Core version through proxy and writeb
       pressure:{value:2,unit:"kPa"},provenance:{sourceId:"source",calculatorRunId:"synthetic-run"}}],
   });
   const calls:string[]=[];
+  let itemInputs: unknown;
   let access:"owner"|"employee"|"trial"|"denied"="owner";
   try{
     globalThis.fetch=async(input,init)=>{
@@ -26,11 +27,18 @@ test("authenticated Snow requests preserve Core version through proxy and writeb
       if(url.includes("/rpc/platform_my_permissions"))return Response.json(access==="employee"?["engineering_tools_internal"]:[]);
       if(url.includes("/rpc/has_active_customer_tool_trial"))return Response.json(true);
       if(url.includes("/rpc/has_accepted_customer_tool_disclaimer"))return Response.json(access==="trial");
+      if(url.includes("/api/v1/climatic/location?")) {
+        const params=new URL(url).searchParams;
+        return params.get("location")==="Toronto"
+          ? Response.json({ss:2.5,sr:0.4,source:"NBC fixture"})
+          : new Response(null,{status:404});
+      }
       const body=JSON.parse(String(init?.body));
+      itemInputs=body.inputs?.calculation?.common;
       assert.ok(url.endsWith("/v"+body.modelSchemaVersion));
       assert.equal(body.targetIds.length,1);
       const data=writeback(body.modelSchemaVersion);
-      return Response.json({...data,runId:body.runId,projectId:body.projectId,targetIds:body.targetIds,
+      return Response.json({...data,runId:body.runId,projectId:body.projectId,targetIds:body.targetIds,loadSources:[{id:"source-"+body.runId}],
         loads:[{...data.loads[0],id:body.runId,surfaceId:body.targetIds[0],
           provenance:{sourceId:"source-"+body.runId,calculatorRunId:body.runId}}],
       });
@@ -64,6 +72,16 @@ test("authenticated Snow requests preserve Core version through proxy and writeb
     assert.deepEqual(mapSnowWriteback(batch,["roof-a","roof-b"]).loads.map(load=>[
       load.surfaceId,load.provenance?.calculatorRunId,
     ]),[["roof-a","batch-1"],["roof-b","batch-2"]]);
+    const byLocation=(location:string)=>POST(new NextRequest("https://synthetic.invalid/api/calculators/snow",{
+      method:"POST",headers:{"authorization":"Bearer synthetic-test-token","content-type":"application/json"},
+      body:JSON.stringify({modelSchemaVersion:"0.6",projectId:"project",runId:"geo",targetIds:["roof"],
+        snowSite:{province:"Ontario",location,roof:{widthM:10,lengthM:20,meanHeightM:5}}}),
+    }));
+    const located=await byLocation("Toronto");
+    assert.equal(located.status,200);
+    assert.deepEqual(itemInputs,{ss:2.5,sr_climatic:0.4,roof_slope_alpha:0,roof_surface_type:"normal",is:1,cw:1,cb:0.8});
+    assert.equal((await located.json()).loadSources[0].summary.modelRoof.characteristicLengthM,15);
+    assert.equal((await byLocation("Unknown")).status,422);
     access="denied";
     assert.equal((await asCustomer()).status,403);
     const previousCalls=calls.length;
