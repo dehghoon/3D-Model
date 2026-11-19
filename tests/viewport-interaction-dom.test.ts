@@ -81,7 +81,7 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
       const coordinates = panel.querySelector('details');
       if (coordinates) coordinates.open = true;
       harness.act(() => {
-        const select = panel.querySelector("form select")!;
+        const select = panel.querySelector<HTMLSelectElement>("form select")!;
         select.value = relative ? "relative" : "absolute";
         select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
       });
