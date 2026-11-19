@@ -64,7 +64,7 @@ export function buildCopyPreview(
 
 export function disposeCopyPreview(root: THREE.Object3D): void {
   root.traverse((object) => {
-    if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.Line)) return;
+    if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.Line) && !(object instanceof THREE.Points)) return;
     object.geometry.dispose();
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     materials.forEach((material) => material.dispose());

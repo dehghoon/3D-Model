@@ -227,6 +227,7 @@ export function resolveSnapPoint(
   tolerancePx: number,
   origin?: Vec3,
   fixedElevation?: number,
+  touchBoundary = false,
 ): SnapPoint | null {
   const rect = element.getBoundingClientRect();
   if (!rect.width || !rect.height ||
@@ -261,6 +262,7 @@ export function resolveSnapPoint(
   const projected = new THREE.Vector3();
   const consider = (candidates: SnapPoint[]) => {
     for (const candidate of candidates) {
+      if (touchBoundary && candidate.kind !== "node" && candidate.kind !== "endpoint" && candidate.kind !== "grid") continue;
       const { x, y, z } = candidate.point;
       if (fixedElevation !== undefined && Math.abs(z - fixedElevation) > 1e-8) continue;
       projected.set(x, z, y).project(camera);
@@ -276,7 +278,7 @@ export function resolveSnapPoint(
   };
 
   let match = consider(geometry.lastCandidates.points);
-  if (workPlane && settings.perpendicular) {
+  if (workPlane && settings.perpendicular && !touchBoundary) {
     match = consider(perpendicularCandidates(geometry.members, workPlane.point));
   }
 

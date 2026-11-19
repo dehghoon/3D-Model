@@ -1,4 +1,5 @@
 "use client";
+import { gridReferences, referenceTolerance } from "../lib/visualization/reference-plane";
 import type { SapHandoff } from "../lib/import/sap2000-handoff";
 import { serializeSapProject } from "../lib/import/sap-project";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -163,6 +164,7 @@ export default function SimpleFrameModeler({
   const [surfaceEditError, setSurfaceEditError] = useState("");
   const [surfaceNodePickMode, setSurfaceNodePickMode] = useState(false);
   const [surfaceElevation, setSurfaceElevation] = useState<number | null>(null);
+  const [planGrid, setPlanGrid] = useState("");
   const [newSurfaceType, setNewSurfaceType] = useState<"slab"|"wall"|null>(null);
   const [filter, setFilter] = useState("all");
   const nodeById = useMemo(() => new Map(model.nodes.map(node=>[node.id,node])), [model.nodes]);
@@ -352,10 +354,26 @@ export default function SimpleFrameModeler({
   };
   const boundaryIds = surfaceBoundaryDraft.split(",").map(id => id.trim()).filter(Boolean);
   const selectedBoundaryIds = new Set(boundaryIds);
-  const surfaceElevations = [...new Set(model.nodes.map(node => node.position.z))].sort((a,b) => b-a);
+  const surfaceElevations = useMemo(() => {
+    const nodeElevations = [...new Set(model.nodes.map(node => node.position.z))];
+    const namedLevels = model.levels.map(level => level.elevation).filter(z =>
+      nodeElevations.some(nodeZ => Math.abs(nodeZ - z) <= referenceTolerance));
+    return [...new Set(namedLevels.length ? namedLevels : nodeElevations)].sort((a,b) => b-a);
+  }, [model.nodes, model.levels]);
   const activeSurfaceElevation = surfaceElevation !== null && surfaceElevations.includes(surfaceElevation)
     ? surfaceElevation : surfaceElevations[0];
-  const drawingSlabInPlan = plan && newSurfaceType === "slab";
+  const atPlanLevel = (z: number) => Math.abs(z - activeSurfaceElevation) <= referenceTolerance;
+  const planGrids = plan ? (["x", "y"] as const).flatMap(axis =>
+    gridReferences(model, axis).map(grid => ({ ...grid, axis }))) : [];
+  const activePlanGrid = planGrids.find(grid => grid.id === planGrid);
+  const setPlanLevel = (z: number) => {
+    setSurfaceElevation(z);
+    setSelectedId(null);
+    setSelectedSurfaceId(null);
+    setSurfaceBoundaryDraft("");
+    setSurfaceEditError("");
+    if (!newSurfaceType) setSurfaceNodePickMode(false);
+  };
   const startSurface = (type: "slab" | "wall") => {
     setNavigationTool("select");
     setPlan(type === "slab");
@@ -858,6 +876,25 @@ export default function SimpleFrameModeler({
               </button>
             ) : null}
           </div>
+          {plan && <div className="sfPlanNavigator" aria-label="Simple plan references">
+            <button type="button" aria-label="Previous plan level" disabled={surfaceElevations.length < 2} onClick={() =>
+              setPlanLevel(surfaceElevations[(surfaceElevations.indexOf(activeSurfaceElevation) + 1) % surfaceElevations.length])}>↓</button>
+            <label>Plan level <select value={activeSurfaceElevation ?? ""} onChange={event => setPlanLevel(Number(event.target.value))}>
+              {surfaceElevations.map(z => <option key={z} value={z}>{model.levels.find(level => Math.abs(level.elevation - z) <= referenceTolerance)?.name ?? "Z"} · {z} {model.project.units === "US" ? "ft" : "m"}</option>)}
+            </select></label>
+            <button type="button" aria-label="Next plan level" disabled={surfaceElevations.length < 2} onClick={() =>
+              setPlanLevel(surfaceElevations[(surfaceElevations.indexOf(activeSurfaceElevation) - 1 + surfaceElevations.length) % surfaceElevations.length])}>↑</button>
+            <button type="button" aria-label="Previous plan grid" disabled={!planGrids.length} onClick={() => {
+              const index = activePlanGrid ? planGrids.indexOf(activePlanGrid) : 0;
+              setPlanGrid(planGrids[(index - 1 + planGrids.length) % planGrids.length].id);
+            }}>←</button>
+            <label>Plan grid <select value={activePlanGrid?.id ?? ""} onChange={event => setPlanGrid(event.target.value)}>
+              <option value="">All grids</option>
+              {planGrids.map(grid => <option key={grid.id} value={grid.id}>{grid.axis.toUpperCase()} · {grid.label}</option>)}
+            </select></label>
+            <button type="button" aria-label="Next plan grid" disabled={!planGrids.length} onClick={() =>
+              setPlanGrid(planGrids[((activePlanGrid ? planGrids.indexOf(activePlanGrid) : -1) + 1) % planGrids.length].id)}>→</button>
+          </div>}
           <svg
             ref={svgRef}
             viewBox={`${camera.x} ${camera.y} ${camera.width} ${camera.height}`}
@@ -995,10 +1032,14 @@ export default function SimpleFrameModeler({
               ys.map((y, j) =>
                 line(p(0, y, 0), p(width, y, 0), `gy${j}`, "sfGrid"),
               )}
+            {activePlanGrid && display.grids && (() => {
+              const grid = model.grids.find(item => item.id === activePlanGrid.id);
+              return grid ? line(p(grid.start.x, grid.start.y, grid.start.z), p(grid.end.x, grid.end.y, grid.end.z), grid.id, "sfActivePlanGrid") : null;
+            })()}
             {model.surfaces.map((surface) => {
               const boundary = surface.boundaryNodeIds.map(id => nodeById.get(id));
               if (boundary.length < 3 || boundary.some(n => !n)) return null;
-              if (drawingSlabInPlan && boundary.some(node => node?.position.z !== activeSurfaceElevation)) return null;
+              if (plan && boundary.some(node => !node || !atPlanLevel(node.position.z))) return null;
               const points = boundary.map(n => {
                 const point = p(n!.position.x,n!.position.y,n!.position.z);
                 return `${point.x},${point.y}`;
@@ -1031,16 +1072,16 @@ export default function SimpleFrameModeler({
               model.members
                 .filter(
                   (m) =>
-                    (filter === "all" || m.type === filter) &&
-                    (drawingSlabInPlan || !plan || importedGeometry ||
-                      m.type !== "column" ||
-                      m.levelId === model.levels.at(-1)?.id),
+                    (filter === "all" || m.type === filter),
                 )
                 .map((member) => {
                   const a = nodeById.get(member.startNodeId);
                   const b = nodeById.get(member.endNodeId);
                   if (!a || !b) return null;
-                  if (drawingSlabInPlan && a.position.z !== activeSurfaceElevation && b.position.z !== activeSurfaceElevation) return null;
+                  const showAtUpperEnd = member.type === "column" || (member.type === "brace" && newSurfaceType !== "slab");
+                  if (plan && !(showAtUpperEnd
+                    ? atPlanLevel(Math.max(a.position.z, b.position.z))
+                    : atPlanLevel(a.position.z) && atPlanLevel(b.position.z))) return null;
                   const start = p(a.position.x, a.position.y, a.position.z),
                     end = p(b.position.x, b.position.y, b.position.z);
                   const section = model.sections.find(
@@ -1128,7 +1169,7 @@ export default function SimpleFrameModeler({
                 })}
             {(display.nodes || display.nodeNumbers) &&
               model.nodes
-                .filter((n) => !plan || n.levelId === model.levels.at(-1)?.id)
+                .filter((n) => !plan || atPlanLevel(n.position.z))
                 .map((node) => {
                   const q = p(
                     node.position.x,
@@ -1231,8 +1272,8 @@ export default function SimpleFrameModeler({
               )}
             {surfaceNodePickMode && (selectedSurfaceId || newSurfaceType) && model.nodes
               .filter(node => newSurfaceType === "slab"
-                ? node.position.z === activeSurfaceElevation
-                : !plan || node.position.z === activeSurfaceElevation)
+                ? atPlanLevel(node.position.z)
+                : !plan || atPlanLevel(node.position.z))
               .map(node => {
                 const point = p(node.position.x, node.position.y, node.position.z);
                 const picked = selectedBoundaryIds.has(node.id);
@@ -1268,9 +1309,7 @@ export default function SimpleFrameModeler({
               {newSurfaceType === "slab" && surfaceElevations.length > 0 ? <label className="sfAreaLevel">
                 Slab level{" "}
                 <select value={activeSurfaceElevation} onChange={event => {
-                  setSurfaceElevation(Number(event.target.value));
-                  setSurfaceBoundaryDraft("");
-                  setSurfaceEditError("");
+                  setPlanLevel(Number(event.target.value));
                 }}>
                   {surfaceElevations.map(z => {
                     const level = model.levels.find(item => Math.abs(item.elevation - z) < 1e-8);

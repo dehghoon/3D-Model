@@ -28,6 +28,7 @@ interface RuntimeObservers {
 }
 
 const runtimeObservers = new WeakMap<ThatOpenRuntime, RuntimeObservers>();
+const viewRequests = new WeakMap<ThatOpenRuntime, object>();
 
 function emitReferenceStatus(status: ReferenceStatus): void {
   if (typeof window === "undefined") return;
@@ -59,7 +60,7 @@ function scheduleViewportRefresh(runtime: ThatOpenRuntime): void {
     runtime.camera.updateAspect();
 
     const bounds = runtime.build?.root.userData.sapFitBounds as THREE.Box3 | undefined;
-    if (bounds && !bounds.isEmpty()) {
+    if (runtime.viewMode === "3d" && bounds && !bounds.isEmpty()) {
       void runtime.camera.controls.fitToSphere(bounds.getBoundingSphere(new THREE.Sphere()),false);
     }
   });
@@ -123,105 +124,47 @@ export function disposeThatOpenRuntime(runtime: ThatOpenRuntime): void {
 export async function setThatOpenView(
   runtime: ThatOpenRuntime,
   mode: ViewMode,
+  model?: StructuralModel,
 ): Promise<void> {
-  const data = frame(runtime);
+  const modelBounds = model?.nodes.length ? new THREE.Box3() : null;
+  if (modelBounds && model) {
+    const point = new THREE.Vector3();
+    for (const { position } of model.nodes) modelBounds.expandByPoint(point.set(position.x, position.z, position.y));
+  }
+  const data = modelBounds ? {
+    bounds: modelBounds,
+    center: modelBounds.getCenter(new THREE.Vector3()),
+    distance: Math.max(modelBounds.getSize(new THREE.Vector3()).length() * 1.8, 14),
+  } : frame(runtime);
   if (!data) return;
 
-  const { center, distance } = data;
-  runtime.axisIndex = 0;
-  runtime.levelIndex = 0;
+  const { center, distance, bounds } = data;
+  const request = {};
+  viewRequests.set(runtime, request);
+  runtime.viewMode = mode;
+  runtime.camera.controls.stop();
+  await runtime.camera.projection.set(mode === "3d" ? "Perspective" : "Orthographic");
+  if (viewRequests.get(runtime) !== request) return;
 
-  if (mode === "3d") {
-    runtime.viewMode = "3d";
-    await runtime.camera.projection.set("Perspective");
-    runtime.camera.three.up.set(0, 1, 0);
-    await runtime.camera.controls.setLookAt(
-      center.x + distance,
-      center.y + distance * 0.72,
-      center.z + distance,
-      center.x,
-      center.y,
-      center.z,
-      false,
-    );
-    if (runtime.build?.root.userData.sapFitBounds) {
-      await runtime.camera.controls.fitToBox(data.bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
-    }
-    emitReferenceStatus({ kind: "view", label: "3D" });
-    return;
-  }
-
-  await runtime.camera.projection.set("Orthographic");
-
-  if (mode === "front") {
-    runtime.viewMode = "front";
-    runtime.camera.three.up.set(0, 1, 0);
-    await runtime.camera.controls.setLookAt(
-      center.x,
-      center.y,
-      center.z + distance,
-      center.x,
-      center.y,
-      center.z,
-      false,
-    );
-    if (runtime.build?.root.userData.sapFitBounds) {
-      await runtime.camera.controls.fitToBox(data.bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
-    }
-    emitReferenceStatus({ kind: "view", label: "Front" });
-    return;
-  }
-
-  if (mode === "left") {
-    runtime.viewMode = "left";
-    runtime.camera.three.up.set(0, 1, 0);
-    await runtime.camera.controls.setLookAt(
-      center.x - distance,
-      center.y,
-      center.z,
-      center.x,
-      center.y,
-      center.z,
-      false,
-    );
-    if (runtime.build?.root.userData.sapFitBounds) {
-      await runtime.camera.controls.fitToBox(data.bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
-    }
-    emitReferenceStatus({ kind: "view", label: "Left" });
-    return;
-  }
-
-  if (mode === "bottom") {
-    runtime.viewMode = "bottom";
-    runtime.camera.three.up.set(0, 0, 1);
-    await runtime.camera.controls.setLookAt(
-      center.x,
-      center.y - distance,
-      center.z,
-      center.x,
-      center.y,
-      center.z,
-      false,
-    );
-    if (runtime.build?.root.userData.sapFitBounds) {
-      await runtime.camera.controls.fitToBox(data.bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
-    }
-    emitReferenceStatus({ kind: "view", label: "Bottom" });
-    return;
-  }
-
-  runtime.viewMode = "right";
-  runtime.camera.three.up.set(0, 0, -1);
+  const offset = {
+    "3d": [1, 0.72, 1],
+    front: [0, 0, 1],
+    left: [-1, 0, 0],
+    right: [1, 0, 0],
+    bottom: [0, -1, 0],
+    top: [0, 1, 0],
+  }[mode];
+  if (mode === "top" || mode === "bottom") runtime.camera.three.up.set(0, 0, mode === "top" ? -1 : 1);
+  else runtime.camera.three.up.set(0, 1, 0);
+  runtime.camera.controls.updateCameraUp();
   await runtime.camera.controls.setLookAt(
-    center.x,
-    center.y + distance,
-    center.z,
-    center.x,
-    center.y,
-    center.z,
-    false,
+    center.x + offset[0] * distance, center.y + offset[1] * distance, center.z + offset[2] * distance,
+    center.x, center.y, center.z, false,
   );
-  emitReferenceStatus({ kind: "view", label: "Top" });
+  if (viewRequests.get(runtime) !== request) return;
+  await runtime.camera.controls.fitToBox(bounds, false, { paddingTop: 0.8, paddingBottom: 0.8, paddingLeft: 0.8, paddingRight: 0.8 });
+  if (viewRequests.get(runtime) !== request) return;
+  emitReferenceStatus({ kind: "view", label: mode === "3d" ? "3D" : mode === "top" ? "Plan" : mode[0].toUpperCase() + mode.slice(1) });
 }
 
 function gridCoordinate(

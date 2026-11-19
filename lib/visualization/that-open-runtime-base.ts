@@ -11,7 +11,7 @@ import { pickCoreThree } from "./core-three-picker";
 import { resolveSnapPoint } from "./snap-resolver";
 import { editableSapFitBounds } from "./sap-camera-fit";
 
-export type ViewMode = "3d" | "front" | "left" | "right" | "bottom";
+export type ViewMode = "3d" | "front" | "left" | "right" | "bottom" | "top";
 
 export interface ThatOpenRuntime {
   components: OBC.Components;
@@ -120,8 +120,8 @@ export function setThatOpenView(
   runtime.levelIndex = 0;
   runtime.camera.three.up.set(
     0,
-    mode === "bottom" ? 0 : 1,
-    mode === "bottom" ? 1 : 0,
+    mode === "bottom" || mode === "top" ? 0 : 1,
+    mode === "bottom" ? 1 : mode === "top" ? -1 : 0,
   );
 
   const offset =
@@ -133,7 +133,7 @@ export function setThatOpenView(
           ? new THREE.Vector3(-distance, 0, 0)
           : mode === "right"
             ? new THREE.Vector3(distance, 0, 0)
-            : new THREE.Vector3(0.001, -distance, 0.001);
+            : new THREE.Vector3(0.001, mode === "top" ? distance : -distance, 0.001);
 
   void runtime.camera.controls.setLookAt(
     center.x + offset.x,
@@ -246,7 +246,7 @@ export async function pickThatOpen(
 
 export function snapThatOpen(
   runtime: ThatOpenRuntime,
-  event: PointerEvent,
+  event: Pick<PointerEvent, "clientX" | "clientY" | "pointerType">,
   model: StructuralModel,
   selection: EditorSelection,
 ) {
@@ -259,9 +259,10 @@ export function snapThatOpen(
     state.selection ?? selection,
     runtime.camera.three,
     runtime.renderer.three.domElement,
-    event.pointerType === "touch" ? 30 : 13,
+    event.pointerType === "touch" ? tool.tool === "slab" ? 38 : 30 : 13,
     origin,
     tool.tool === "slab" ? tool.slabElevation : undefined,
+    event.pointerType === "touch" && tool.tool === "slab",
   );
 }
 
@@ -365,13 +366,13 @@ export function renderModelingPreview(runtime: ThatOpenRuntime, hover?: Vec3): v
   const draw = getMemberDrawState();
   const points = tool.tool === "wall" || tool.tool === "slab"
     ? tool.points.map(item => item.point) : draw.start ? [draw.start.point] : [];
-  if (!tool.tool || !points.length) return;
+  if (!tool.tool || (!points.length && !hover)) return;
   const group = new THREE.Group();
   const toThree = (point: Vec3) => new THREE.Vector3(point.x, point.z, point.y);
   for (const point of points) {
-    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0xf97316, depthTest: false }));
-    marker.position.copy(toThree(point)); marker.renderOrder = 100; group.add(marker);
+    const marker = new THREE.Points(new THREE.BufferGeometry().setFromPoints([toThree(point)]),
+      new THREE.PointsMaterial({ color: 0xf97316, size: 12, sizeAttenuation: false, depthTest: false }));
+    marker.renderOrder = 100; group.add(marker);
   }
   const boundary = hover ? [...points, hover] : points;
   if (boundary.length > 1) {

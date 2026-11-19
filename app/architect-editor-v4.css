@@ -36,32 +36,19 @@
   padding: 0;
 }
 
-.viewportViewTools button:nth-child(1) { order: 1; }
-.viewportViewTools button:nth-child(2) { order: 2; }
-.viewportViewTools button:nth-child(4) { order: 3; }
-.viewportViewTools button:nth-child(3) {
-  order: 4;
-  font-size: 0;
-}
-.viewportViewTools button:nth-child(3)::after {
-  content: "T";
-  font-size: 9px;
-}
-.viewportViewTools button:nth-child(5) { order: 5; }
-
 .viewportReferenceNavigator {
   top: 40px;
   gap: 1px;
   padding: 2px;
   border-radius: 6px;
-  grid-template-columns: 26px 36px 26px;
+  grid-template-columns: 34px minmax(86px, 140px) 34px;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
 .viewportReferenceNavigator button {
-  width: 26px;
-  height: 22px;
-  min-heigight: 22px;
+  width: 34px;
+  height: 36px;
+  min-height: 36px;
   border-radius: 4px;
   padding: 0;
   font-size: 12px;
@@ -153,6 +140,7 @@
 
 @media (max-width: 760px) {
   .viewportViewTools {
+    display: none;
     top: 4px;
     right: 4px;
   }
@@ -164,15 +152,15 @@
   }
 
   .viewportReferenceNavigator {
-    top: 32px;
+    top: 4px;
     right: 4px;
-    grid-template-columns: 24px 32px 24px;
+    grid-template-columns: 40px minmax(86px, 130px) 40px;
   }
 
   .viewportReferenceNavigator button {
-    width: 24px;
-    height: 21px;
-    min-height: 21px;
+    width: 40px;
+    height: 44px;
+    min-height: 44px;
   }
 
   .referenceStatusOverlay {
@@ -186,4 +174,14 @@
   .referenceAdjustToggle {
     padding: 6px;
   }
+}
+
+.viewportReferenceNavigator select {
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid #b9c7d8;
+  border-radius: 5px;
+  background: white;
+  color: #24495f;
+  font-size: 16px;
 }

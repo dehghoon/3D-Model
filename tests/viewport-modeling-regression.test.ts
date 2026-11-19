@@ -9,6 +9,7 @@ import { copySelection } from "../lib/editor/copy-command";
 import { moveSelection } from "../lib/editor/move-command";
 import { createSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
 import { setSnapSetting } from "../lib/editor/snap-settings";
+import { geometryAtReference, gridReferences } from "../lib/visualization/reference-plane";
 
 const element = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }) } as HTMLElement;
 const point = (x: number, y: number, z: number) => ({ point: { x, y, z }, kind: "work-plane" as const, label: "Test point" });
@@ -109,6 +110,43 @@ test("slab drawing locks snap points to the chosen elevation", () => {
   assert.equal(resolveSnapPoint({ clientX: 400, clientY: 300 }, model, null, camera, element, 13)?.label, "Node lower");
   assert.equal(resolveSnapPoint({ clientX: 400, clientY: 300 }, model, null, camera, element, 13, undefined, 3)?.label, "Node upper");
   assert.equal(resolveSnapPoint({ clientX: 510, clientY: 370 }, model, null, camera, element, 13, undefined, 3)?.point.z, 3);
+});
+
+test("plan and elevation references isolate geometry without changing model boundaries", () => {
+  const model = createStarterModelV06();
+  const low = [{ id: "L1", position: { x: 0, y: 0, z: 0 } }, { id: "L2", position: { x: 2, y: 0, z: 0 } }, { id: "L3", position: { x: 2, y: 2, z: 0 } }];
+  const high = low.map(({ id, position }) => ({ id: "H" + id, position: { ...position, z: 3 } }));
+  const withSlabs = [low, high].reduce((current, nodes) => createSurfaceFromCanonicalRefs({
+    ...current, nodes: [...current.nodes, ...nodes],
+  }, { type: "slab", boundaryNodeIds: nodes.map(node => node.id) }).model, model);
+  const plan = geometryAtReference(withSlabs, "z", 3);
+  assert.deepEqual(plan.surfaces.map(surface => surface.boundaryNodeIds), [high.map(node => node.id)]);
+  assert.ok(plan.nodes.every(node => node.position.z === 3));
+  assert.ok(geometryAtReference(withSlabs, "y", 0).nodes.every(node => node.position.y === 0));
+  assert.equal(withSlabs.surfaces.length, 2);
+  assert.ok(gridReferences(model, "x").length);
+  assert.ok(gridReferences(model, "y").length);
+});
+
+test("touch slab picks favour a nearby boundary corner over an exact midpoint", () => {
+  const base = createStarterModelV06();
+  const model = {
+    ...base,
+    nodes: [
+      { id: "A", position: { x: 0, y: 0, z: 0 } },
+      { id: "B", position: { x: 1, y: 0, z: 0 } },
+    ],
+    members: [{ ...base.members[0], startNodeId: "A", endNodeId: "B" }],
+    grids: [],
+  };
+  const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 100);
+  camera.up.set(0, 0, -1);
+  camera.position.set(0, 20, 0);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld();
+  const pointer = { clientX: 420, clientY: 300 };
+  assert.equal(resolveSnapPoint(pointer, model, null, camera, element, 38)?.kind, "midpoint");
+  assert.equal(resolveSnapPoint(pointer, model, null, camera, element, 38, undefined, 0, true)?.kind, "node");
 });
 
 for (const type of ["slab", "wall"] as const) {
