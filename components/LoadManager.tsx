@@ -181,7 +181,7 @@ export default function LoadManager({
 
     const runId = "snow-" + window.performance.timeOrigin + "-" + Math.floor(performance.now() * 1000);
     const request = {
-      modelSchemaVersion: "0.5",
+      modelSchemaVersion: model.schemaVersion,
       projectId: model.project.id,
       runId,
       calculator: "snow",
@@ -209,7 +209,7 @@ export default function LoadManager({
       body: JSON.stringify(request),
     });
     const data = (await response.json()) as SnowWriteback;
-    if (!response.ok) throw new Error("Snow Core v0.5 request failed.");
+    if (!response.ok) throw new Error("Snow Core request failed.");
 
     const mapped = mapSnowWriteback(data, surfaceIds);
     const incomingIds = new Set(mapped.loads.map((load) => load.id));
@@ -226,7 +226,7 @@ export default function LoadManager({
       ],
       loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads],
     };
-    onModelChange(next, `Snow v0.5 loads added for ${surfaceIds.length} target surface(s).`);
+    onModelChange(next, `Snow loads added for ${surfaceIds.length} target surface(s).`);
   }
   function addCombination() {
     if (!model.loadCases.length) {
@@ -288,7 +288,7 @@ export default function LoadManager({
       </label>
       <button style={primary} onClick={addManualLoad}>Add canonical load</button>
       <button style={primary} onClick={() => runSnow().catch((error) => setStatus(error instanceof Error ? error.message : "Snow request failed."))}>
-        Run Snow v0.5
+        Run Snow
       </button>
       <button style={button} onClick={addCombination}>Add combination</button>
       <small>{status}</small>

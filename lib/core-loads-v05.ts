@@ -29,7 +29,7 @@ export function mapSnowWriteback(
   data: SnowV05Writeback,
   expectedTargetIds: string[],
 ): { loads: SurfacePressureLoad[]; loadSources: LoadSource[] } {
-  if (data.modelSchemaVersion !== "0.5") {
+  if (data.modelSchemaVersion !== "0.5" && data.modelSchemaVersion !== "0.6") {
     throw new Error("SNOW_CORE_VERSION_MISMATCH");
   }
 
