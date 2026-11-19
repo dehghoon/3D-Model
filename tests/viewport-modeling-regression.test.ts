@@ -91,6 +91,26 @@ test("snap reuses geometry but follows camera, settings, work plane and edited m
   assert.equal(pick(400, start, edited)?.label, "Node B");
 });
 
+test("slab drawing locks snap points to the chosen elevation", () => {
+  const model = {
+    ...createStarterModelV06(),
+    nodes: [
+      { id: "lower", position: { x: 0, y: 0, z: 0 } },
+      { id: "upper", position: { x: 0, y: 0, z: 3 } },
+    ],
+    members: [],
+    grids: [],
+  };
+  const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 100);
+  camera.up.set(0, 0, -1);
+  camera.position.set(0, 20, 0);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld();
+  assert.equal(resolveSnapPoint({ clientX: 400, clientY: 300 }, model, null, camera, element, 13)?.label, "Node lower");
+  assert.equal(resolveSnapPoint({ clientX: 400, clientY: 300 }, model, null, camera, element, 13, undefined, 3)?.label, "Node upper");
+  assert.equal(resolveSnapPoint({ clientX: 510, clientY: 370 }, model, null, camera, element, 13, undefined, 3)?.point.z, 3);
+});
+
 for (const type of ["slab", "wall"] as const) {
   test(`${type}: ordered boundary nodes survive copy and move`, () => {
     const base = createStarterModelV06();

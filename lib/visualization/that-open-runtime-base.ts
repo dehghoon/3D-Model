@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../editor/selection";
 import { getMemberDrawState } from "../editor/member-draw-store";
-import { getPointToolState } from "../editor/member-draw-events";
+import { getPointToolState, setSlabDrawElevation } from "../editor/member-draw-events";
 import { getInteractionState } from "../editor/interaction-store";
 import { buildCoreScene, disposeCoreScene, type CoreSceneBuild } from "./core-scene-v2";
 import { buildCopyPreview, disposeCopyPreview } from "./copy-preview";
@@ -222,6 +222,7 @@ export function stepThatOpenLevel(
   const target = runtime.camera.controls.getTarget(new THREE.Vector3());
   const position = runtime.camera.three.position.clone();
   const elevation = levels[runtime.levelIndex].elevation;
+  setSlabDrawElevation(elevation);
   position.y += elevation - target.y;
   target.y = elevation;
 
@@ -260,6 +261,7 @@ export function snapThatOpen(
     runtime.renderer.three.domElement,
     event.pointerType === "touch" ? 30 : 13,
     origin,
+    tool.tool === "slab" ? tool.slabElevation : undefined,
   );
 }
 

@@ -707,6 +707,16 @@
 }
 .sfAreaControls button:disabled { opacity: .5; }
 .sfAreaInstructions { flex-basis: 100%; }
+.sfAreaLevel { display: inline-flex; align-items: center; gap: 6px; }
+.sfAreaLevel select {
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 1px solid #b9c7d8;
+  border-radius: 6px;
+  background: white;
+  color: #24495f;
+  font-size: 16px;
+}
 .sfBoundaryNode {
   stroke: #fff;
   stroke-width: 10px;

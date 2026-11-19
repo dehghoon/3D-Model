@@ -62,6 +62,7 @@ function workPlanePoint(
   rect: DOMRect,
   elevation: number,
   origin?: Vec3,
+  fixedPlane = false,
 ): SnapPoint | null {
   const ndc = new THREE.Vector2(
     ((pointer.clientX - rect.left) / rect.width) * 2 - 1,
@@ -73,14 +74,14 @@ function workPlanePoint(
   // Elevation views need a vertical construction plane: a horizontal plane
   // is parallel to their rays and cannot yield a point.
   const normal = new THREE.Vector3(0, 1, 0);
-  if (Math.abs(raycaster.ray.direction.y) < 1e-6) {
+  if (!fixedPlane && Math.abs(raycaster.ray.direction.y) < 1e-6) {
     camera.getWorldDirection(normal);
   }
   const anchor = selection?.type === "node"
     ? model.nodes.find((node) => node.id === selection.id)?.position
     : undefined;
   const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
-    normal, toThree(origin ?? anchor ?? { x: 0, y: 0, z: elevation }),
+    normal, toThree(fixedPlane ? { x: 0, y: 0, z: elevation } : origin ?? anchor ?? { x: 0, y: 0, z: elevation }),
   );
   const intersection = new THREE.Vector3();
   if (!raycaster.ray.intersectPlane(plane, intersection)) return null;
@@ -225,6 +226,7 @@ export function resolveSnapPoint(
   element: HTMLElement,
   tolerancePx: number,
   origin?: Vec3,
+  fixedElevation?: number,
 ): SnapPoint | null {
   const rect = element.getBoundingClientRect();
   if (!rect.width || !rect.height ||
@@ -233,8 +235,8 @@ export function resolveSnapPoint(
     emitSnapCandidate({ active: false });
     return null;
   }
-  const elevation = origin?.z ?? selectedElevation(model, selection);
-  const workPlane = workPlanePoint(pointer, model, selection, camera, rect, elevation, origin);
+  const elevation = fixedElevation ?? origin?.z ?? selectedElevation(model, selection);
+  const workPlane = workPlanePoint(pointer, model, selection, camera, rect, elevation, origin, fixedElevation !== undefined);
   const settings = getSnapSettings();
   let geometry = modelSnapGeometry.get(model);
   if (!geometry) {
@@ -260,6 +262,7 @@ export function resolveSnapPoint(
   const consider = (candidates: SnapPoint[]) => {
     for (const candidate of candidates) {
       const { x, y, z } = candidate.point;
+      if (fixedElevation !== undefined && Math.abs(z - fixedElevation) > 1e-8) continue;
       projected.set(x, z, y).project(camera);
       if (projected.z < -1 || projected.z > 1) continue;
       const screenX = rect.left + ((projected.x + 1) / 2) * rect.width;

@@ -353,7 +353,9 @@ export default function SimpleFrameModeler({
   const boundaryIds = surfaceBoundaryDraft.split(",").map(id => id.trim()).filter(Boolean);
   const selectedBoundaryIds = new Set(boundaryIds);
   const surfaceElevations = [...new Set(model.nodes.map(node => node.position.z))].sort((a,b) => b-a);
-  const activeSurfaceElevation = surfaceElevation ?? surfaceElevations[0];
+  const activeSurfaceElevation = surfaceElevation !== null && surfaceElevations.includes(surfaceElevation)
+    ? surfaceElevation : surfaceElevations[0];
+  const drawingSlabInPlan = plan && newSurfaceType === "slab";
   const startSurface = (type: "slab" | "wall") => {
     setNavigationTool("select");
     setPlan(type === "slab");
@@ -362,7 +364,6 @@ export default function SimpleFrameModeler({
     setSelectedId(null);
     setSelectedSurfaceId(null);
     setNewSurfaceType(type);
-    setSurfaceElevation(null);
     setSurfaceBoundaryDraft("");
     setSurfaceEditError("");
     setSurfaceNodePickMode(true);
@@ -997,6 +998,7 @@ export default function SimpleFrameModeler({
             {model.surfaces.map((surface) => {
               const boundary = surface.boundaryNodeIds.map(id => nodeById.get(id));
               if (boundary.length < 3 || boundary.some(n => !n)) return null;
+              if (drawingSlabInPlan && boundary.some(node => node?.position.z !== activeSurfaceElevation)) return null;
               const points = boundary.map(n => {
                 const point = p(n!.position.x,n!.position.y,n!.position.z);
                 return `${point.x},${point.y}`;
@@ -1030,15 +1032,15 @@ export default function SimpleFrameModeler({
                 .filter(
                   (m) =>
                     (filter === "all" || m.type === filter) &&
-                    (!plan || importedGeometry ||
+                    (drawingSlabInPlan || !plan || importedGeometry ||
                       m.type !== "column" ||
                       m.levelId === model.levels.at(-1)?.id),
                 )
                 .map((member) => {
-                  const a = model.nodes.find(
-                      (n) => n.id === member.startNodeId,
-                    )!,
-                    b = model.nodes.find((n) => n.id === member.endNodeId)!;
+                  const a = nodeById.get(member.startNodeId);
+                  const b = nodeById.get(member.endNodeId);
+                  if (!a || !b) return null;
+                  if (drawingSlabInPlan && a.position.z !== activeSurfaceElevation && b.position.z !== activeSurfaceElevation) return null;
                   const start = p(a.position.x, a.position.y, a.position.z),
                     end = p(b.position.x, b.position.y, b.position.z);
                   const section = model.sections.find(
@@ -1228,7 +1230,9 @@ export default function SimpleFrameModeler({
                 ),
               )}
             {surfaceNodePickMode && (selectedSurfaceId || newSurfaceType) && model.nodes
-              .filter(node => !plan || node.position.z === activeSurfaceElevation)
+              .filter(node => newSurfaceType === "slab"
+                ? node.position.z === activeSurfaceElevation
+                : !plan || node.position.z === activeSurfaceElevation)
               .map(node => {
                 const point = p(node.position.x, node.position.y, node.position.z);
                 const picked = selectedBoundaryIds.has(node.id);
@@ -1261,14 +1265,17 @@ export default function SimpleFrameModeler({
             <button type="button" aria-pressed={newSurfaceType === "wall"} onClick={() => startSurface("wall")}>Draw Wall Area</button>
             {newSurfaceType ? <>
               <span className="sfAreaInstructions">Tap 3 or more highlighted nodes around the perimeter, then select Finish {newSurfaceType === "slab" ? "Slab" : "Wall"}.</span>
-              {plan && surfaceElevations.length > 1 ? <label>
-                Elevation{" "}
+              {newSurfaceType === "slab" && surfaceElevations.length > 0 ? <label className="sfAreaLevel">
+                Slab level{" "}
                 <select value={activeSurfaceElevation} onChange={event => {
                   setSurfaceElevation(Number(event.target.value));
                   setSurfaceBoundaryDraft("");
                   setSurfaceEditError("");
                 }}>
-                  {surfaceElevations.map(z => <option key={z} value={z}>{z.toFixed(3)}</option>)}
+                  {surfaceElevations.map(z => {
+                    const level = model.levels.find(item => Math.abs(item.elevation - z) < 1e-8);
+                    return <option key={z} value={z}>{level ? level.name + " · " : ""}{z.toFixed(3)} {model.project.units === "US" ? "ft" : "m"}</option>;
+                  })}
                 </select>
               </label> : null}
               <button type="button" disabled={boundaryIds.length < 3} onClick={()=>{

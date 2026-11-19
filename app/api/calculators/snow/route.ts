@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+const accountOrigin = "https://www.linkoteq.com";
 
+function accountCors(request: NextRequest) {
+  const headers = new Headers({ "Cache-Control": "no-store", Vary: "Origin" });
+  if (request.headers.get("origin") === accountOrigin) {
+    headers.set("Access-Control-Allow-Origin", accountOrigin);
+    headers.set("Access-Control-Allow-Methods", "POST");
+    headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  }
+  return headers;
+}
+
+export function OPTIONS(request: NextRequest) {
+  const headers = accountCors(request);
+  return new NextResponse(null, { status: headers.has("Access-Control-Allow-Origin") ? 204 : 403, headers });
+}
 function normalizeRequest(input: Record<string, unknown>) {
   const projectId = String(input.projectId ?? "");
   const runId = String(input.runId ?? "");
@@ -13,8 +28,6 @@ function normalizeRequest(input: Record<string, unknown>) {
 }
 
 
-// Customer authorization is fail-closed. Employee SSO must be verified and
-// federated before this guard can replace the existing production route.
 async function authorizeCustomerSnow(request: NextRequest): Promise<401 | 403 | 503 | null> {
   const authorization = request.headers.get("authorization") ?? "";
   if (!/^Bearer\s+\S+$/i.test(authorization)) return 401;
@@ -25,11 +38,16 @@ async function authorizeCustomerSnow(request: NextRequest): Promise<401 | 403 | 
   try {
     const user = await fetch(url + "/auth/v1/user", { headers, cache: "no-store" });
     if (!user.ok) return user.status >= 500 ? 503 : 401;
-    const internal = await fetch(url + "/rest/v1/rpc/has_internal_engineering_tool_access", {
-      method: "POST", headers, body: JSON.stringify({ p_tool_key: "snow_load" }), cache: "no-store"
+    const roleCheck = (rpc: string) => fetch(url + "/rest/v1/rpc/" + rpc, {
+      method: "POST", headers, body: "{}", cache: "no-store",
     });
-    if (!internal.ok) return 503;
-    if (await internal.json() === true) return null;
+    const [owner, permissions] = await Promise.all([
+      roleCheck("platform_access_is_owner"), roleCheck("platform_my_permissions"),
+    ]);
+    if (owner.ok && await owner.json() === true) return null;
+    const grants: unknown = permissions.ok ? await permissions.json() : null;
+    if (Array.isArray(grants) && grants.includes("engineering_tools_internal")) return null;
+    if (!owner.ok || !permissions.ok) return 503;
     const grant = await fetch(url + "/rest/v1/rpc/has_active_customer_tool_trial", {
       method: "POST", headers, body: JSON.stringify({ p_tool_key: "snow_load" }), cache: "no-store"
     });
@@ -46,24 +64,35 @@ async function authorizeCustomerSnow(request: NextRequest): Promise<401 | 403 | 
 }
 
 export async function POST(request: NextRequest) {
+  const headers = accountCors(request);
   const denial = await authorizeCustomerSnow(request);
-  if (denial !== null) return NextResponse.json({ error: denial === 401 ? "authentication_required" : denial === 403 ? "tool_access_denied" : "entitlement_unavailable" }, { status: denial, headers: { "Cache-Control": "no-store" } });
+  if (denial !== null) return NextResponse.json({ error: denial === 401 ? "authentication_required" : denial === 403 ? "tool_access_denied" : "entitlement_unavailable" }, { status: denial, headers });
   const base = process.env.SNOW_CALCULATOR_API_URL?.replace(/\/$/, "");
   if (!base) {
-    return NextResponse.json({ error: "Snow Calculator is not configured." }, { status: 503 });
+    return NextResponse.json({ error: "snow_not_configured" }, { status: 503, headers });
+  }
+  let body;
+  try {
+    body = normalizeRequest(await request.json());
+  } catch {
+    return NextResponse.json({ error: "invalid_snow_request" }, { status: 400, headers });
   }
   try {
-    const body = normalizeRequest(await request.json());
     const response = await fetch(`${base}/api/v1/core/roof-snow/v${body.modelSchemaVersion}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      cache: "no-store"
+      cache: "no-store",
+      signal: AbortSignal.timeout(25000),
     });
     const text = await response.text();
-    const contentType = response.headers.get("content-type") || "application/json";
-    return new NextResponse(text, { status: response.status, headers: { "content-type": contentType } });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Snow Calculator request failed." }, { status: 502 });
+    if (!response.ok) {
+      const invalid = response.status === 400 || response.status === 422;
+      return NextResponse.json({ error: invalid ? "invalid_snow_inputs" : "snow_service_unavailable" }, { status: invalid ? 422 : 502, headers });
+    }
+    headers.set("content-type", "application/json");
+    return new NextResponse(text, { status: response.status, headers });
+  } catch {
+    return NextResponse.json({ error: "snow_service_unavailable" }, { status: 502, headers });
   }
 }

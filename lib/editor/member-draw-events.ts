@@ -8,6 +8,7 @@ export const UTILITY_COMMAND_EVENT = "linkoteq:utility-command";
 export type ModelingPointTool = "beam" | "column" | "brace" | "joist" | "wall" | "slab";
 interface PointToolState {
   tool: ModelingPointTool | null;
+  slabElevation?: number;
   points: SnapPoint[];
   message: string;
 }
@@ -43,6 +44,10 @@ export function setSurfacePoints(points: SnapPoint[]) {
     points,
     message: `${points.length} boundary points. Add another point or finish.`,
   });
+}
+export function setSlabDrawElevation(slabElevation?: number) {
+  if (state.tool !== "slab" || state.slabElevation === slabElevation) return;
+  emit({ ...state, slabElevation, points: [], message: "Slab level updated. Pick the first boundary point." });
 }
 export function usePointToolState() {
   return useSyncExternalStore(
