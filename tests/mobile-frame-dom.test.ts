@@ -112,6 +112,13 @@ test("mobile uses one bottom sheet; model taps edit canonical geometry and two f
       bottom: 500,
       toJSON: () => ({}),
     });
+    const loadLauncher = dom.window.document.querySelector<HTMLElement>(".loadManagerLauncher")!;
+    h.act(() => loadLauncher.click());
+    const loadDrawer = dom.window.document.querySelector('[aria-label="Core Loads"]')!;
+    assert.deepEqual([...loadDrawer.querySelectorAll("summary")].map(item => item.textContent), [
+      "Snow Load · Roof slab", "Wind Load · Exterior walls", "Seismic Load · Floor plan centres",
+    ]);
+    h.act(() => loadDrawer.querySelector<HTMLElement>('[aria-label="Close Loads"]')!.click());
     assert.ok(sheet.hidden);
     assert.equal(host.querySelectorAll("[role=tab]").length, 3);
     assert.equal(host.querySelector(".sfSetup"), null);

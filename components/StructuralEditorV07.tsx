@@ -354,7 +354,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
         onModelChange={applyModelChange}
       />
 
-      {!simpleMode ? <LoadManager
+      <LoadManager
         model={model}
         selectedSurfaces={selectedSurfaces}
         selectedMembers={selectedMembers}
@@ -371,7 +371,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
         onEndTargetSelection={() =>
           setMessage("Load target selection finished.")
         }
-      /> : null}
+      />
     </div>
   );
 }

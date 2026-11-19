@@ -12,6 +12,7 @@ import {
 } from "../lib/core-frame-catalogs";
 import type { Section, Material } from "@linkoteq/structural-core";
 import FrameDisplayPanel from "./FrameDisplayPanel";
+import LoadManager from "./LoadManager";
 import MobileFrameSheet, { type MobileFrameTab } from "./MobileFrameSheet";
 import {
   INITIAL_FRAME_VIEW,
@@ -182,7 +183,7 @@ export default function SimpleFrameModeler({
           layout: setup,
           onChange: change,
         } = current.current;
-        if (typeof latest.project.metadata?.simpleFrame !== "string") return;
+        if (typeof latest.project.metadata?.simpleFrame !== "string" || latest.loads.length || latest.surfaces.length) return;
         const defaults = { ...setup.defaults };
         const sections = [...latest.sections];
         let changed = false;
@@ -292,6 +293,10 @@ export default function SimpleFrameModeler({
       setError(
         "Create a quick frame first, or continue in Advanced to keep the current model.",
       );
+      return;
+    }
+    if (!replace && model.loads.length) {
+      setError("Quick Frame regeneration would remove assigned loads. Use Advanced to edit this model.");
       return;
     }
     try {
@@ -1442,6 +1447,16 @@ export default function SimpleFrameModeler({
           {error ? <p role="alert">{error}</p> : null}
         </MobileFrameSheet>
       ) : null}
+      <LoadManager
+        model={model}
+        environmentalOnly
+        selectedSurfaces={model.surfaces.filter(surface => surface.id === selectedSurfaceId)}
+        selectedNodes={[]}
+        selectedMembers={[]}
+        onModelChange={onChange}
+        onBeginTargetSelection={() => {}}
+        onEndTargetSelection={() => {}}
+      />
     </div>
   );
 }

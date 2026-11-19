@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type {
   Load,
@@ -13,9 +13,15 @@ import type {
 } from "@linkoteq/structural-core";
 import { assertCanonicalLoad, mapSnowWriteback } from "../lib/core-loads-v05";
 import { requestSnowThroughAccount } from "../lib/snow-account-request";
+import { importStaticSeismic } from "../lib/seismic-static-import";
+import { findAutomaticSnowRoof } from "../lib/snow-model-roof";
+import { assignWindWalls, windEnvelope } from "../lib/wind-model-walls";
+const seismicCalculator = "https://linkoteq-seismic-preview.vercel.app";
+type WindStation = { id: string; location: string; provinceOrTerritory: string };
 type LoadMode = "slab" | "wall" | "beam" | "node";
 type MemberLoadKind = "distributed" | "point";
 type Props = {
+  environmentalOnly?: boolean;
   model: StructuralModel;
   selectedSurfaces: Surface[];
   selectedMembers: Member[];
@@ -32,7 +38,8 @@ const snowErrors: Record<string, string> = {
   entitlement_unavailable: "Snow access could not be verified. Try again.",
   snow_not_configured: "Snow is temporarily unavailable on this deployment.",
   invalid_snow_request: "The selected surfaces or project could not be sent to Snow.",
-  invalid_snow_inputs: "Snow rejected the calculation inputs. Check Ss and Sr.",
+  invalid_snow_inputs: "Snow rejected the roof or site data.",
+  snow_location_unavailable: "Snow Load has no usable climate data for this location.",
 };
 const button: React.CSSProperties = {
   border: "1px solid #cfd6df",
@@ -56,6 +63,7 @@ function categoryFromLabel(label: string): LoadCase["category"] {
     : "other") as LoadCase["category"];
 }
 export default function LoadManager({
+  environmentalOnly = false,
   model,
   selectedSurfaces,
   selectedMembers,
@@ -65,9 +73,27 @@ export default function LoadManager({
   onEndTargetSelection,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [seismicAxis, setSeismicAxis] = useState<"x" | "y">("x");
+  const [seismicCentroidConfirmed, setSeismicCentroidConfirmed] = useState(false);
+  const [windOpen, setWindOpen] = useState(false);
+  const [windStations, setWindStations] = useState<WindStation[]>([]);
+  const [windStation, setWindStation] = useState("");
+  const [windProvince, setWindProvince] = useState("");
+  const [windTerrain, setWindTerrain] = useState("open");
+  const [windImportance, setWindImportance] = useState("1");
+  const [windTopography, setWindTopography] = useState("1");
+  const [windReviewed, setWindReviewed] = useState(false);
+  const [windRunning, setWindRunning] = useState(false);
+  const seismicWindow = useRef<{ target: Window; token: string; model: StructuralModel } | null>(null);
+  const [seismicResult, setSeismicResult] = useState<{ data: unknown; model: StructuralModel } | null>(null);
+  const [seismicFile, setSeismicFile] = useState<File | null>(null);
   const [snowRunning, setSnowRunning] = useState(false);
-  const [snowSs, setSnowSs] = useState("");
-  const [snowSr, setSnowSr] = useState("");
+  const [provinces, setProvinces] = useState<string[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [province, setProvince] = useState("");
+  const [location, setLocation] = useState("");
+  const [climateStatus, setClimateStatus] = useState("");
+  const [climateRetry, setClimateRetry] = useState(0);
   const currentModel = useRef(model);
   currentModel.current = model;
   const [mode, setMode] = useState<LoadMode>("slab");
@@ -186,20 +212,34 @@ export default function LoadManager({
     onModelChange(next, `${loads.length} canonical Core load(s) added.`);
   }
 
-  async function runSnow() {
-    const surfaceIds = selectedSurfaces.filter((surface) => surface.type === "slab").map((surface) => surface.id);
-    if (!surfaceIds.length) {
-      setStatus("Select one or more slab surfaces first.");
-      return;
-    }
-    const ss = Number(snowSs);
-    const sr = Number(snowSr);
-    if (!snowSs.trim() || !snowSr.trim() || !Number.isFinite(ss) || !Number.isFinite(sr) || ss <= 0 || sr < 0) {
-      setStatus("Enter a positive Ss and a nonnegative Sr in kPa.");
-      return;
-    }
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    const params = province ? "?" + new URLSearchParams({ province }) : "";
+    setClimateStatus("Loading Snow Load locations…");
+    fetch("/api/calculators/snow/climate" + params, { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error("Climate catalog unavailable");
+        const data = await response.json() as { provinces?: string[]; locations?: string[] };
+        const entries = province ? data.locations : data.provinces;
+        if (!Array.isArray(entries) || !entries.length) throw new Error("Climate catalog is empty");
+        if (!controller.signal.aborted) {
+          (province ? setLocations : setProvinces)(entries);
+          setClimateStatus("");
+        }
+      }).catch(() => {
+        if (!controller.signal.aborted) setClimateStatus("Snow Load locations could not be loaded.");
+      });
+    return () => controller.abort();
+  }, [open, province, climateRetry]);
 
-    const runId = "snow-" + window.performance.timeOrigin + "-" + Math.floor(performance.now() * 1000);
+  async function runSnow() {
+    if (!province || !location) throw new Error("Choose the project province and location.");
+    const roof = findAutomaticSnowRoof(model, selectedSurfaces.filter(surface => surface.type === "slab").map(surface => surface.id));
+    const surfaceIds = [roof.surfaceId];
+    const identity = new TextEncoder().encode(JSON.stringify([model.project.id, roof.surfaceId]));
+    const digest = await crypto.subtle.digest("SHA-256", identity);
+    const runId = "snow-location-" + Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
     const request = {
       modelSchemaVersion: model.schemaVersion,
       projectId: model.project.id,
@@ -207,20 +247,7 @@ export default function LoadManager({
       calculator: "snow",
       calculatorVersion: "0.1.0",
       targetIds: surfaceIds,
-      inputs: {
-        calculation: {
-          mode: "UNIFORM_ROOF",
-          common: {
-            ss,
-            sr_climatic: sr,
-            roof_slope_alpha: 0,
-            roof_surface_type: "normal",
-            is: 1,
-            cw: 1,
-            cb: 0.8,
-          },
-        },
-      },
+      snowSite: { province, location, roof: roof.geometry },
     };
 
     const response = await requestSnowThroughAccount(request);
@@ -247,11 +274,91 @@ export default function LoadManager({
         ...model.loadCases.filter((loadCase) => !(data.loadCases ?? []).some((candidate) => candidate.id === loadCase.id)),
         ...(data.loadCases ?? []),
       ],
-      loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads],
+      loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads.map(load => ({ ...load, normalSense: roof.normalSense }))],
     };
-    const message = `Snow loads added for ${surfaceIds.length} target surface(s).`;
+    const message = `Snow load applied to roof ${roof.surfaceId} for ${location}, ${province}.`;
     onModelChange(next, message);
     setStatus(message);
+  }
+  useEffect(() => {
+    if (!open || !windOpen || windStations.length) return;
+    const controller = new AbortController();
+    fetch("/api/calculators/wind", { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error("Wind stations could not be loaded. Close and reopen Wind Load to retry.");
+        const data = await response.json();
+        if (!controller.signal.aborted) setWindStations(data.stations);
+      }).catch(error => {
+        if (!controller.signal.aborted) setStatus(error.message);
+      });
+    return () => controller.abort();
+  }, [open, windOpen, windStations.length]);
+
+  async function runWind() {
+    if (!windReviewed || !windStation || windRunning) return;
+    setWindRunning(true);
+    try {
+      const envelope = windEnvelope(model);
+      const request = {
+        stationId: windStation, terrain: windTerrain,
+        importance: Number(windImportance), topography: Number(windTopography),
+        dimensions: envelope.dimensions,
+      };
+      const response = await fetch("/api/calculators/wind", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      if (currentModel.current !== model) throw new Error("The model changed during calculation. Run Wind again.");
+      const message = `Four wind cases applied to exterior walls for ${result.station.location}.`;
+      onModelChange(assignWindWalls(model, envelope, result.pressures, { ...request, station: result.station }), message);
+      setStatus(message);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Wind loads could not be applied.");
+    } finally {
+      setWindRunning(false);
+    }
+  }
+
+  useEffect(() => {
+    function receiveSeismic(event: MessageEvent) {
+      const pending = seismicWindow.current;
+      if (!pending || event.origin !== seismicCalculator || event.source !== pending.target ||
+          event.data?.type !== "linkoteq:seismic-result" || event.data.token !== pending.token) return;
+      seismicWindow.current = null;
+      if (pending.model !== currentModel.current) {
+        setStatus("The model changed while the calculator was open. Open the calculator again.");
+        return;
+      }
+      setSeismicFile(null);
+      setSeismicResult({ data: event.data.result, model: pending.model });
+      setStatus("Seismic results received. Confirm the axis and floor plan centroids before applying.");
+    }
+    window.addEventListener("message", receiveSeismic);
+    return () => window.removeEventListener("message", receiveSeismic);
+  }, []);
+
+  function openSeismicCalculator() {
+    const token = crypto.randomUUID();
+    const query = new URLSearchParams({ modelOrigin: window.location.origin, handoffToken: token });
+    const target = window.open(`${seismicCalculator}/?${query}`, "_blank");
+    if (target) { setSeismicResult(null); setSeismicCentroidConfirmed(false); seismicWindow.current = { target, token, model }; }
+    else setStatus("Allow the calculator window or import a reviewed JSON export.");
+  }
+
+  async function applySeismic() {
+    if ((!seismicFile && !seismicResult) || !seismicCentroidConfirmed) return;
+    try {
+      if (seismicResult && seismicResult.model !== model) throw new Error("The model changed. Run the calculator again for the current model.");
+      const data: unknown = seismicFile ? JSON.parse(await seismicFile.text()) : seismicResult?.data;
+      if (currentModel.current !== model) throw new Error("The model changed. Reopen Loads and try again.");
+      onModelChange(importStaticSeismic(model, data, seismicAxis), "Static seismic diaphragm cases assigned.");
+      setStatus(`Four static seismic cases assigned along ${seismicAxis.toUpperCase()}.`);
+      setSeismicResult(null);
+      setSeismicCentroidConfirmed(false);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Static seismic loads could not be imported.");
+    }
   }
   function addCombination() {
     if (!model.loadCases.length) {
@@ -273,6 +380,7 @@ export default function LoadManager({
 
   const content = (
     <div style={{ display: "grid", gap: 8 }}>
+      {!environmentalOnly && <>
       <div><b>Targets:</b> {targetIds.length ? targetIds.join(", ") : "none"}</div>
       <select value={mode} onChange={(event) => setMode(event.target.value as LoadMode)}>
         <option value="slab">Slab surface pressure</option>
@@ -311,23 +419,80 @@ export default function LoadManager({
         <input type="number" step="any" value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Signed magnitude" />
       </label>
       <button style={primary} onClick={addManualLoad}>Add canonical load</button>
-      {mode === "slab" && <>
-        <small>Uniform flat roof · Is 1 · Cw 1 · Cb 0.8</small>
-        <label>Ground snow load Ss (kPa)
-          <input type="number" min="0" step="any" value={snowSs} onChange={event => setSnowSs(event.target.value)} />
+      </>}
+      <details open={environmentalOnly || mode === "slab"}>
+        <summary>Snow Load · Roof slab</summary>
+        <small>Uniform flat roof · NBC 2020 · Normal importance, ULS · Unreduced wind exposure</small>
+        <label>Province or territory
+          <select value={province} disabled={!provinces.length || snowRunning} onChange={event => {
+            setProvince(event.target.value); setLocation(""); setLocations([]);
+          }}>
+            <option value="">Choose province or territory</option>
+            {provinces.map(name => <option key={name}>{name}</option>)}
+          </select>
         </label>
-        <label>Associated rain load Sr (kPa)
-          <input type="number" min="0" step="any" value={snowSr} onChange={event => setSnowSr(event.target.value)} />
+        <label>Project location
+          <select value={location} disabled={!locations.length || snowRunning} onChange={event => setLocation(event.target.value)}>
+            <option value="">Choose location</option>
+            {locations.map(name => <option key={name}>{name}</option>)}
+          </select>
         </label>
-        <button style={primary} disabled={snowRunning} onClick={() => {
+        {climateStatus && <small role="status">{climateStatus}</small>}
+        {climateStatus.endsWith("could not be loaded.") && <button type="button" style={button} onClick={() => setClimateRetry(value => value + 1)}>Retry locations</button>}
+        <button style={primary} disabled={snowRunning || !location} onClick={() => {
           setSnowRunning(true);
           setStatus("Running Snow…");
           void runSnow()
             .catch(error => setStatus(error instanceof Error ? error.message : "Snow request failed."))
             .finally(() => setSnowRunning(false));
         }}>{snowRunning ? "Running Snow…" : "Run Snow"}</button>
-      </>}
-      <button style={button} onClick={addCombination}>Add combination</button>
+      </details>
+      <details onToggle={event => setWindOpen(event.currentTarget.open)}>
+        <summary>Wind Load · Exterior walls</summary>
+        <p>NBC 2020 general static external pressures on four sides of a grid-aligned rectangular building. Use the project’s applicable procedure and factors. Internal pressure, roof pressure, cladding and dynamic effects need separate checks.</p>
+        <label>Wind province or territory
+          <select value={windProvince} disabled={!windStations.length || windRunning} onChange={event => { setWindProvince(event.target.value); setWindStation(""); }}>
+            <option value="">Choose province or territory</option>
+            {[...new Set(windStations.map(station => station.provinceOrTerritory))].map(name => <option key={name}>{name}</option>)}
+          </select>
+        </label>
+        <label>Wind station
+          <select value={windStation} disabled={!windProvince || windRunning} onChange={event => setWindStation(event.target.value)}>
+            <option value="">Choose station</option>
+            {windStations.filter(station => station.provinceOrTerritory === windProvince).map(station => <option key={station.id} value={station.id}>{station.location}</option>)}
+          </select>
+        </label>
+        <label>Terrain
+          <select value={windTerrain} onChange={event => setWindTerrain(event.target.value)}>
+            <option value="open">Open</option><option value="rough">Rough</option>
+          </select>
+        </label>
+        <label>Wind importance factor Iw
+          <input type="number" min="0" step="any" value={windImportance} onChange={event => setWindImportance(event.target.value)} />
+        </label>
+        <label>Wind topographic factor Ct
+          <input type="number" min="0" step="any" value={windTopography} onChange={event => setWindTopography(event.target.value)} />
+        </label>
+        <label><input type="checkbox" checked={windReviewed} onChange={event => setWindReviewed(event.target.checked)} /> I verified the exterior envelope, grade (project grade or lowest node) and general static applicability.</label>
+        <button type="button" style={primary} disabled={!windStation || !windReviewed || windRunning || snowRunning} onClick={() => void runWind()}>{windRunning ? "Running Wind…" : "Run Wind and apply wall loads"}</button>
+      </details>
+      <details>
+        <summary>Seismic Load · Floor plan centres</summary>
+        <p>Review an NBCC 2020 static result in the calculator. Each storey needs one continuous floor slab. The importer uses or establishes a rigid diaphragm at its plan centroid and applies accidental torsion.</p>
+        <button type="button" style={button} onClick={openSeismicCalculator}>Open Seismic Load Calculator</button>
+        {seismicResult && <p>Calculator result received. No file is needed.</p>}
+        <label>Calculation direction
+          <select value={seismicAxis} onChange={event => setSeismicAxis(event.target.value as "x" | "y")}>
+            <option value="x">Global X</option><option value="y">Global Y</option>
+          </select>
+        </label>
+        <label>Static seismic JSON
+          <input type="file" accept=".json,application/json" onChange={event => { setSeismicResult(null); setSeismicFile(event.target.files?.[0] ?? null); }} />
+        </label>
+        <label><input type="checkbox" checked={seismicCentroidConfirmed} onChange={event => setSeismicCentroidConfirmed(event.target.checked)} /> I verified the rigid diaphragm assumption and that each plan centroid is its centre of mass.</label>
+        <button type="button" style={primary} disabled={(!seismicFile && !seismicResult) || !seismicCentroidConfirmed || snowRunning || windRunning} onClick={() => void applySeismic()}>Apply seismic loads</button>
+      </details>
+      {!environmentalOnly && <button style={button} onClick={addCombination}>Add combination</button>}
       <small role="status">{status}</small>
     </div>
   );
