@@ -252,6 +252,11 @@ export default function ThatOpenViewportV07({
     };
     syncCameraMouseButtons("select");
     const canvas = runtime.renderer.three.domElement;
+    const panSpan = () => {
+      const camera = runtime.camera.three;
+      return camera instanceof THREE.OrthographicCamera
+        ? (camera.top - camera.bottom) / camera.zoom : runtime.camera.controls.distance;
+    };
     let start: PointerStart | null = null;
     const touches = new Map<number, { x: number; y: number }>();
     let pinching = false;
@@ -270,7 +275,7 @@ export default function ThatOpenViewportV07({
         if (touches.size >= 2) pinching = true;
         if (before && after && event.type === "pointermove" && toolModeRef.current === "select") {
           const controls = runtime.camera.controls;
-          const scale = Math.max(controls.distance, 1) / Math.max(canvas.clientHeight, 1);
+          const scale = panSpan() / Math.max(canvas.clientHeight, 1);
           void controls.truck((before.x-after.x)*scale, (after.y-before.y)*scale, false);
           if (before.distance > 0 && after.distance > 0) {
             const ratio = after.distance / before.distance;
@@ -351,7 +356,7 @@ export default function ThatOpenViewportV07({
     const middlePanMove = (event: PointerEvent) => {
       if (!panPointer || event.pointerId !== panPointer.id) return;
       event.preventDefault();
-      const delta = middlePanTruck(panPointer, { x: event.clientX, y: event.clientY }, canvas.clientHeight, runtime.camera.controls.distance);
+      const delta = middlePanTruck(panPointer, { x: event.clientX, y: event.clientY }, canvas.clientHeight, panSpan());
       void runtime.camera.controls.truck(delta.x, delta.y, false);
       panPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
     };
@@ -388,7 +393,7 @@ export default function ThatOpenViewportV07({
       }
     };
     const pointerDown = (event: PointerEvent) => {
-      if (pinching || !event.isPrimary || event.button !== 0) return;
+      if (pinching || toolModeRef.current === "view" || !event.isPrimary || event.button !== 0) return;
       canvas.setPointerCapture?.(event.pointerId);
       start = {
         x: event.clientX,
