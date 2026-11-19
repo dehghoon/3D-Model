@@ -7,7 +7,9 @@ function normalizeRequest(input: Record<string, unknown>) {
   const runId = String(input.runId ?? "");
   const targetIds = Array.isArray(input.targetIds) ? input.targetIds.map(String) : [];
   if (!projectId || !runId || !targetIds.length) throw new Error("SNOW_CORE_V05_IDENTITY_REQUIRED");
-  return { ...input, modelSchemaVersion: "0.5", projectId, runId, calculator: "snow", targetIds };
+  const modelSchemaVersion = input.modelSchemaVersion ?? "0.6";
+  if (modelSchemaVersion !== "0.5" && modelSchemaVersion !== "0.6") throw new Error("SNOW_CORE_VERSION_MISMATCH");
+  return { ...input, modelSchemaVersion, projectId, runId, calculator: "snow", targetIds };
 }
 
 
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
   }
   try {
     const body = normalizeRequest(await request.json());
-    const response = await fetch(`${base}/api/v1/core/roof-snow/v0.5`, {
+    const response = await fetch(`${base}/api/v1/core/roof-snow/v${body.modelSchemaVersion}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
