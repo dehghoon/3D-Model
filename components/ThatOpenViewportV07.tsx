@@ -252,7 +252,7 @@ export default function ThatOpenViewportV07({
         ? editableSapFitBounds(current) : source ? sourceSapFitBounds(source) : null;
       if (!bounds || bounds.isEmpty()) { setThatOpenView(runtime,runtime.viewMode); return; }
       runtime.camera.updateAspect();
-      void runtime.camera.controls.fitToBox(bounds,true,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+      void runtime.camera.controls.fitToSphere(bounds.getBoundingSphere(new THREE.Sphere()),true);
     };
     let portrait = container.clientHeight > container.clientWidth;
     const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
@@ -714,7 +714,7 @@ export default function ThatOpenViewportV07({
         const bounds = editableSapFitBounds(model);
         if (!bounds.isEmpty()) {
           runtime.camera.updateAspect();
-          void runtime.camera.controls.fitToBox(bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+          void runtime.camera.controls.fitToSphere(bounds.getBoundingSphere(new THREE.Sphere()),false);
         }
       }
       return;

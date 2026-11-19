@@ -40,12 +40,12 @@ function emitReferenceStatus(status: ReferenceStatus): void {
 
 function frame(runtime: ThatOpenRuntime) {
   if (!runtime.build) return null;
-  const bounds = new THREE.Box3().setFromObject(runtime.build.root);
+  const bounds = (runtime.build.root.userData.sapFitBounds as THREE.Box3 | undefined) ?? new THREE.Box3().setFromObject(runtime.build.root);
   if (bounds.isEmpty()) return null;
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
   const distance = Math.max(Math.max(size.x, size.y, size.z, 8) * 1.8, 14);
-  return { center, distance };
+  return { center, distance, bounds };
 }
 
 function scheduleViewportRefresh(runtime: ThatOpenRuntime): void {
@@ -58,8 +58,9 @@ function scheduleViewportRefresh(runtime: ThatOpenRuntime): void {
     runtime.renderer.resize();
     runtime.camera.updateAspect();
 
-    if (runtime.build) {
-      void setThatOpenView(runtime, runtime.viewMode);
+    const bounds = runtime.build?.root.userData.sapFitBounds as THREE.Box3 | undefined;
+    if (bounds && !bounds.isEmpty()) {
+      void runtime.camera.controls.fitToSphere(bounds.getBoundingSphere(new THREE.Sphere()),false);
     }
   });
 
@@ -141,8 +142,11 @@ export async function setThatOpenView(
       center.x,
       center.y,
       center.z,
-      true,
+      false,
     );
+    if (runtime.build?.root.userData.sapFitBounds) {
+      await runtime.camera.controls.fitToBox(data.bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+    }
     emitReferenceStatus({ kind: "view", label: "3D" });
     return;
   }
@@ -159,8 +163,11 @@ export async function setThatOpenView(
       center.x,
       center.y,
       center.z,
-      true,
+      false,
     );
+    if (runtime.build?.root.userData.sapFitBounds) {
+      await runtime.camera.controls.fitToBox(data.bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+    }
     emitReferenceStatus({ kind: "view", label: "Front" });
     return;
   }
@@ -175,8 +182,11 @@ export async function setThatOpenView(
       center.x,
       center.y,
       center.z,
-      true,
+      false,
     );
+    if (runtime.build?.root.userData.sapFitBounds) {
+      await runtime.camera.controls.fitToBox(data.bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+    }
     emitReferenceStatus({ kind: "view", label: "Left" });
     return;
   }
@@ -191,8 +201,11 @@ export async function setThatOpenView(
       center.x,
       center.y,
       center.z,
-      true,
+      false,
     );
+    if (runtime.build?.root.userData.sapFitBounds) {
+      await runtime.camera.controls.fitToBox(data.bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+    }
     emitReferenceStatus({ kind: "view", label: "Bottom" });
     return;
   }
@@ -206,7 +219,7 @@ export async function setThatOpenView(
     center.x,
     center.y,
     center.z,
-    true,
+    false,
   );
   emitReferenceStatus({ kind: "view", label: "Top" });
 }

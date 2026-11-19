@@ -136,3 +136,16 @@ test("explicit source level elevations and names override geometric inference",(
   const model=projectSapGeometryForEditing(createStarterModelV06(),handoff);
   assert.deepEqual(model.levels.map(l=>[l.name,l.elevation]),[["Base",0],["Roof",3]]);
 });
+
+test("saved SAP projects retain source archive and engineering records without mutating Core geometry",async()=>{
+  const {serializeSapProject,readSapProject}=await import("../lib/import/sap-project");
+  const handoff=source(),model=projectSapGeometryForEditing(createStarterModelV06(),handoff);
+  const saved=serializeSapProject(model,handoff);
+  const reopened=readSapProject(JSON.parse(saved));
+  assert.deepEqual(reopened.source,handoff);
+  assert.equal(JSON.stringify(reopened.model),JSON.stringify(model));
+  const invalid=JSON.parse(saved);
+  invalid.model.project.metadata.sourceHash="other";
+  assert.throws(()=>readSapProject(invalid),/SOURCE_HASH_MISMATCH/);
+  assert.equal(readSapProject(JSON.parse(serializeSapProject(createStarterModelV06()))).source,null);
+});

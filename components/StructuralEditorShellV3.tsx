@@ -346,8 +346,8 @@ export default function StructuralEditorShellV3() {
 
       {mode === "advanced" ? <>
       {sapHandoff ? <div role="status" className="sapSimpleNotice">
-        <strong>Imported SAP2000 model</strong>
-        <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · {sapHandoff.geometryPreview.areas?.length ?? 0} areas · Editable geometry · engineering source preserved; analytical mapping unverified.</span>
+        <strong>SAP2000 · Geometry only</strong>
+        <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · {sapHandoff.geometryPreview.areas?.length ?? 0} areas</span>
       </div> : null}
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
@@ -502,23 +502,31 @@ export default function StructuralEditorShellV3() {
         ) : null}
 
         <div className="architectViewportColumn">
-          <p role="status" style={{fontSize:13,margin:"4px 0"}}>{sapImportStatus}</p>
+          <p role="status" hidden={!!sapHandoff && !sapImportBusy} style={{fontSize:13,margin:"4px 0"}}>{sapImportStatus}</p>
           {sapImportError ? <p role="alert">{sapImportError}</p> : null}
-          {sapHandoff && sapSummaryVisible ? <section aria-label="SAP2000 import summary" style={{padding:8,background:"#fff8e1",color:"#222"}}>
-            <strong>SAP2000 source geometry — NOT Core validated / NOT analysis ready</strong>
-            {sapOriginalGeometry ? <p role="status">Editable workspace changes (source archive unchanged): {JSON.stringify(auditSapGeometryEdits(model,sapOriginalGeometry))}. Edits require independent engineering validation.</p> : null}
-            <span> · {sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · Source units: {sapHandoff.geometryPreview.sourceUnits || "unspecified"}</span>
-            <button type="button" onClick={()=>setSapSummaryVisible(false)}>Close summary</button>
-            <details><summary>Grids, levels, engineering data, fidelity and diagnostics</summary>
-              <p>Source-defined levels: {JSON.stringify(sapHandoff.geometryPreview.sourceLevels)}</p>
-              <p>Inferred levels (not verified stories): {sapHandoff.geometryPreview.inferredLevels.length}</p>
-              <pre style={{maxHeight:220,overflow:"auto",whiteSpace:"pre-wrap"}}>{JSON.stringify({grids:sapHandoff.geometryPreview.grids,engineeringData:sapHandoff.engineeringData,importFidelity:sapHandoff.importFidelity,diagnostics:sapHandoff.diagnostics},null,2)}</pre>
+          {sapHandoff && sapSummaryVisible ? <details className="sapImportSummary" aria-label="SAP2000 import summary">
+            <summary>Engineering mapping unverified · Import details</summary>
+            <p>Imported geometry requires independent engineering verification before analysis or design.</p>
+            {sapOriginalGeometry ? <p>Geometry changes: {JSON.stringify(auditSapGeometryEdits(model,sapOriginalGeometry))}</p> : null}
+            <p>Source units: {sapHandoff.geometryPreview.sourceUnits || "unspecified"} · {model.levels.length} elevation guides</p>
+            <button type="button" onClick={() => {
+              const archive = sapHandoff.sourceArchive;
+              const bytes = Uint8Array.from(atob(archive.bytesBase64), character => character.charCodeAt(0));
+              const url = URL.createObjectURL(new Blob([bytes]));
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = archive.filename;
+              link.click();
+              setTimeout(() => URL.revokeObjectURL(url),1000);
+            }}>Download original SAP2000 source</button>
+            <details><summary>Source records and diagnostics</summary>
+              <pre>{JSON.stringify({grids:sapHandoff.geometryPreview.grids,levels:sapHandoff.geometryPreview.sourceLevels,engineeringData:sapHandoff.engineeringData,importFidelity:sapHandoff.importFidelity,diagnostics:sapHandoff.diagnostics},null,2)}</pre>
             </details>
-            {sapSelectedMember ? <details open><summary>Selected SAP member: {sapSelectedMember}</summary><pre style={{maxHeight:180,overflow:"auto"}}>{JSON.stringify({member:sapHandoff.geometryPreview.members.find(m=>m.sourceId===sapSelectedMember),propertyAssignments:sapHandoff.geometryPreview.propertyAssignments},null,2)}</pre></details> : null}
-          </section> : null}
+            {sapSelectedMember ? <p>Selected source member: {sapSelectedMember}</p> : null}
+          </details> : null}
           <div className="architectViewportStage">
             <div className="engineeringEditorStage">
-              <StructuralEditorV05 model={gridToolModel} onModelChange={advancedChange} sapHandoff={sapHandoff} simpleMode={false} onSapMemberSelect={setSapSelectedMember} />
+              <StructuralEditorV05 model={gridToolModel} onModelChange={advancedChange} sapHandoff={sapHandoff} onSapHandoffChange={source => {setSapHandoff(source);setSapOriginalGeometry(null);}} simpleMode={false} onSapMemberSelect={setSapSelectedMember} />
             </div>
           </div>
           <div className="architectStatusbar" role="status" aria-live="polite">
@@ -543,7 +551,7 @@ export default function StructuralEditorShellV3() {
       {mode === "advanced" ? <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
         {([ ["setup", "Plan & levels"], ["tools", "Members & tools"], ["project", "Project"] ] as const).map(([panel, label]) => <button type="button" key={panel} aria-expanded={mobilePanel === panel} onClick={() => toggleMobilePanel(panel)}>{label}</button>)}
       </nav> : null}
-      </> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} importedGeometry={model.project.metadata?.importGeometryStatus === "editable-unverified"} />}
+      </> : <SimpleFrameModeler sapHandoff={sapHandoff} model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} importedGeometry={model.project.metadata?.importGeometryStatus === "editable-unverified"} />}
     </div>
   );
 }

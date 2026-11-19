@@ -1,4 +1,6 @@
 "use client";
+import type { SapHandoff } from "../lib/import/sap2000-handoff";
+import { serializeSapProject } from "../lib/import/sap-project";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import FrameCatalogToolbar, { FrameSectionPicker } from "./FrameCatalogToolbar";
 import FrameBraceControls from "./FrameBraceControls";
@@ -38,12 +40,14 @@ interface Props {
   onChange: (model: StructuralModel) => void;
   onAdvanced: () => void;
   importedGeometry?: boolean;
+  sapHandoff?: SapHandoff | null;
 }
 export default function SimpleFrameModeler({
   model,
   onChange,
   onAdvanced,
   importedGeometry = false,
+  sapHandoff,
 }: Props) {
   const [layout, setLayout] = useState<FrameLayout>(() => {
     try {
@@ -731,7 +735,7 @@ export default function SimpleFrameModeler({
               </button>
               <button
                 onClick={() => {
-                  const blob = new Blob([JSON.stringify(model, null, 2)], {
+                  const blob = new Blob([serializeSapProject(model, sapHandoff)], {
                     type: "application/json",
                   });
                   const url = URL.createObjectURL(blob);
@@ -768,7 +772,7 @@ export default function SimpleFrameModeler({
               <button
                 className="sfMobileSave"
                 onClick={() => {
-                  const blob = new Blob([JSON.stringify(model, null, 2)], {
+                  const blob = new Blob([serializeSapProject(model, sapHandoff)], {
                     type: "application/json",
                   });
                   const url = URL.createObjectURL(blob);

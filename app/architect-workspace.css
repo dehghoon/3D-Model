@@ -245,3 +245,45 @@
 .architectEditorShell.mode-simple .sapSimpleViewControls button{min-width:0;padding:7px 2px;font-size:clamp(10px,2.6vw,13px);min-height:34px;white-space:nowrap}
 .architectEditorShell.mode-simple .engineeringEditorStage .viewport{overflow:hidden}
 .architectEditorShell.mode-simple .engineeringEditorStage .loadManagerLauncher,.architectEditorShell.mode-simple .engineeringEditorStage .loadManager{display:none!important}
+
+/* Keep the imported viewport inside the available workspace on every screen size. */
+.modelEditorArea .architectEditorShell { height:100%; min-height:0; }
+.architectEditorShell.mode-advanced .sapSimpleNotice {
+  display:flex; flex-wrap:wrap; gap:3px 12px; flex-shrink:0;
+  padding:5px 12px; font-size:13px; line-height:1.4;
+}
+.architectEditorShell .sapImportSummary {
+  max-height:24dvh; overflow:auto; padding:6px 10px;
+  background:#fff6dd; color:#7a5a00; font-size:13px; line-height:1.4;
+}
+.sapImportSummary summary { cursor:pointer; }
+.sapImportSummary pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+.architectEditorShell > :is(.architectTopbar,.advancedMobileControls,.architectContextbar) { flex-shrink:0; }
+@media(max-width:760px) {
+  .architectViewportColumn { height:auto; min-height:0; }
+  .viewportSelectionActions { font-size:12px; gap:4px!important; }
+  .viewportSelectionActions button { min-height:30px; font-size:12px; padding:4px 6px; }
+}
+
+@media(max-height:500px) {
+  .architectEditorShell.mode-advanced .architectTopbar {
+    min-height:42px; padding:4px 6px; gap:6px; flex-wrap:nowrap;
+  }
+  .architectEditorShell.mode-advanced .architectBrand { display:none; }
+  .architectEditorShell.mode-advanced .architectModeSwitch { width:auto; order:0; }
+  .architectEditorShell.mode-advanced .architectModeSwitch button { min-height:30px; padding:4px 8px; }
+  .architectEditorShell.mode-advanced .architectContextbar { display:none; }
+  .architectEditorShell.mode-advanced .architectToolstrip { min-height:30px; padding-block:2px; }
+  .architectEditorShell.mode-advanced .architectToolstrip button { min-height:26px; padding:2px 6px; }
+  .architectEditorShell.mode-advanced .architectWorkspaceFrame { padding:0 6px 4px; gap:6px; }
+  .architectEditorShell.mode-advanced .sapSimpleNotice { padding-block:2px; font-size:12px; }
+  .architectEditorShell .sapImportSummary { padding-block:3px; font-size:12px; }
+  .architectEditorShell .architectViewportColumn { grid-template-rows:auto auto auto minmax(0,1fr) 20px; }
+}
+@media(max-width:760px) {
+  .engineeringEditorStage [aria-label="Snap settings"] {
+    top:42px!important; left:8px!important; right:8px; transform:none!important;
+    max-width:calc(100% - 16px); overflow-x:auto; gap:8px!important;
+  }
+  .engineeringEditorStage .viewportSelectionActions { top:90px!important; }
+}

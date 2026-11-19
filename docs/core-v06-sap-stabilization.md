@@ -22,8 +22,8 @@ The original SAP importer implementation branch and importer PR #4 use different
 | Advanced Model | 0.6 mutations and serialization | Node/member/surface edits, load edits, supports, section changes preserve shared contract. | Existing editor tests plus added migration regressions. | 3D-Model |
 | Visualization | Core Node/Member/Surface/Grid/Level references | All valid shell boundaries render. Local polygon origins retain precision, surfaces are double-sided, dense nodes share picking geometry and use a single points draw. | Triangulation, picking, selection, fit and performance tests. | 3D-Model |
 | Joists | Core 0.6 JoistSpecification | Existing geometry-only and unverified capacity behavior retained. | Existing joist tests. Analytical capacity certification remains outside this change. | 3D-Model / structural-core |
-| Snow Load | recorded schema 0.5 / 0.6 target | Deployed 0.5 calculation interface remains recorded. Registry authority and consumer strict-current-version gates need coordinated migration. | Calculation API 0.6 migration remains pending. | Snow-Calculator |
-| W-Section | recorded schema 0.5 / 0.6 target | Existing 0.5 design API requires independent boundary verification for 0.6. | Calculator API migration remains pending. | steel-verification |
+| Snow Load | recorded schema 0.5 / 0.6 target | Deployed 0.5 calculation interface remains recorded. Added versioned 0.6 boundary reuses the existing verified engine. | Core 0.6 endpoint added in Snow PR #16. 46 engine/backend tests pass locally, including equality with legacy pressure output. Canonical-main compatibility gate awaits Core review. | Snow-Calculator |
+| W-Section | recorded schema 0.5 / 0.6 target | Added versioned 0.6 boundary reuses the existing 0.5 design integration and engineering engine. | Core 0.6 endpoint added in W-Section PR #8. 30 engine/backend tests pass locally, including equality with legacy checks and utilization. Canonical-main compatibility gate awaits Core review. | steel-verification |
 | Other tools | inventory dependent | Existing Core migration audit lists unverified consumers. | No blanket compatibility claim. | Core orchestration matrix |
 
 ## Geometry and performance
@@ -42,18 +42,23 @@ Local private regression uses the supplied SCIENC file and its expected SHA-256.
 
 ## Source preservation
 
-The handoff retains the byte-exact original SAP source archive. Area IDs, GUIDs, section and material names remain attached to editable surfaces. Unsupported loads, springs, modifiers and other tables are retained in the original archive. Source data and geometry edits do not establish verified analytical mappings.
+The handoff retains the byte-exact original SAP source archive. Area IDs, GUIDs, section and material names remain attached to editable surfaces. Unsupported loads, springs, modifiers and other tables are retained in the original archive. Source data and geometry edits do not establish verified analytical mappings. Saved SAP projects use the existing project envelope with the complete handoff alongside the Core model, and hash matching is checked when reopening.
 
 ## Verification
 
 - Baseline model tests after integrating main: 222 pass.
-- Updated model tests: 230 pass before final API dependency build.
+- Updated model tests: 231 pass, including source-preserving project save/reopen.
 - Added synthetic regressions cover horizontal/vertical areas, precision at large offsets, winding, source metadata, stale support cleanup, saved Core 0.5 promotion, Core 0.6 supports, camera bounds and dense-node picking/highlighting/disposal.
 - Importer baseline including private regression: 136 tests and 9 subtests pass.
 - Updated importer including unnamed-grid regression: 137 tests and 9 subtests pass.
 - Existing checked-in importer handoff fixture script passes.
 - Dependency security review found legacy Next.js and transitive package advisories. Next.js was updated to 15.5.29 with compatible React 18 support, and the transitive PostCSS and XML parser dependencies were pinned to patched versions. Final npm audit reports zero advisories. The lockfile records reproducible dependencies.
-- Preview build, exact commit and browser verification are recorded in PR #6 after CI completes.
+- Local production build passes on Next.js 15.5.29.
+- Chromium browser renders the private geometry through the normal file input with the locally generated importer response supplied to the request. This validates UI and geometry, with network service deployment tracked separately.
+- Desktop 1440x1000 and mobile portrait 390x844 tested. Mobile portrait canvas is 388x509 CSS pixels. Mobile landscape 844x390 canvas is 634x151 CSS pixels. The portrait import-to-screenshot measurement is about 6 seconds, including an explicit 2.5 second settling interval under software WebGL.
+- Mobile Simple/Advanced switching retains all geometry. Downloaded project contains all 2,620 surfaces and its source archive bytes match the original handoff.
+- Physical-device GPU and touch behavior remain unverified. Headless Chromium uses software rendering.
+- Initial CI run 44450587425 and Vercel preview of a7b73297501293ac8b9833bc4e5151416a0388dd passed. The final follow-up commit reruns CI and creates the review preview reported in PR #6.
 
 ## Release assessment
 
