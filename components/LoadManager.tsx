@@ -273,7 +273,6 @@ export default function LoadManager({
 
   const content = (
     <div style={{ display: "grid", gap: 8 }}>
-      <b>Core Loads</b>
       <div><b>Targets:</b> {targetIds.length ? targetIds.join(", ") : "none"}</div>
       <select value={mode} onChange={(event) => setMode(event.target.value as LoadMode)}>
         <option value="slab">Slab surface pressure</option>
@@ -340,7 +339,11 @@ export default function LoadManager({
           <button className="loadManagerLauncher" onClick={() => { onEndTargetSelection(); setOpen(true); }}>Loads</button>
           {open && (
             <div className="loadManagerBackdrop" onClick={() => setOpen(false)}>
-              <aside className="loadManagerDrawer" onClick={(event) => event.stopPropagation()}>
+              <aside className="loadManagerDrawer" aria-label="Core Loads" onClick={(event) => event.stopPropagation()}>
+                <div className="loadManagerDrawerHeader">
+                  <strong>Core Loads</strong>
+                  <button type="button" aria-label="Close Loads" onClick={() => setOpen(false)}>×</button>
+                </div>
                 <div className="loadManagerDrawerBody">{content}</div>
               </aside>
             </div>
