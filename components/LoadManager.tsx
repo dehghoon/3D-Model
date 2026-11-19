@@ -13,6 +13,7 @@ import type {
 } from "@linkoteq/structural-core";
 import { assertCanonicalLoad, mapSnowWriteback } from "../lib/core-loads-v05";
 import { requestSnowThroughAccount } from "../lib/snow-account-request";
+import { importStaticSeismic } from "../lib/seismic-static-import";
 import { findAutomaticSnowRoof } from "../lib/snow-model-roof";
 type LoadMode = "slab" | "wall" | "beam" | "node";
 type MemberLoadKind = "distributed" | "point";
@@ -67,6 +68,8 @@ export default function LoadManager({
   onEndTargetSelection,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [seismicAxis, setSeismicAxis] = useState<"x" | "y">("x");
+  const [seismicFile, setSeismicFile] = useState<File | null>(null);
   const [snowRunning, setSnowRunning] = useState(false);
   const [provinces, setProvinces] = useState<string[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
@@ -260,6 +263,17 @@ export default function LoadManager({
     onModelChange(next, message);
     setStatus(message);
   }
+  async function applySeismic() {
+    if (!seismicFile) return;
+    try {
+      const data: unknown = JSON.parse(await seismicFile.text());
+      if (currentModel.current !== model) throw new Error("The model changed. Reopen Loads and try again.");
+      onModelChange(importStaticSeismic(model, data, seismicAxis), "Static seismic diaphragm cases assigned.");
+      setStatus(`Four static seismic cases assigned along ${seismicAxis.toUpperCase()}.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Static seismic loads could not be imported.");
+    }
+  }
   function addCombination() {
     if (!model.loadCases.length) {
       setStatus("Add load cases first.");
@@ -344,6 +358,19 @@ export default function LoadManager({
             .finally(() => setSnowRunning(false));
         }}>{snowRunning ? "Running Snow…" : "Run Snow"}</button>
       </>}
+      <details>
+        <summary>Import static seismic loads</summary>
+        <p>Choose a reviewed calculator export and the axis used for that run. Each storey needs one rigid diaphragm. This assigns forces and torsion to the model.</p>
+        <label>Calculation direction
+          <select value={seismicAxis} onChange={event => setSeismicAxis(event.target.value as "x" | "y")}>
+            <option value="x">Global X</option><option value="y">Global Y</option>
+          </select>
+        </label>
+        <label>Static seismic JSON
+          <input type="file" accept=".json,application/json" onChange={event => setSeismicFile(event.target.files?.[0] ?? null)} />
+        </label>
+        <button type="button" style={primary} disabled={!seismicFile || snowRunning} onClick={() => void applySeismic()}>Apply seismic loads</button>
+      </details>
       <button style={button} onClick={addCombination}>Add combination</button>
       <small role="status">{status}</small>
     </div>
