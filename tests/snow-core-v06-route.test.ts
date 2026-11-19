@@ -28,7 +28,12 @@ test("authenticated Snow requests preserve Core version through proxy and writeb
       if(url.includes("/rpc/has_accepted_customer_tool_disclaimer"))return Response.json(access==="trial");
       const body=JSON.parse(String(init?.body));
       assert.ok(url.endsWith("/v"+body.modelSchemaVersion));
-      return Response.json(writeback(body.modelSchemaVersion));
+      assert.equal(body.targetIds.length,1);
+      const data=writeback(body.modelSchemaVersion);
+      return Response.json({...data,runId:body.runId,projectId:body.projectId,targetIds:body.targetIds,
+        loads:[{...data.loads[0],id:body.runId,surfaceId:body.targetIds[0],
+          provenance:{sourceId:"source-"+body.runId,calculatorRunId:body.runId}}],
+      });
     };
     for(const version of ["0.5","0.6"] as const){
       access=version==="0.5"?"owner":"employee";
@@ -48,6 +53,17 @@ test("authenticated Snow requests preserve Core version through proxy and writeb
     }));
     access="trial";
     assert.equal((await asCustomer()).status,200);
+    const multi=await POST(new NextRequest("https://synthetic.invalid/api/calculators/snow",{
+      method:"POST",headers:{"authorization":"Bearer synthetic-test-token","content-type":"application/json"},
+      body:JSON.stringify({modelSchemaVersion:"0.6",projectId:"project",runId:"batch",targetIds:["roof-a","roof-b"],
+        inputs:{calculation:{mode:"UNIFORM_ROOF"}}}),
+    }));
+    assert.equal(multi.status,200);
+    const batch=await multi.json();
+    assert.equal(batch.runId,"batch");
+    assert.deepEqual(mapSnowWriteback(batch,["roof-a","roof-b"]).loads.map(load=>[
+      load.surfaceId,load.provenance?.calculatorRunId,
+    ]),[["roof-a","batch-1"],["roof-b","batch-2"]]);
     access="denied";
     assert.equal((await asCustomer()).status,403);
     const previousCalls=calls.length;

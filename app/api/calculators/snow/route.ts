@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { mapSnowWriteback, type SnowV05Writeback } from "../../../../lib/core-loads-v05";
 
 export const runtime = "nodejs";
 const accountOrigin = "https://www.linkoteq.com";
@@ -20,11 +21,56 @@ export function OPTIONS(request: NextRequest) {
 function normalizeRequest(input: Record<string, unknown>) {
   const projectId = String(input.projectId ?? "");
   const runId = String(input.runId ?? "");
-  const targetIds = Array.isArray(input.targetIds) ? input.targetIds.map(String) : [];
+  const targetIds = Array.isArray(input.targetIds) ? [...new Set(input.targetIds.map(String))] : [];
   if (!projectId || !runId || !targetIds.length) throw new Error("SNOW_CORE_V05_IDENTITY_REQUIRED");
   const modelSchemaVersion = input.modelSchemaVersion ?? "0.6";
   if (modelSchemaVersion !== "0.5" && modelSchemaVersion !== "0.6") throw new Error("SNOW_CORE_VERSION_MISMATCH");
   return { ...input, modelSchemaVersion, projectId, runId, calculator: "snow", targetIds };
+}
+
+class SnowInputError extends Error {}
+
+async function calculateSnow(base: string, body: ReturnType<typeof normalizeRequest>, signal: AbortSignal) {
+  const response = await fetch(`${base}/api/v1/core/roof-snow/v${body.modelSchemaVersion}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+    signal,
+  });
+  if (response.status === 400 || response.status === 422) throw new SnowInputError();
+  if (!response.ok) throw new Error("Snow engine unavailable");
+  const result = await response.json() as SnowV05Writeback;
+  if (result.runId !== body.runId || result.modelSchemaVersion !== body.modelSchemaVersion ||
+      result.projectId !== body.projectId) throw new Error("Snow engine returned mismatched run identity");
+  mapSnowWriteback(result, body.targetIds);
+  return result;
+}
+
+async function calculateSnowTargets(base: string, body: ReturnType<typeof normalizeRequest>) {
+  const signal = AbortSignal.timeout(25000);
+  const mode = (body as { inputs?: { calculation?: { mode?: string } } }).inputs?.calculation?.mode;
+  if (mode !== "UNIFORM_ROOF" || body.targetIds.length === 1) return calculateSnow(base, body, signal);
+
+  // The engine returns canonical writeback for exactly one uniform-roof surface.
+  const results: SnowV05Writeback[] = [];
+  for (let start = 0; start < body.targetIds.length; start += 4) {
+    results.push(...await Promise.all(body.targetIds.slice(start, start + 4).map((targetId, index) => calculateSnow(base, {
+      ...body,
+      runId: `${body.runId}-${start + index + 1}`,
+      targetIds: [targetId],
+    }, signal))));
+  }
+  return {
+    runId: body.runId,
+    modelSchemaVersion: body.modelSchemaVersion,
+    projectId: body.projectId,
+    targetIds: body.targetIds,
+    loadSources: results.flatMap(result => result.loadSources ?? []),
+    loadCases: results.flatMap(result => result.loadCases ?? []),
+    loads: results.flatMap(result => result.loads ?? []),
+    warnings: results.flatMap(result => result.warnings ?? []),
+  };
 }
 
 
@@ -78,21 +124,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid_snow_request" }, { status: 400, headers });
   }
   try {
-    const response = await fetch(`${base}/api/v1/core/roof-snow/v${body.modelSchemaVersion}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      cache: "no-store",
-      signal: AbortSignal.timeout(25000),
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      const invalid = response.status === 400 || response.status === 422;
-      return NextResponse.json({ error: invalid ? "invalid_snow_inputs" : "snow_service_unavailable" }, { status: invalid ? 422 : 502, headers });
-    }
-    headers.set("content-type", "application/json");
-    return new NextResponse(text, { status: response.status, headers });
-  } catch {
-    return NextResponse.json({ error: "snow_service_unavailable" }, { status: 502, headers });
+    return NextResponse.json(await calculateSnowTargets(base, body), { headers });
+  } catch (error) {
+    const invalid = error instanceof SnowInputError;
+    return NextResponse.json({ error: invalid ? "invalid_snow_inputs" : "snow_service_unavailable" }, { status: invalid ? 422 : 502, headers });
   }
 }

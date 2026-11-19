@@ -194,8 +194,8 @@ export default function LoadManager({
     }
     const ss = Number(snowSs);
     const sr = Number(snowSr);
-    if (!snowSs.trim() || !snowSr.trim() || !Number.isFinite(ss) || !Number.isFinite(sr) || ss < 0 || sr < 0) {
-      setStatus("Enter nonnegative project values for Ss and Sr in kPa.");
+    if (!snowSs.trim() || !snowSr.trim() || !Number.isFinite(ss) || !Number.isFinite(sr) || ss <= 0 || sr < 0) {
+      setStatus("Enter a positive Ss and a nonnegative Sr in kPa.");
       return;
     }
 
