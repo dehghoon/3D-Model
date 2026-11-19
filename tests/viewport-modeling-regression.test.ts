@@ -8,6 +8,7 @@ import { resolveSnapPoint } from "../lib/visualization/snap-resolver";
 import { copySelection } from "../lib/editor/copy-command";
 import { moveSelection } from "../lib/editor/move-command";
 import { createSurfaceFromCanonicalRefs } from "../lib/editor-surface-v05";
+import { setSnapSetting } from "../lib/editor/snap-settings";
 
 const element = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }) } as HTMLElement;
 const point = (x: number, y: number, z: number) => ({ point: { x, y, z }, kind: "work-plane" as const, label: "Test point" });
@@ -41,6 +42,53 @@ test("front elevation can pick free points when the horizontal plane is parallel
   assert.ok(snap);
   assert.ok(Math.abs(snap.point.x - 2.5) < 1e-8);
   assert.ok(Math.abs(snap.point.z - 3) < 1e-8);
+});
+
+test("snap reuses geometry but follows camera, settings, work plane and edited model", () => {
+  const start = { x: 0, y: 0, z: 0 };
+  const model = {
+    ...createStarterModelV06(),
+    nodes: [{ id: "A", position: start }],
+    members: [],
+    grids: [
+      { id: "G1", label: "A", start: { x: 0, y: -10, z: 0 }, end: { x: 0, y: 10, z: 0 } },
+      { id: "G2", label: "1", start: { x: -10, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } },
+    ],
+  };
+  const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 100);
+  camera.up.set(0, 0, -1);
+  camera.position.set(0, 20, 0);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld();
+  let rectReads = 0;
+  const canvas = { getBoundingClientRect: () => {
+    rectReads += 1;
+    return { left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 };
+  } } as HTMLElement;
+  const pick = (clientX: number, origin = start, snapshot = model) => {
+    const previousReads = rectReads;
+    const result = resolveSnapPoint({ clientX, clientY: 300 }, snapshot, null, camera, canvas, 13, origin);
+    assert.equal(rectReads - previousReads, 1);
+    return result;
+  };
+
+  assert.equal(pick(400)?.kind, "node");
+  camera.position.x = 5;
+  camera.lookAt(5, 0, 0);
+  camera.updateMatrixWorld();
+  assert.equal(pick(400)?.kind, "work-plane");
+  assert.equal(pick(200)?.kind, "node");
+  try {
+    setSnapSetting("node", false);
+    const grid = pick(200, { ...start, z: 3 });
+    assert.equal(grid?.kind, "grid");
+    assert.equal(grid.point.z, 3);
+    assert.equal(pick(200, { ...start, z: 6 })?.point.z, 6);
+  } finally {
+    setSnapSetting("node", true);
+  }
+  const edited = { ...model, nodes: [{ id: "B", position: { ...start, x: 5 } }] };
+  assert.equal(pick(400, start, edited)?.label, "Node B");
 });
 
 for (const type of ["slab", "wall"] as const) {

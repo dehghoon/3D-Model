@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import type { EditorSelection } from "../editor/selection";
-import { getSnapSettings } from "../editor/snap-settings";
+import { getSnapSettings, type SnapSettings } from "../editor/snap-settings";
 import type { SnapPoint } from "../editor/interaction-store";
 
 interface ScreenPointer {
@@ -54,36 +54,15 @@ function selectedElevation(model: StructuralModel, selection: EditorSelection): 
   return node?.position.z ?? 0;
 }
 
-function screenPosition(
-  point: Vec3,
-  camera: THREE.Camera,
-  element: HTMLElement,
-): { x: number; y: number } | null {
-  const rect = element.getBoundingClientRect();
-  if (!rect.width || !rect.height) return null;
-
-  const projected = toThree(point).project(camera);
-  if (projected.z < -1 || projected.z > 1) return null;
-
-  return {
-    x: rect.left + ((projected.x + 1) / 2) * rect.width,
-    y: rect.top + ((1 - projected.y) / 2) * rect.height,
-  };
-}
-
 function workPlanePoint(
   pointer: ScreenPointer,
   model: StructuralModel,
   selection: EditorSelection,
   camera: THREE.Camera,
-  element: HTMLElement,
+  rect: DOMRect,
+  elevation: number,
   origin?: Vec3,
 ): SnapPoint | null {
-  const rect = element.getBoundingClientRect();
-  if (!rect.width || !rect.height) return null;
-  if (pointer.clientX < rect.left || pointer.clientX > rect.right ||
-      pointer.clientY < rect.top || pointer.clientY > rect.bottom) return null;
-
   const ndc = new THREE.Vector2(
     ((pointer.clientX - rect.left) / rect.width) * 2 - 1,
     -((pointer.clientY - rect.top) / rect.height) * 2 + 1,
@@ -91,7 +70,6 @@ function workPlanePoint(
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(ndc, camera);
 
-  const elevation = origin?.z ?? selectedElevation(model, selection);
   // Elevation views need a vertical construction plane: a horizontal plane
   // is parallel to their rays and cannot yield a point.
   const normal = new THREE.Vector3(0, 1, 0);
@@ -129,8 +107,18 @@ function memberPoints(model: StructuralModel): Array<{
   });
 }
 
-function uniqueCandidates(model: StructuralModel, elevation: number): SnapPoint[] {
-  const settings = getSnapSettings();
+// Editing produces a new model snapshot. Keep only the last grid elevation per snapshot.
+const modelSnapGeometry = new WeakMap<StructuralModel, {
+  members: ReturnType<typeof memberPoints>;
+  lastCandidates?: { settings: SnapSettings; elevation: number; points: SnapPoint[] };
+}>();
+
+function uniqueCandidates(
+  model: StructuralModel,
+  members: ReturnType<typeof memberPoints>,
+  elevation: number,
+  settings: SnapSettings,
+): SnapPoint[] {
   const candidates = new Map<string, SnapPoint>();
 
   const add = (candidate: SnapPoint): void => {
@@ -153,7 +141,7 @@ function uniqueCandidates(model: StructuralModel, elevation: number): SnapPoint[
     }
   }
 
-  for (const member of memberPoints(model)) {
+  for (const member of members) {
     if (settings.endpoint) {
       add({
         point: { ...member.start },
@@ -210,24 +198,21 @@ function uniqueCandidates(model: StructuralModel, elevation: number): SnapPoint[
   return [...candidates.values()];
 }
 
-function perpendicularCandidates(model: StructuralModel, cursor: Vec3): SnapPoint[] {
-  if (!getSnapSettings().perpendicular) return [];
-
-  return memberPoints(model).flatMap((member) => {
-    const a = new THREE.Vector3(member.start.x, member.start.y, member.start.z);
-    const b = new THREE.Vector3(member.end.x, member.end.y, member.end.z);
-    const p = new THREE.Vector3(cursor.x, cursor.y, cursor.z);
-    const ab = b.clone().sub(a);
-    const lengthSquared = ab.lengthSq();
+function perpendicularCandidates(members: ReturnType<typeof memberPoints>, cursor: Vec3): SnapPoint[] {
+  return members.flatMap(({ memberId, start, end }) => {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const dz = end.z - start.z;
+    const lengthSquared = dx * dx + dy * dy + dz * dz;
     if (lengthSquared <= 1e-18) return [];
 
-    const t = THREE.MathUtils.clamp(p.clone().sub(a).dot(ab) / lengthSquared, 0, 1);
-    const projected = a.addScaledVector(ab, t);
+    const dot = (cursor.x - start.x) * dx + (cursor.y - start.y) * dy + (cursor.z - start.z) * dz;
+    const t = THREE.MathUtils.clamp(dot / lengthSquared, 0, 1);
 
     return [{
-      point: { x: projected.x, y: projected.y, z: projected.z },
+      point: { x: start.x + dx * t, y: start.y + dy * t, z: start.z + dz * t },
       kind: "perpendicular" as const,
-      label: `Perpendicular ${member.memberId}`,
+      label: `Perpendicular ${memberId}`,
     }];
   });
 }
@@ -248,11 +233,22 @@ export function resolveSnapPoint(
     emitSnapCandidate({ active: false });
     return null;
   }
-  const workPlane = workPlanePoint(pointer, model, selection, camera, element, origin);
-  const candidates = [
-    ...uniqueCandidates(model, origin?.z ?? selectedElevation(model, selection)),
-    ...(workPlane ? perpendicularCandidates(model, workPlane.point) : []),
-  ];
+  const elevation = origin?.z ?? selectedElevation(model, selection);
+  const workPlane = workPlanePoint(pointer, model, selection, camera, rect, elevation, origin);
+  const settings = getSnapSettings();
+  let geometry = modelSnapGeometry.get(model);
+  if (!geometry) {
+    geometry = { members: memberPoints(model) };
+    modelSnapGeometry.set(model, geometry);
+  }
+  const gridElevation = settings.grid ? elevation : 0;
+  if (geometry.lastCandidates?.settings !== settings || geometry.lastCandidates.elevation !== gridElevation) {
+    geometry.lastCandidates = {
+      settings,
+      elevation: gridElevation,
+      points: uniqueCandidates(model, geometry.members, gridElevation, settings),
+    };
+  }
 
   let best: {
     candidate: SnapPoint;
@@ -260,29 +256,36 @@ export function resolveSnapPoint(
     screen: { x: number; y: number };
   } | null = null;
 
-  for (const candidate of candidates) {
-    const screen = screenPosition(candidate.point, camera, element);
-    if (!screen) continue;
-
-    const distance = Math.hypot(
-      pointer.clientX - screen.x,
-      pointer.clientY - screen.y,
-    );
-
-    if (distance <= tolerancePx && (!best || distance < best.distance)) {
-      best = { candidate, distance, screen };
+  const projected = new THREE.Vector3();
+  const consider = (candidates: SnapPoint[]) => {
+    for (const candidate of candidates) {
+      const { x, y, z } = candidate.point;
+      projected.set(x, z, y).project(camera);
+      if (projected.z < -1 || projected.z > 1) continue;
+      const screenX = rect.left + ((projected.x + 1) / 2) * rect.width;
+      const screenY = rect.top + ((1 - projected.y) / 2) * rect.height;
+      const distance = Math.hypot(pointer.clientX - screenX, pointer.clientY - screenY);
+      if (distance <= tolerancePx && (!best || distance < best.distance)) {
+        best = { candidate, distance, screen: { x: screenX, y: screenY } };
+      }
     }
+    return best;
+  };
+
+  let match = consider(geometry.lastCandidates.points);
+  if (workPlane && settings.perpendicular) {
+    match = consider(perpendicularCandidates(geometry.members, workPlane.point));
   }
 
-  if (best) {
+  if (match) {
     emitSnapCandidate({
       active: true,
-      clientX: best.screen.x,
-      clientY: best.screen.y,
-      kind: best.candidate.kind,
-      label: best.candidate.label,
+      clientX: match.screen.x,
+      clientY: match.screen.y,
+      kind: match.candidate.kind,
+      label: match.candidate.label,
     });
-    return best.candidate;
+    return { ...match.candidate, point: { ...match.candidate.point } };
   }
 
   emitSnapCandidate({ active: false });
