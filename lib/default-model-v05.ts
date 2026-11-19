@@ -29,5 +29,10 @@ const VERIFIED_LEGACY_W310X39: CiscSectionRecord = {
 
 export function createStarterModelV06(): StructuralModel {
   const model = createDefaultPortalFrame(VERIFIED_LEGACY_W310X39);
-  return { ...model, schemaVersion: "0.6" };
+  return { ...model, schemaVersion: "0.6" as StructuralModel["schemaVersion"] };
+}
+
+/** Legacy Simple Frame factory; preserve Core v0.5 contract until its migration is verified. */
+export function createStarterModelV05(): StructuralModel {
+  return createDefaultPortalFrame(VERIFIED_LEGACY_W310X39);
 }

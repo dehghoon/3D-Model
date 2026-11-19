@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { syncDenseNodeSelection } from "../lib/visualization/core-scene";
+import { editableSapFitBounds, sourceSapFitBounds } from "../lib/visualization/sap-camera-fit";
 import { buildStructuralGuides, disposeStructuralGuides } from "../lib/visualization/structural-guides";
 import type { StructuralModel } from "@linkoteq/structural-core";
 import type { SapHandoff } from "../lib/import/sap2000-handoff";
@@ -94,6 +96,7 @@ function syncSelectionHighlight(
 ): void {
   if (!runtime.build) return;
 
+  syncDenseNodeSelection(runtime.build, selections.filter(item=>item.type==="node").map(item=>item.id));
   const selectedKeys = new Set(selections.map(selectionKey));
   const membersById = new Map(model.members.map((member) => [member.id, member]));
 
@@ -244,26 +247,23 @@ export default function ThatOpenViewportV07({
     };
     const preset = (event: Event) => { void setThatOpenView(runtime, (event as CustomEvent<ViewMode>).detail); };
     const fit = () => {
-      const imported = sourceHandoffRef.current;
-      if (!imported) { void setThatOpenView(runtime, runtime.viewMode); return; }
-      const bounds = new THREE.Box3();
-      const nodes = new Map(imported.geometryPreview.nodes.map(node => [node.sourceId, node.position]));
-      // Fit actual frame geometry, not stray/unconnected source nodes.
-      for (const member of imported.geometryPreview.members) {
-        for (const id of [member.startNodeId, member.endNodeId]) {
-          const p = nodes.get(id);
-          if (p && [p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
-        }
-      }
-      if (bounds.isEmpty()) {
-        for (const node of imported.geometryPreview.nodes) {
-          const p = node.position;
-          if ([p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
-        }
-      }
-      if (bounds.isEmpty()) return;
-      void runtime.camera.controls.fitToBox(bounds, true, {paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
+      const current = modelRef.current, source = sourceHandoffRef.current;
+      const bounds = current.project.metadata?.importGeometryStatus === "editable-unverified"
+        ? editableSapFitBounds(current) : source ? sourceSapFitBounds(source) : null;
+      if (!bounds || bounds.isEmpty()) { setThatOpenView(runtime,runtime.viewMode); return; }
+      runtime.camera.updateAspect();
+      void runtime.camera.controls.fitToBox(bounds,true,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
     };
+    let portrait = container.clientHeight > container.clientWidth;
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      if (!container.clientHeight || !container.clientWidth) return;
+      const next = container.clientHeight > container.clientWidth;
+      if (next === portrait) return;
+      portrait = next;
+      if (modelRef.current.project.metadata?.sourceFormat === "SAP2000") fit();
+    });
+    resize?.observe(container);
+
 
 
     const commitSelections = (selections: ConcreteSelection[]) => {
@@ -646,6 +646,7 @@ export default function ThatOpenViewportV07({
     window.addEventListener("linkoteq:view-cycle", enableView);
 
     return () => {
+      resize?.disconnect();
       canvas.removeEventListener("wheel", wheelZoom);
       canvas.removeEventListener("contextmenu", preventContextMenu);
       canvas.removeEventListener("pointerdown", orbitDown);
@@ -681,7 +682,7 @@ export default function ThatOpenViewportV07({
     // The initial Quick Frame has already fitted the camera. A subsequent SAP
     // import replaces the geometry, so fit again exactly once per source file.
     const importedHash = sapHandoff?.sourceHash ?? null;
-    if (importedHash && importedHash !== lastImportedSourceHashRef.current) {
+    if (importedHash !== lastImportedSourceHashRef.current) {
       runtime.fitted = false;
       lastImportedSourceHashRef.current = importedHash;
     }
@@ -709,13 +710,12 @@ export default function ThatOpenViewportV07({
     }
     if (!sapHandoff || model.project.metadata?.importGeometryStatus === "editable-unverified") {
       if (runtime.build) runtime.build.root.visible=true;
-      if (sapHandoff && model.nodes.length) {
-        const bounds = new THREE.Box3();
-        for (const node of model.nodes) {
-          const p=node.position;
-          if ([p.x,p.y,p.z].every(Number.isFinite)) bounds.expandByPoint(new THREE.Vector3(p.x,p.z,p.y));
+      if (model.project.metadata?.importGeometryStatus === "editable-unverified") {
+        const bounds = editableSapFitBounds(model);
+        if (!bounds.isEmpty()) {
+          runtime.camera.updateAspect();
+          void runtime.camera.controls.fitToBox(bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
         }
-        if (!bounds.isEmpty()) void runtime.camera.controls.fitToBox(bounds,false,{paddingTop:0.8,paddingBottom:0.8,paddingLeft:0.8,paddingRight:0.8});
       }
       return;
     }

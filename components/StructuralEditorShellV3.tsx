@@ -73,7 +73,9 @@ export default function StructuralEditorShellV3() {
   const [joistSpacing, setJoistSpacing] = useState(1.2);
   const [joistBayError, setJoistBayError] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
-  const [sapHandoff, setSapHandoff] = useState<SapHandoff | null>(null);
+  const [latestSapHandoff, setSapHandoff] = useState<SapHandoff | null>(null);
+  const sapHandoff = latestSapHandoff && model.project.metadata?.sourceHash === latestSapHandoff.sourceHash
+    ? latestSapHandoff : null;
   const [sapOriginalGeometry, setSapOriginalGeometry] = useState<StructuralModel | null>(null);
   const gridToolModel = model; // Imported grids are already part of editable Core geometry.
   const [sapSummaryVisible, setSapSummaryVisible] = useState(true);
@@ -541,7 +543,7 @@ export default function StructuralEditorShellV3() {
       {mode === "advanced" ? <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
         {([ ["setup", "Plan & levels"], ["tools", "Members & tools"], ["project", "Project"] ] as const).map(([panel, label]) => <button type="button" key={panel} aria-expanded={mobilePanel === panel} onClick={() => toggleMobilePanel(panel)}>{label}</button>)}
       </nav> : null}
-      </> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} importedGeometry={!!sapHandoff} />}
+      </> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} importedGeometry={model.project.metadata?.importGeometryStatus === "editable-unverified"} />}
     </div>
   );
 }

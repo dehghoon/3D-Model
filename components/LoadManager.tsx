@@ -63,7 +63,7 @@ export default function LoadManager({
   const [loadDirection, setLoadDirection] = useState<"FX" | "FY" | "FZ" | "MX" | "MY" | "MZ">("FZ");
   const [loadCaseId, setLoadCaseId] = useState("D");
   const [loadCategory, setLoadCategory] = useState("dead");
-  const [status, setStatus] = useState("Core v0.5 canonical load tools.");
+  const [status, setStatus] = useState("Canonical Core load tools.");
   const targetIds = useMemo(() => {
     if (mode === "slab") return selectedSurfaces.filter((s) => s.type === "slab").map((s) => s.id);
     if (mode === "wall") return selectedSurfaces.filter((s) => s.type === "wall").map((s) => s.id);
@@ -168,8 +168,8 @@ export default function LoadManager({
       return load;
     });
 
-    next = { ...next, schemaVersion: "0.5", loads: [...next.loads, ...loads] };
-    onModelChange(next, `${loads.length} canonical Core v0.5 load(s) added.`);
+    next = { ...next, loads: [...next.loads, ...loads] };
+    onModelChange(next, `${loads.length} canonical Core load(s) added.`);
   }
 
   async function runSnow() {
@@ -216,7 +216,6 @@ export default function LoadManager({
     const incomingSourceIds = new Set(mapped.loadSources.map((source) => source.id));
     const next: StructuralModel = {
       ...model,
-      schemaVersion: "0.5",
       loadSources: [
         ...(model.loadSources ?? []).filter((source) => !incomingSourceIds.has(source.id)),
         ...mapped.loadSources,
@@ -242,14 +241,14 @@ export default function LoadManager({
       limitState: "ULS",
     };
     onModelChange(
-      { ...model, schemaVersion: "0.5", loadCombinations: [...model.loadCombinations, combination] },
+      { ...model, loadCombinations: [...model.loadCombinations, combination] },
       "Canonical load combination added.",
     );
   }
 
   const content = (
     <div style={{ display: "grid", gap: 8 }}>
-      <b>Core v0.5 Loads</b>
+      <b>Core Loads</b>
       <div><b>Targets:</b> {targetIds.length ? targetIds.join(", ") : "none"}</div>
       <select value={mode} onChange={(event) => setMode(event.target.value as LoadMode)}>
         <option value="slab">Slab surface pressure</option>

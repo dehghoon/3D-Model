@@ -1,0 +1,44 @@
+/* Linkoteq navigation shell aligned with Main-website platform-refresh.css.
+   Scoped to avoid altering the 3D modeling controls. */
+.platformNav {--brand-navy:#102b49;--brand-blue:#1765bb;--brand-cyan:#14a9b4;--brand-border:#dce6ee;display:block;position:relative;z-index:1250;background:white;color:var(--brand-navy);font-family:Inter,"Segoe UI",Arial,sans-serif;border-bottom:1px solid var(--brand-border);box-shadow:0 6px 24px rgba(16,43,73,.07)}
+.platformNav * {box-sizing:border-box}
+.platformNav a {color:inherit;text-decoration:none}
+.platformNav .utilityBar {min-height:76px;max-width:1500px;margin:auto;display:flex;align-items:center;gap:24px;padding:0 24px}
+.platformNav .utilityBrand {display:inline-flex;align-items:center;white-space:nowrap;font-size:20px;font-weight:800;letter-spacing:.03em}
+.platformNav .utilityBrand small {font-size:11px;color:#56718b;margin-left:8px}
+.platformNav .utilityNav {display:flex;align-items:center;gap:24px;margin-left:auto;font-size:14px;font-weight:650}
+.platformNav .navMenu {position:relative}
+.platformNav .navMenuButton {font:inherit;color:inherit;background:transparent;border:0;padding:16px 0;cursor:pointer}
+.platformNav .navDropdown {display:none;position:absolute;top:100%;left:0;min-width:225px;padding:8px;background:white;border:1px solid var(--brand-border);border-radius:12px;box-shadow:0 16px 35px rgba(16,43,73,.16)}
+.platformNav .navMenu:hover .navDropdown,.platformNav .navMenu:focus-within .navDropdown {display:grid}
+.platformNav .navDropdown a {display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 12px;border-radius:8px}
+.platformNav .navDropdown a:hover,.platformNav .mobileMenuPanel a:hover {background:#eef6ff}
+.platformNav .toolStatus {font-size:11px;font-weight:750;color:#38618b;background:#edf5ff;border-radius:100px;padding:4px 7px}
+.platformNav .navCta {padding:10px 16px;border-radius:100px;background:var(--brand-navy);color:white;font-size:14px;font-weight:700}
+.platformNav .primaryBar {display:flex;align-items:center;gap:30px;padding:12px max(24px,calc((100vw - 1452px)/2));background:#f7fafc;font-size:14px;font-weight:650;border-top:1px solid var(--brand-border)}
+.platformNav .mobileMenuToggle,.platformNav .mobileMenuPanel {display:none}
+.platformNav a:focus-visible,.platformNav button:focus-visible {outline:3px solid var(--brand-cyan);outline-offset:3px;border-radius:6px}
+@media(max-width:900px) {
+ .platformNav .utilityBar {min-height:66px;padding:10px 18px;gap:12px}
+ .platformNav .utilityBrand {font-size:17px}
+ .platformNav .utilityNav,.platformNav .primaryBar,.platformNav .navCta {display:none}
+ .platformNav .mobileMenuToggle {display:inline-flex;margin-left:auto;align-items:center;gap:8px;padding:10px 12px;background:white;border:1px solid var(--brand-border);border-radius:10px;color:var(--brand-navy);font-size:14px;font-weight:700}
+ .platformNav .mobileMenuPanel.isOpen {display:grid;gap:4px;padding:12px 18px 22px;max-height:calc(100dvh - 66px);overflow:auto;border-top:1px solid var(--brand-border)}
+ .platformNav .mobileMenuPanel a {display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:10px 12px;border-radius:9px;font-size:15px;font-weight:650}
+ .platformNav .mobileGroupLabel {padding:12px 12px 4px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#56718b}
+}
+@media(prefers-reduced-motion:reduce) {.platformNav * {transition:none!important}}
+
+/* Reserve viewport height for the two-row site header without changing editor tools. */
+.modelEditorArea {height:calc(100dvh - 120px)!important;min-height:0!important}
+@media(max-width:900px){.modelEditorArea {height:calc(100dvh - 66px)!important}}
+
+/* Canonical brand asset and mobile sizing shared with the main site's header rules. */
+.platformNav .utilityBrand img {display:block;width:220px;max-width:100%;height:auto;object-fit:contain}
+@media(max-width:900px) {
+ .platformNav {width:100%;max-width:100%}
+ .platformNav .utilityBar {width:100%;max-width:100%;min-width:0;justify-content:space-between}
+ .platformNav .utilityBrand {flex:0 1 auto;min-width:0;max-width:calc(100% - 100px)}
+ .platformNav .utilityBrand img {width:min(155px,100%);height:auto}
+ .platformNav .mobileMenuToggle {flex:0 0 auto;white-space:nowrap}
+}
