@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {NextRequest} from "next/server";
-import {POST} from "../app/api/calculators/snow/route";
+import {OPTIONS, POST} from "../app/api/calculators/snow/route";
 import {mapSnowWriteback} from "../lib/core-loads-v05";
 
 test("authenticated Snow requests preserve Core version through proxy and writeback",async()=>{
@@ -17,25 +17,55 @@ test("authenticated Snow requests preserve Core version through proxy and writeb
       pressure:{value:2,unit:"kPa"},provenance:{sourceId:"source",calculatorRunId:"synthetic-run"}}],
   });
   const calls:string[]=[];
+  let access:"owner"|"employee"|"trial"|"denied"="owner";
   try{
     globalThis.fetch=async(input,init)=>{
       const url=String(input);calls.push(url);
       if(url.endsWith("/auth/v1/user"))return Response.json({id:"synthetic-user"});
-      if(url.includes("/rpc/has_internal_engineering_tool_access"))return Response.json(true);
+      if(url.includes("/rpc/platform_access_is_owner"))return Response.json(access==="owner");
+      if(url.includes("/rpc/platform_my_permissions"))return Response.json(access==="employee"?["engineering_tools_internal"]:[]);
+      if(url.includes("/rpc/has_active_customer_tool_trial"))return Response.json(true);
+      if(url.includes("/rpc/has_accepted_customer_tool_disclaimer"))return Response.json(access==="trial");
       const body=JSON.parse(String(init?.body));
       assert.ok(url.endsWith("/v"+body.modelSchemaVersion));
-      return Response.json(writeback(body.modelSchemaVersion));
+      assert.equal(body.targetIds.length,1);
+      const data=writeback(body.modelSchemaVersion);
+      return Response.json({...data,runId:body.runId,projectId:body.projectId,targetIds:body.targetIds,
+        loads:[{...data.loads[0],id:body.runId,surfaceId:body.targetIds[0],
+          provenance:{sourceId:"source-"+body.runId,calculatorRunId:body.runId}}],
+      });
     };
     for(const version of ["0.5","0.6"] as const){
+      access=version==="0.5"?"owner":"employee";
       const response=await POST(new NextRequest("https://synthetic.invalid/api/calculators/snow",{
-        method:"POST",headers:{"authorization":"Bearer synthetic-test-token","content-type":"application/json"},
+        method:"POST",headers:{"authorization":"Bearer synthetic-test-token","content-type":"application/json",origin:"https://www.linkoteq.com"},
         body:JSON.stringify({modelSchemaVersion:version,projectId:"project",runId:"synthetic-run",targetIds:["roof"]}),
       }));
       assert.equal(response.status,200);
+      assert.equal(response.headers.get("access-control-allow-origin"),"https://www.linkoteq.com");
       const result=await response.json();
       assert.equal(result.modelSchemaVersion,version);
       assert.equal(mapSnowWriteback(result,["roof"]).loads[0].pressure.value,2);
     }
+    const asCustomer=()=>POST(new NextRequest("https://synthetic.invalid/api/calculators/snow",{
+      method:"POST",headers:{"authorization":"Bearer synthetic-test-token","content-type":"application/json"},
+      body:JSON.stringify({modelSchemaVersion:"0.6",projectId:"project",runId:"synthetic-run",targetIds:["roof"]}),
+    }));
+    access="trial";
+    assert.equal((await asCustomer()).status,200);
+    const multi=await POST(new NextRequest("https://synthetic.invalid/api/calculators/snow",{
+      method:"POST",headers:{"authorization":"Bearer synthetic-test-token","content-type":"application/json"},
+      body:JSON.stringify({modelSchemaVersion:"0.6",projectId:"project",runId:"batch",targetIds:["roof-a","roof-b"],
+        inputs:{calculation:{mode:"UNIFORM_ROOF"}}}),
+    }));
+    assert.equal(multi.status,200);
+    const batch=await multi.json();
+    assert.equal(batch.runId,"batch");
+    assert.deepEqual(mapSnowWriteback(batch,["roof-a","roof-b"]).loads.map(load=>[
+      load.surfaceId,load.provenance?.calculatorRunId,
+    ]),[["roof-a","batch-1"],["roof-b","batch-2"]]);
+    access="denied";
+    assert.equal((await asCustomer()).status,403);
     const previousCalls=calls.length;
     const anonymous=await POST(new NextRequest("https://synthetic.invalid/api/calculators/snow",{
       method:"POST",headers:{"content-type":"application/json"},body:"{}",
@@ -47,4 +77,14 @@ test("authenticated Snow requests preserve Core version through proxy and writeb
     globalThis.fetch=fetchBefore;
     names.forEach((key,i)=>{if(before[i]===undefined)delete process.env[key];else process.env[key]=before[i];});
   }
+});
+
+test("only the Linkoteq account origin can preflight the Snow proxy",()=>{
+  const preflight=(origin:string)=>OPTIONS(new NextRequest("https://3dmodel.linkoteq.com/api/calculators/snow",{
+    method:"OPTIONS",headers:{origin},
+  }));
+  assert.equal(preflight("https://www.linkoteq.com").status,204);
+  const denied=preflight("https://untrusted.invalid");
+  assert.equal(denied.status,403);
+  assert.equal(denied.headers.get("access-control-allow-origin"),null);
 });

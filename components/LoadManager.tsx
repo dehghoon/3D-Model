@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type {
   Load,
@@ -12,6 +12,7 @@ import type {
   Surface,
 } from "@linkoteq/structural-core";
 import { assertCanonicalLoad, mapSnowWriteback } from "../lib/core-loads-v05";
+import { requestSnowThroughAccount } from "../lib/snow-account-request";
 type LoadMode = "slab" | "wall" | "beam" | "node";
 type MemberLoadKind = "distributed" | "point";
 type Props = {
@@ -25,6 +26,14 @@ type Props = {
 };
 
 type SnowWriteback = Parameters<typeof mapSnowWriteback>[0];
+const snowErrors: Record<string, string> = {
+  authentication_required: "Sign in to Linkoteq before running Snow.",
+  tool_access_denied: "Snow requires employee access or an active Snow Load trial with an accepted disclaimer.",
+  entitlement_unavailable: "Snow access could not be verified. Try again.",
+  snow_not_configured: "Snow is temporarily unavailable on this deployment.",
+  invalid_snow_request: "The selected surfaces or project could not be sent to Snow.",
+  invalid_snow_inputs: "Snow rejected the calculation inputs. Check Ss and Sr.",
+};
 const button: React.CSSProperties = {
   border: "1px solid #cfd6df",
   background: "white",
@@ -56,6 +65,11 @@ export default function LoadManager({
   onEndTargetSelection,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [snowRunning, setSnowRunning] = useState(false);
+  const [snowSs, setSnowSs] = useState("");
+  const [snowSr, setSnowSr] = useState("");
+  const currentModel = useRef(model);
+  currentModel.current = model;
   const [mode, setMode] = useState<LoadMode>("slab");
   const [magnitude, setMagnitude] = useState("1");
   const [memberLoadKind, setMemberLoadKind] = useState<MemberLoadKind>("distributed");
@@ -178,6 +192,12 @@ export default function LoadManager({
       setStatus("Select one or more slab surfaces first.");
       return;
     }
+    const ss = Number(snowSs);
+    const sr = Number(snowSr);
+    if (!snowSs.trim() || !snowSr.trim() || !Number.isFinite(ss) || !Number.isFinite(sr) || ss <= 0 || sr < 0) {
+      setStatus("Enter a positive Ss and a nonnegative Sr in kPa.");
+      return;
+    }
 
     const runId = "snow-" + window.performance.timeOrigin + "-" + Math.floor(performance.now() * 1000);
     const request = {
@@ -191,8 +211,8 @@ export default function LoadManager({
         calculation: {
           mode: "UNIFORM_ROOF",
           common: {
-            ss: 2.5,
-            sr_climatic: 0.4,
+            ss,
+            sr_climatic: sr,
             roof_slope_alpha: 0,
             roof_surface_type: "normal",
             is: 1,
@@ -203,13 +223,16 @@ export default function LoadManager({
       },
     };
 
-    const response = await fetch("/api/calculators/snow", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    });
-    const data = (await response.json()) as SnowWriteback;
-    if (!response.ok) throw new Error("Snow Core request failed.");
+    const response = await requestSnowThroughAccount(request);
+    if (!response.ok) {
+      const error = (response.data as { error?: string } | null)?.error;
+      throw new Error((error && snowErrors[error]) || "Snow could not reach the calculation service. Try again.");
+    }
+    const data = response.data as SnowWriteback;
+    if (data?.runId !== runId || data.modelSchemaVersion !== model.schemaVersion) {
+      throw new Error("The Snow response does not match this calculation. Run Snow again.");
+    }
+    if (currentModel.current !== model) throw new Error("The model changed during calculation. Run Snow again for the current model.");
 
     const mapped = mapSnowWriteback(data, surfaceIds);
     const incomingIds = new Set(mapped.loads.map((load) => load.id));
@@ -226,7 +249,9 @@ export default function LoadManager({
       ],
       loads: [...model.loads.filter((load) => !incomingIds.has(load.id)), ...mapped.loads],
     };
-    onModelChange(next, `Snow loads added for ${surfaceIds.length} target surface(s).`);
+    const message = `Snow loads added for ${surfaceIds.length} target surface(s).`;
+    onModelChange(next, message);
+    setStatus(message);
   }
   function addCombination() {
     if (!model.loadCases.length) {
@@ -248,7 +273,6 @@ export default function LoadManager({
 
   const content = (
     <div style={{ display: "grid", gap: 8 }}>
-      <b>Core Loads</b>
       <div><b>Targets:</b> {targetIds.length ? targetIds.join(", ") : "none"}</div>
       <select value={mode} onChange={(event) => setMode(event.target.value as LoadMode)}>
         <option value="slab">Slab surface pressure</option>
@@ -287,11 +311,24 @@ export default function LoadManager({
         <input type="number" step="any" value={magnitude} onChange={(event) => setMagnitude(event.target.value)} placeholder="Signed magnitude" />
       </label>
       <button style={primary} onClick={addManualLoad}>Add canonical load</button>
-      <button style={primary} onClick={() => runSnow().catch((error) => setStatus(error instanceof Error ? error.message : "Snow request failed."))}>
-        Run Snow
-      </button>
+      {mode === "slab" && <>
+        <small>Uniform flat roof · Is 1 · Cw 1 · Cb 0.8</small>
+        <label>Ground snow load Ss (kPa)
+          <input type="number" min="0" step="any" value={snowSs} onChange={event => setSnowSs(event.target.value)} />
+        </label>
+        <label>Associated rain load Sr (kPa)
+          <input type="number" min="0" step="any" value={snowSr} onChange={event => setSnowSr(event.target.value)} />
+        </label>
+        <button style={primary} disabled={snowRunning} onClick={() => {
+          setSnowRunning(true);
+          setStatus("Running Snow…");
+          void runSnow()
+            .catch(error => setStatus(error instanceof Error ? error.message : "Snow request failed."))
+            .finally(() => setSnowRunning(false));
+        }}>{snowRunning ? "Running Snow…" : "Run Snow"}</button>
+      </>}
       <button style={button} onClick={addCombination}>Add combination</button>
-      <small>{status}</small>
+      <small role="status">{status}</small>
     </div>
   );
   if (typeof document === "undefined") return null;
@@ -302,7 +339,11 @@ export default function LoadManager({
           <button className="loadManagerLauncher" onClick={() => { onEndTargetSelection(); setOpen(true); }}>Loads</button>
           {open && (
             <div className="loadManagerBackdrop" onClick={() => setOpen(false)}>
-              <aside className="loadManagerDrawer" onClick={(event) => event.stopPropagation()}>
+              <aside className="loadManagerDrawer" aria-label="Core Loads" onClick={(event) => event.stopPropagation()}>
+                <div className="loadManagerDrawerHeader">
+                  <strong>Core Loads</strong>
+                  <button type="button" aria-label="Close Loads" onClick={() => setOpen(false)}>×</button>
+                </div>
                 <div className="loadManagerDrawerBody">{content}</div>
               </aside>
             </div>

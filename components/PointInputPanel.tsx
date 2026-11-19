@@ -7,6 +7,7 @@ import {
   MEMBER_DRAW_PICK_EVENT,
   SURFACE_FINISH_EVENT,
   setSurfacePoints,
+  setSlabDrawElevation,
 } from "../lib/editor/member-draw-events";
 import {
   useInteractionState,
@@ -211,8 +212,22 @@ export default function PointInputPanel({ model }: { model: StructuralModel }) {
         <strong>{step}</strong>
       </p>
       {isSurface
-        ? <p>Tap at least 3 corners in order around the perimeter, then select Finish {title}. {tool.tool === "wall" ? "Use 3D or an elevation view to pick upper and lower corners." : "Pick slab corners on the same level."}</p>
+        ? <p>Tap at least 3 corners in order around the perimeter, then select Finish {title}. {tool.tool === "wall" ? "Use 3D or an elevation view to pick upper and lower corners." : "In Plan, tap the highlighted corners. Two fingers pan or zoom."}</p>
         : <p>Click in the model or enter a point below. Global X / Y / Z · {model.project.units === "US" ? "ft" : "m"} · Z is vertical.</p>}
+      {tool.tool === "slab" && model.levels.length > 0 ? (
+        <label>Slab level
+          <select value={tool.slabElevation ?? ""} onChange={event => {
+            const elevation = event.target.value === "" ? undefined : Number(event.target.value);
+            setSlabDrawElevation(elevation);
+            window.dispatchEvent(new CustomEvent("linkoteq:slab-level", { detail: elevation }));
+          }}>
+            <option value="">Pick level from geometry</option>
+            {model.levels.map(level => (
+              <option key={level.id} value={level.elevation}>{level.name} · {level.elevation} {model.project.units === "US" ? "ft" : "m"}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {base ? (
         <p>
           {transforming ? "Base" : "Previous point"}: ({format(base)})

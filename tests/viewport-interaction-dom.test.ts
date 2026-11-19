@@ -81,7 +81,7 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
       const coordinates = panel.querySelector('details');
       if (coordinates) coordinates.open = true;
       harness.act(() => {
-        const select = panel.querySelector("select")!;
+        const select = panel.querySelector<HTMLSelectElement>("form select")!;
         select.value = relative ? "relative" : "absolute";
         select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
       });
@@ -128,7 +128,17 @@ export function disposeThatOpenRuntime(runtime) { runtime.renderer.three.domElem
       assert.deepEqual(mounted.model().nodes.find((node:{id:string})=>node.id===beam.endNodeId).position,{x:45,y:10,z:3});
       click("Slab");
       const beforeSurfaceNodes = mounted.model().nodes.length;
-      inputPoint(["50","50","3"]); inputPoint(["4","0","0"],true); inputPoint(["0","4","0"],true); inputPoint(["-4","0","0"],true);
+      inputPoint(["50","50","0"]);
+      assert.equal(harness.getPointToolState().points.length,1);
+      const slabLevel = [...host.querySelectorAll("label")].find(item => item.textContent?.startsWith("Slab level"))!.querySelector("select")!;
+      harness.act(() => {
+        slabLevel.value = String(endLevel.elevation);
+        slabLevel.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+      });
+      assert.equal(harness.getPointToolState().points.length,0);
+      inputPoint(["50","50","0"]);
+      assert.equal(harness.getPointToolState().points.length,0);
+      inputPoint(["50","50",String(endLevel.elevation)]); inputPoint(["4","0","0"],true); inputPoint(["0","4","0"],true); inputPoint(["-4","0","0"],true);
       assert.equal(mounted.model().nodes.length,beforeSurfaceNodes,"Pending boundaries must not create orphan nodes");
       assert.equal(harness.getPointToolState().points.length,4);
       harness.act(()=>[...host.querySelectorAll<HTMLButtonElement>(".architectToolstrip button")].find(item=>item.textContent==="Finish Slab")!.click());

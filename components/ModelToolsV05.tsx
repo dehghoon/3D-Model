@@ -191,6 +191,10 @@ export default function ModelToolsV05({
       if (!Object.values(snap.point).every(Number.isFinite))
         throw new Error("Coordinates must be finite.");
       if (active.tool === "wall" || active.tool === "slab") {
+        if (active.tool === "slab" && active.slabElevation !== undefined &&
+            Math.abs(snap.point.z - active.slabElevation) > 1e-8) {
+          throw new Error("This point is outside the selected slab level.");
+        }
         if (
           active.points.some(
             (item) =>

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import CameraControls from "camera-controls";
+import { geometryAtReference, gridReferences } from "../lib/visualization/reference-plane";
 import { syncDenseNodeSelection } from "../lib/visualization/core-scene";
 import { editableSapFitBounds, sourceSapFitBounds } from "../lib/visualization/sap-camera-fit";
 import { buildStructuralGuides, disposeStructuralGuides } from "../lib/visualization/structural-guides";
@@ -21,7 +23,7 @@ import {
   setTransformMessage,
   useInteractionState,
 } from "../lib/editor/interaction-store";
-import { MEMBER_DRAW_PICK_EVENT, getModelingPointTool, setPointToolMessage, usePointToolState } from "../lib/editor/member-draw-events";
+import { MEMBER_DRAW_PICK_EVENT, getModelingPointTool, setPointToolMessage, setSlabDrawElevation, usePointToolState } from "../lib/editor/member-draw-events";
 import { useMemberDrawState } from "../lib/editor/member-draw-store";
 import { isTapGesture } from "../lib/visualization/mobile-picking";
 import { wheelDollyStep, middlePanTruck } from "../lib/visualization/select-navigation";
@@ -40,8 +42,6 @@ import {
   renderModelingPreview,
   setThatOpenView,
   snapThatOpen,
-  stepThatOpenAxis,
-  stepThatOpenLevel,
   type ThatOpenRuntime,
   type ViewMode,
 } from "../lib/visualization/that-open-runtime";
@@ -71,6 +71,7 @@ const viewButtons: Array<[ViewMode, string, string]> = [
   ["front", "F", "Front"],
   ["left", "L", "Left"],
   ["right", "R", "Right"],
+  ["top", "P", "Plan"],
   ["bottom", "B", "Bottom"],
   ["3d", "3D", "3D"],
 ];
@@ -171,6 +172,21 @@ export default function ThatOpenViewportV07({
   subtractRef.current = subtract;
   const [runtimeError, setRuntimeError] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
+  const [planElevation, setPlanElevation] = useState<number | null>(null);
+  const [gridId, setGridId] = useState("");
+  const plan = viewMode === "top" || viewMode === "bottom";
+  const levels = useMemo(() => [...model.levels].sort((a,b) => a.elevation - b.elevation), [model.levels]);
+  const elevation = levels.find(level => level.elevation === planElevation)?.elevation ?? levels.at(-1)?.elevation;
+  const gridAxis = viewMode === "front" ? "y" : "x";
+  const grids = useMemo(() => gridReferences(model, gridAxis), [model.grids, gridAxis]);
+  const grid = grids.find(item => item.id === gridId);
+  const visibleModel = useMemo(() => plan && elevation !== undefined
+    ? geometryAtReference(model, "z", elevation)
+    : viewMode !== "3d" && grid ? geometryAtReference(model, gridAxis, grid.coordinate) : model,
+    [model, plan, elevation, viewMode, grid, gridAxis]);
+  const slabActive = pointTool.tool === "slab";
+  const planLocked = useRef(false);
+
   const [toolMode, setToolMode] = useState<"select" | "view">("select");
   const [marquee, setMarquee] = useState<SelectionWindow | null>(null);
   const selectionCount = usePublishedSelections().length;
@@ -182,7 +198,9 @@ export default function ThatOpenViewportV07({
     if (runtime) syncSelectionHighlight(runtime, modelRef.current, []);
   };
 
-  modelRef.current = model;
+  const fullModelRef = useRef(model);
+  fullModelRef.current = model;
+  modelRef.current = visibleModel;
   selectionRef.current = selection;
   onSelectRef.current = onSelect;
   onMultiSelectRef.current = onMultiSelect;
@@ -202,24 +220,43 @@ export default function ThatOpenViewportV07({
     // CameraControls must stay enabled for its update loop to apply programmatic
     // dolly/rotate/truck while editing. Disable only native mouse gestures.
     const nativeMouseButtons = { ...runtime.camera.controls.mouseButtons };
+    const nativeTouches = { ...runtime.camera.controls.touches };
     const syncCameraMouseButtons = (mode: "select" | "view") => {
-      const buttons = runtime.camera.controls.mouseButtons;
-      // Some test runtimes provide a minimal camera-controls mock without mouseButtons.
-      if (!buttons) {
-        runtime.camera.controls.enabled = true;
-        return;
+      const controls = runtime.camera.controls;
+      const perspective = runtime.viewMode === "3d" || !runtime.viewMode;
+      if (controls.mouseButtons) {
+        Object.assign(controls.mouseButtons, nativeMouseButtons);
+        if (mode === "select") {
+          controls.mouseButtons.left = 0;
+          controls.mouseButtons.middle = 0;
+          controls.mouseButtons.right = 0;
+          controls.mouseButtons.wheel = 0;
+        } else if (!perspective) {
+          controls.mouseButtons.left = CameraControls.ACTION.TRUCK;
+          controls.mouseButtons.right = CameraControls.ACTION.TRUCK;
+          controls.mouseButtons.wheel = CameraControls.ACTION.ZOOM;
+        }
       }
-      if (mode === "select") {
-        buttons.left = 0;
-        buttons.middle = 0;
-        buttons.right = 0;
-      } else {
-        Object.assign(buttons, nativeMouseButtons);
+      if (controls.touches) {
+        Object.assign(controls.touches, nativeTouches);
+        if (mode === "select") {
+          controls.touches.one = CameraControls.ACTION.NONE;
+          controls.touches.two = CameraControls.ACTION.NONE;
+          controls.touches.three = CameraControls.ACTION.NONE;
+        } else if (!perspective) {
+          controls.touches.one = CameraControls.ACTION.TOUCH_TRUCK;
+          controls.touches.two = CameraControls.ACTION.TOUCH_ZOOM_TRUCK;
+        }
       }
-      runtime.camera.controls.enabled = true;
+      controls.enabled = true;
     };
     syncCameraMouseButtons("select");
     const canvas = runtime.renderer.three.domElement;
+    const panSpan = () => {
+      const camera = runtime.camera.three;
+      return camera instanceof THREE.OrthographicCamera
+        ? (camera.top - camera.bottom) / camera.zoom : runtime.camera.controls.distance;
+    };
     let start: PointerStart | null = null;
     const touches = new Map<number, { x: number; y: number }>();
     let pinching = false;
@@ -238,19 +275,33 @@ export default function ThatOpenViewportV07({
         if (touches.size >= 2) pinching = true;
         if (before && after && event.type === "pointermove" && toolModeRef.current === "select") {
           const controls = runtime.camera.controls;
-          const scale = Math.max(controls.distance, 1) / Math.max(canvas.clientHeight, 1);
+          const scale = panSpan() / Math.max(canvas.clientHeight, 1);
           void controls.truck((before.x-after.x)*scale, (after.y-before.y)*scale, false);
-          if (before.distance > 0 && after.distance > 0) void controls.dolly(Math.log(after.distance/before.distance)*Math.max(controls.distance,1), false);
+          if (before.distance > 0 && after.distance > 0) {
+            const ratio = after.distance / before.distance;
+            if (runtime.viewMode && runtime.viewMode !== "3d") {
+              void controls.zoomTo(runtime.camera.three.zoom * ratio, false);
+            } else void controls.dolly(Math.log(ratio) * Math.max(controls.distance,1), false);
+          }
         }
         if (!touches.size) pinching = false;
       }
     };
-    const preset = (event: Event) => { void setThatOpenView(runtime, (event as CustomEvent<ViewMode>).detail); };
+    const preset = (event: Event) => {
+      const mode = (event as CustomEvent<ViewMode>).detail;
+      if (!viewButtons.some(([value]) => value === mode)) return;
+      setViewMode(mode);
+      setGridId("");
+      void Promise.resolve(setThatOpenView(runtime, mode, fullModelRef.current)).then(() => {
+        syncCameraMouseButtons(toolModeRef.current);
+      });
+      window.dispatchEvent(new CustomEvent("linkoteq:view-changed", { detail: mode }));
+    };
     const fit = () => {
       const current = modelRef.current, source = sourceHandoffRef.current;
       const bounds = current.project.metadata?.importGeometryStatus === "editable-unverified"
         ? editableSapFitBounds(current) : source ? sourceSapFitBounds(source) : null;
-      if (!bounds || bounds.isEmpty()) { setThatOpenView(runtime,runtime.viewMode); return; }
+      if (runtime.viewMode !== "3d" || !bounds || bounds.isEmpty()) { void setThatOpenView(runtime,runtime.viewMode,fullModelRef.current); return; }
       runtime.camera.updateAspect();
       void runtime.camera.controls.fitToSphere(bounds.getBoundingSphere(new THREE.Sphere()),true);
     };
@@ -260,7 +311,7 @@ export default function ThatOpenViewportV07({
       const next = container.clientHeight > container.clientWidth;
       if (next === portrait) return;
       portrait = next;
-      if (modelRef.current.project.metadata?.sourceFormat === "SAP2000") fit();
+      if (runtime.viewMode === "3d" && modelRef.current.project.metadata?.sourceFormat === "SAP2000") fit();
     });
     resize?.observe(container);
 
@@ -279,7 +330,7 @@ export default function ThatOpenViewportV07({
       syncSelectionHighlight(runtime, modelRef.current, unique);
     };
 
-    const resolveSnap = (event: PointerEvent) =>
+    const resolveSnap = (event: Pick<PointerEvent, "clientX" | "clientY" | "pointerType">) =>
       snapThatOpen(runtime, event, modelRef.current, selectionRef.current);
 
     // Keep left-button picking/marquee in Select mode while allowing
@@ -288,10 +339,13 @@ export default function ThatOpenViewportV07({
     let orbitPointer: { id: number; x: number; y: number } | null = null;
     const selectNavigationEnabled = () => toolModeRef.current === "select";
     const wheelZoom = (event: WheelEvent) => {
-      if (event.ctrlKey) return;
+      if (event.ctrlKey || !selectNavigationEnabled()) return;
       event.preventDefault();
       const controls = runtime.camera.controls;
-      void controls.dolly(wheelDollyStep(event.deltaY, event.deltaMode, canvas.clientHeight, controls.distance), false);
+      if (runtime.viewMode && runtime.viewMode !== "3d") {
+        const step = wheelDollyStep(event.deltaY, event.deltaMode, canvas.clientHeight, 1);
+        void controls.zoomTo(runtime.camera.three.zoom * Math.exp(step), false);
+      } else void controls.dolly(wheelDollyStep(event.deltaY, event.deltaMode, canvas.clientHeight, controls.distance), false);
     };
     const middlePanDown = (event: PointerEvent) => {
       if (event.button !== 1 || !selectNavigationEnabled()) return;
@@ -302,12 +356,12 @@ export default function ThatOpenViewportV07({
     const middlePanMove = (event: PointerEvent) => {
       if (!panPointer || event.pointerId !== panPointer.id) return;
       event.preventDefault();
-      const delta = middlePanTruck(panPointer, { x: event.clientX, y: event.clientY }, canvas.clientHeight, runtime.camera.controls.distance);
+      const delta = middlePanTruck(panPointer, { x: event.clientX, y: event.clientY }, canvas.clientHeight, panSpan());
       void runtime.camera.controls.truck(delta.x, delta.y, false);
       panPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
     };
     const orbitDown = (event: PointerEvent) => {
-      if (event.button !== 2 || !selectNavigationEnabled()) return;
+      if (event.button !== 2 || !selectNavigationEnabled() || (runtime.viewMode && runtime.viewMode !== "3d")) return;
       event.preventDefault();
       orbitPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
       canvas.setPointerCapture?.(event.pointerId);
@@ -339,7 +393,7 @@ export default function ThatOpenViewportV07({
       }
     };
     const pointerDown = (event: PointerEvent) => {
-      if (pinching || !event.isPrimary || event.button !== 0) return;
+      if (pinching || toolModeRef.current === "view" || !event.isPrimary || event.button !== 0) return;
       canvas.setPointerCapture?.(event.pointerId);
       start = {
         x: event.clientX,
@@ -452,7 +506,9 @@ export default function ThatOpenViewportV07({
         return;
       }
       if (drawing) {
-        const point = resolveSnap(event);
+        const point = origin.pointerType === "touch" && getModelingPointTool() === "slab"
+          ? resolveSnap({ pointerType: "touch", clientX: origin.x, clientY: origin.y })
+          : resolveSnap(event);
         if (point) {
           window.dispatchEvent(new CustomEvent(MEMBER_DRAW_PICK_EVENT, { detail: point }));
         } else {
@@ -623,6 +679,11 @@ export default function ThatOpenViewportV07({
 
     for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) canvas.addEventListener(type, navigateTouch as EventListener, true);
     window.addEventListener("linkoteq:view-fit", fit);
+    const levelPicked = (event: Event) => {
+      const elevation = (event as CustomEvent<number | undefined>).detail;
+      if (elevation !== undefined) setPlanElevation(elevation);
+    };
+    window.addEventListener("linkoteq:slab-level", levelPicked);
     window.addEventListener("linkoteq:view-preset", preset);
     canvas.addEventListener("wheel", wheelZoom, { passive: false });
     canvas.addEventListener("contextmenu", preventContextMenu);
@@ -661,6 +722,7 @@ export default function ThatOpenViewportV07({
       canvas.removeEventListener("pointerleave", middlePanEnd);
       for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) canvas.removeEventListener(type, navigateTouch as EventListener, true);
       window.removeEventListener("linkoteq:view-fit", fit);
+      window.removeEventListener("linkoteq:slab-level", levelPicked);
       window.removeEventListener("linkoteq:view-preset", preset);
       canvas.removeEventListener("pointerdown", pointerDown);
       canvas.removeEventListener("pointermove", pointerMove);
@@ -686,11 +748,11 @@ export default function ThatOpenViewportV07({
       runtime.fitted = false;
       lastImportedSourceHashRef.current = importedHash;
     }
-    rebuildThatOpenScene(runtime, model, selectionRef.current);
-    syncSelectionHighlight(runtime, model, getPublishedSelections());
+    rebuildThatOpenScene(runtime, visibleModel, selectionRef.current);
+    syncSelectionHighlight(runtime, visibleModel, getPublishedSelections());
     if (getModelingPointTool()) renderModelingPreview(runtime);
     else renderTransformPreview(runtime);
-  }, [model, sapHandoff?.sourceHash]);
+  }, [visibleModel, sapHandoff?.sourceHash]);
 
   // Selecting a node or shell must not dispose and rebuild thousands of
   // meshes. Update existing materials instead; rebuild only on model edits.
@@ -710,7 +772,7 @@ export default function ThatOpenViewportV07({
     }
     if (!sapHandoff || model.project.metadata?.importGeometryStatus === "editable-unverified") {
       if (runtime.build) runtime.build.root.visible=true;
-      if (model.project.metadata?.importGeometryStatus === "editable-unverified") {
+      if (runtime.viewMode === "3d" && model.project.metadata?.importGeometryStatus === "editable-unverified") {
         const bounds = editableSapFitBounds(model);
         if (!bounds.isEmpty()) {
           runtime.camera.updateAspect();
@@ -804,11 +866,45 @@ export default function ThatOpenViewportV07({
     toolMode,
   ]);
 
-  const chooseView = (mode: ViewMode) => {
+  const chooseView = (mode: ViewMode) =>
+    window.dispatchEvent(new CustomEvent("linkoteq:view-preset", { detail: mode }));
+
+  useEffect(() => {
+    if (!slabActive) {
+      planLocked.current = false;
+      return;
+    }
+    if (plan) setSlabDrawElevation(elevation);
+    if (!planLocked.current && window.matchMedia?.("(pointer: coarse)").matches) {
+      planLocked.current = true;
+      if (!plan) chooseView("top");
+    }
+  }, [slabActive, plan, elevation]);
+
+  useEffect(() => {
     const runtime = runtimeRef.current;
-    if (!runtime) return;
-    setThatOpenView(runtime, mode);
-    setViewMode(mode);
+    if (!runtime || !plan || !slabActive || !visibleModel.nodes.length) return;
+    const geometry = new THREE.BufferGeometry().setFromPoints(
+      visibleModel.nodes.map(({ position }) => new THREE.Vector3(position.x, position.z, position.y)));
+    const material = new THREE.PointsMaterial({ color: 0x0f766e, size: 10, sizeAttenuation: false, depthTest: false });
+    const guides = new THREE.Points(geometry, material);
+    guides.renderOrder = 95;
+    runtime.scene?.add(guides);
+    return () => {
+      runtime.scene?.remove(guides);
+      geometry.dispose();
+      material.dispose();
+    };
+  }, [visibleModel, plan, slabActive]);
+
+  const stepReference = (step: number) => {
+    if (plan) {
+      const index = levels.findIndex(level => level.elevation === elevation);
+      if (levels.length) setPlanElevation(levels[(index + step + levels.length) % levels.length].elevation);
+    } else {
+      const index = grid ? grids.indexOf(grid) : step > 0 ? -1 : 0;
+      if (grids.length) setGridId(grids[(index + step + grids.length) % grids.length].id);
+    }
   };
 
   return (
@@ -859,6 +955,7 @@ export default function ThatOpenViewportV07({
             key={mode}
             type="button"
             className={viewMode === mode ? "active" : ""}
+            aria-pressed={viewMode === mode}
             title={`${label} view`}
             aria-label={`${label} view`}
             onPointerDown={(event) => event.stopPropagation()}
@@ -869,76 +966,20 @@ export default function ThatOpenViewportV07({
         ))}
       </div> : null}
 
-      {viewMode !== "3d" && !simpleMode ? (
-        <div
-          className="viewportReferenceNavigator"
-          aria-label="Reference navigation"
-        >
-          <button
-            type="button"
-            title="Previous axis"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() =>
-              runtimeRef.current &&
-              stepThatOpenAxis(
-                runtimeRef.current,
-                modelRef.current,
-                -1,
-              )
-            }
-          >
-            ←
-          </button>
-          <span>Axis</span>
-          <button
-            type="button"
-            title="Next axis"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() =>
-              runtimeRef.current &&
-              stepThatOpenAxis(
-                runtimeRef.current,
-                modelRef.current,
-                1,
-              )
-            }
-          >
-            →
-          </button>
-
-          <button
-            type="button"
-            title="Previous level"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() =>
-              runtimeRef.current &&
-              stepThatOpenLevel(
-                runtimeRef.current,
-                modelRef.current,
-                -1,
-              )
-            }
-          >
-            ↓
-          </button>
-          <span>Level</span>
-          <button
-            type="button"
-            title="Next level"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() =>
-              runtimeRef.current &&
-              stepThatOpenLevel(
-                runtimeRef.current,
-                modelRef.current,
-                1,
-              )
-            }
-          >
-            ↑
-          </button>
+      {viewMode !== "3d" && !simpleMode && (
+        <div className="viewportReferenceNavigator" aria-label="Reference navigation">
+          <button type="button" aria-label={plan ? "Previous view level" : "Previous view grid"}
+            disabled={plan ? levels.length < 2 : !grids.length} onClick={() => stepReference(-1)}>‹</button>
+          {plan ? <select aria-label="View level" value={elevation ?? ""} onChange={event => setPlanElevation(Number(event.target.value))}>
+            {levels.map(level => <option key={level.id} value={level.elevation}>{level.name} · {level.elevation}</option>)}
+          </select> : <select aria-label="View grid" value={grid?.id ?? ""} onChange={event => setGridId(event.target.value)}>
+            <option value="">All grids</option>
+            {grids.map(item => <option key={item.id} value={item.id}>{gridAxis.toUpperCase()} · {item.label}</option>)}
+          </select>}
+          <button type="button" aria-label={plan ? "Next view level" : "Next view grid"}
+            disabled={plan ? levels.length < 2 : !grids.length} onClick={() => stepReference(1)}>›</button>
         </div>
-      ) : null}
+      )}
 
       {marquee ? (
         <div

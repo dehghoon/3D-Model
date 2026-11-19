@@ -123,24 +123,6 @@ export default function ThatOpenViewportV08(props: Props) {
     };
   }, [contextMenu]);
 
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-
-    const syncNavigator = () => {
-      const navigator =
-        host.querySelector<HTMLElement>(".viewportReferenceNavigator");
-      if (!navigator) return;
-      navigator.hidden = !viewToolActive;
-      navigator.style.display = viewToolActive ? "" : "none";
-    };
-
-    syncNavigator();
-    const observer = new MutationObserver(syncNavigator);
-    observer.observe(host, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [viewToolActive]);
-
   const viewportModel = useMemo<StructuralModel>(() => {
     const visible = (selection: ConcreteSelection) => {
       const key = selectionKey(selection);

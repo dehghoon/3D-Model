@@ -150,6 +150,7 @@ export default function StructuralEditorShellV3() {
     window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
     window.dispatchEvent(new Event("linkoteq:view-select"));
     setMobilePanel(null);
+    setMobileView("3d");
     setMode(next);
   }
   function advancedChange(next: StructuralModel) {
@@ -168,6 +169,12 @@ export default function StructuralEditorShellV3() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   });
+  const [mobileView, setMobileView] = useState("3d");
+  useEffect(() => {
+    const updateView = (event: Event) => setMobileView((event as CustomEvent<string>).detail);
+    window.addEventListener("linkoteq:view-changed", updateView);
+    return () => window.removeEventListener("linkoteq:view-changed", updateView);
+  }, []);
   const pointState = usePointToolState();
   const interaction = useInteractionState();
   const selections = usePublishedSelections();
@@ -437,9 +444,9 @@ export default function StructuralEditorShellV3() {
       </nav> : null}
       {mode === "advanced" ? <div className="advancedMobileControls" aria-label="Mobile viewport tools">
         <button type="button" onClick={() => {runUtilityTool("Select"); window.dispatchEvent(new Event("linkoteq:view-select"));}}>Select</button>
-        <button type="button" onClick={() => {runUtilityTool("View"); window.dispatchEvent(new Event("linkoteq:view-cycle"));}}>Orbit</button>
-        <select aria-label="Mobile view" defaultValue="3d" onChange={event => window.dispatchEvent(new CustomEvent("linkoteq:view-preset", {detail:event.target.value}))}>
-          <option value="3d">3D</option><option value="bottom">Bottom</option><option value="front">Front</option><option value="right">Right</option>
+        <button type="button" onClick={() => {runUtilityTool("View"); window.dispatchEvent(new Event("linkoteq:view-cycle"));}}>{mobileView === "3d" ? "Orbit" : "Pan"}</button>
+        <select aria-label="Mobile view" value={mobileView} onChange={event => window.dispatchEvent(new CustomEvent("linkoteq:view-preset", {detail:event.target.value}))}>
+          <option value="3d">3D</option><option value="top">Plan</option><option value="front">Front</option><option value="left">Left</option><option value="right">Right</option><option value="bottom">Bottom</option>
         </select>
         <button type="button" onClick={() => toggleMobilePanel("display")}>Display</button>
         <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-fit"))}>Fit</button>
