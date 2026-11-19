@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStarterModelV05 } from "../lib/default-model-v05";
+import { createStarterModelV06 } from "../lib/default-model-v05";
 import { createMemberFromSnapPoints } from "../lib/editor/member-draw-controller";
 import { createSurfaceFromPoints } from "../lib/editor/surface-draw-controller";
 import { columnPointAtLevel, pointFromCoordinates } from "../lib/editor/point-input";
@@ -11,7 +11,7 @@ const snap = (x: number, y: number, z: number): SnapPoint => ({
 });
 
 test("numeric beam creates a persistent canonical member and endpoints", () => {
-  const model = createStarterModelV05();
+  const model = createStarterModelV06();
   const materialId = model.materials[0].id;
   const sectionId = model.sections[0].id;
   const start = pointFromCoordinates({ x: "101", y: "103", z: "3" }, "absolute", null);
@@ -26,7 +26,7 @@ test("numeric beam creates a persistent canonical member and endpoints", () => {
 });
 
 test("column end level creates a canonical vertical member", () => {
-  const model = createStarterModelV05();
+  const model = createStarterModelV06();
   const start = snap(107, 109, -3);
   const level = model.levels.find(l => Math.abs(l.elevation - start.point.z) > 1e-8);
   assert.ok(level);
@@ -42,7 +42,7 @@ test("column end level creates a canonical vertical member", () => {
 
 for (const type of ["slab", "wall"] as const) {
   test(`${type} polygon creates a canonical surface with boundary nodes`, () => {
-    const model = createStarterModelV05();
+    const model = createStarterModelV06();
     const points = type === "slab"
       ? [snap(101, 101, 3).point, snap(105, 101, 3).point, snap(105, 105, 3).point, snap(101, 105, 3).point]
       : [snap(101, 101, 0).point, snap(105, 101, 0).point, snap(105, 101, 3).point, snap(101, 101, 3).point];

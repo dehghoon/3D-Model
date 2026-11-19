@@ -8,7 +8,7 @@ import type {
   Vec3,
 } from "@linkoteq/structural-core";
 
-import { assertCanonicalV05 } from "./core-v05";
+import { assertCanonicalV06 } from "./core-v06";
 import {
   createGridLine,
   createLevel,
@@ -28,7 +28,7 @@ import {
   type CreateSupportInput,
 } from "./editor-support-v05";
 
-export const MODELING_CORE_SCHEMA_VERSION = "0.5" as const;
+export const MODELING_CORE_SCHEMA_VERSION = "0.6" as const;
 
 export type ModelingMutation<T> = {
   model: StructuralModel;
@@ -42,7 +42,7 @@ function assertFiniteVec3(value: Vec3, code: string): void {
 }
 
 function assertModelingModel(model: StructuralModel): void {
-  assertCanonicalV05(model);
+  assertCanonicalV06(model);
 }
 
 export function createCanonicalNodeV05(

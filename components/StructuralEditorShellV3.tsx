@@ -9,6 +9,7 @@ import { createSimpleFrame, DEFAULT_FRAME } from "../lib/simple-frame";
 import type { StructuralModel, Vec3 } from "@linkoteq/structural-core";
 import { detectJoistBay, layoutJoists, type JoistBay } from "../lib/editor/joist-bay-layout";
 import ViewportDisplayOptionsV05 from "./ViewportDisplayOptionsV05";
+import { auditSapGeometryEdits, projectSapGeometryForEditing, readSapHandoff, type SapHandoff } from "../lib/import/sap2000-handoff";
 
 import { MEMBER_DRAW_PICK_EVENT, MODELING_COMMAND_EVENT, SURFACE_FINISH_EVENT, UTILITY_COMMAND_EVENT, usePointToolState } from "../lib/editor/member-draw-events";
 import { useInteractionState } from "../lib/editor/interaction-store";
@@ -72,6 +73,43 @@ export default function StructuralEditorShellV3() {
   const [joistSpacing, setJoistSpacing] = useState(1.2);
   const [joistBayError, setJoistBayError] = useState("");
   const [model, setModel] = useState<StructuralModel>(() => createSimpleFrame(DEFAULT_FRAME));
+  const [latestSapHandoff, setSapHandoff] = useState<SapHandoff | null>(null);
+  const sapHandoff = latestSapHandoff && model.project.metadata?.sourceHash === latestSapHandoff.sourceHash
+    ? latestSapHandoff : null;
+  const [sapOriginalGeometry, setSapOriginalGeometry] = useState<StructuralModel | null>(null);
+  const gridToolModel = model; // Imported grids are already part of editable Core geometry.
+  const [sapSummaryVisible, setSapSummaryVisible] = useState(true);
+  const [sapImportError, setSapImportError] = useState("");
+  const [sapImportBusy, setSapImportBusy] = useState(false);
+  const [sapImportStatus, setSapImportStatus] = useState("Choose a .s2k or .$2k file using the file picker.");
+  const [sapSelectedMember, setSapSelectedMember] = useState<string | null>(null);
+  const sapImportFileRef = useRef<HTMLInputElement>(null);
+  async function importSap2000(file: File): Promise<void> {
+    setSapImportError("");
+    setSapImportBusy(true);
+    setSapImportStatus(`Uploading ${file.name} (${(file.size/1024).toFixed(0)} KB) to SAP2000 importer…`);
+    try {
+      if (!/\.(s2k|\$2k)$/i.test(file.name)) throw new Error("Select an SAP2000 .s2k or .$2k file.");
+      const body=new FormData();
+      body.append("file",file,file.name);
+      body.append("project_id",model.project.id);
+      const response=await fetch("/api/import/sap2000",{method:"POST",body});
+      const raw=await response.json();
+      if (!response.ok) throw new Error(typeof raw.error==="string"?raw.error:raw.detail||"SAP2000 import failed");
+      const handoff=readSapHandoff(raw);
+      const editable = projectSapGeometryForEditing(modelRef.current, handoff);
+      applyModel(editable);
+      setSapOriginalGeometry(editable);
+      setSapHandoff(handoff);
+      setSapSummaryVisible(true);
+      setSapImportStatus(`Imported ${handoff.geometryPreview.nodes.length} nodes, ${handoff.geometryPreview.members.length} frames and ${handoff.geometryPreview.areas?.length ?? 0} areas from ${file.name}. Geometry only; engineering validation required.`);
+      setSapSelectedMember(null);
+      setMode("advanced");
+    } catch(error) {
+      setSapImportError(error instanceof Error?error.message:"SAP2000 import failed");
+      setSapImportStatus(`Import failed for ${file.name}.`);
+    } finally {setSapImportBusy(false);}
+  }
   const historyRef = useRef<{ past: StructuralModel[]; future: StructuralModel[] }>({ past: [], future: [] });
   const joistDesignationRef = useRef(joistDesignation);
   joistDesignationRef.current = joistDesignation;
@@ -243,7 +281,7 @@ export default function StructuralEditorShellV3() {
           </span>
           <div>
             <strong>Structural Concept Modeler</strong>
-            <span>Core 0.5 · That Open</span>
+            <span>Core 0.6 · That Open</span>
           </div>
         </div>
         <div className="architectHistoryActions" aria-label="Edit history" style={{
@@ -256,7 +294,7 @@ export default function StructuralEditorShellV3() {
             disabled={!historyRef.current.future.length} onClick={redo}
             style={{minWidth:36, minHeight:40, padding:"4px 7px", flexShrink:0}}>↷</button>
         </div>
-        <div className="architectModeSwitch" aria-label="Workspace mode">
+        <div className="architectModeSwitch" aria-label="Workspace mode" style={{display:"flex",flexShrink:0,alignItems:"center",gap:4,position:"relative",zIndex:30,visibility:"visible"}}>
           <button
             type="button"
             className={mode === "simple" ? "active" : ""}
@@ -291,6 +329,8 @@ export default function StructuralEditorShellV3() {
           >
             ⌑
           </button>
+          <button type="button" title="Import SAP2000 directly into Advanced Model" disabled={sapImportBusy} onClick={() => sapImportFileRef.current?.click()}>{sapImportBusy ? "Importing SAP2000…" : "Import SAP2000"}</button>
+          <input ref={sapImportFileRef} aria-label="Choose SAP2000 file (.s2k or .$2k)" type="file" accept=".s2k,.$2k,application/octet-stream,text/plain" style={{display:"none"}} onChange={event => { const file = event.target.files?.[0]; if (file) void importSap2000(file); event.target.value = ""; }} />
           <button
             type="button"
             className="architectIconAction architectSaveAction"
@@ -305,6 +345,10 @@ export default function StructuralEditorShellV3() {
       </header>
 
       {mode === "advanced" ? <>
+      {sapHandoff ? <div role="status" className="sapSimpleNotice">
+        <strong>SAP2000 · Geometry only</strong>
+        <span>{sapHandoff.geometryPreview.nodes.length} nodes · {sapHandoff.geometryPreview.members.length} frames · {sapHandoff.geometryPreview.areas?.length ?? 0} areas</span>
+      </div> : null}
       {joistSetupOpen ? <section aria-label="Steel Joist setup" style={{position:"fixed",top:"18%",left:"50%",transform:"translateX(-50%)",zIndex:10000,width:"min(92vw,390px)",padding:16,borderRadius:12,background:"#fff",color:"#111",boxShadow:"0 8px 36px #0005",display:"grid",gap:10}}>
         <strong>Steel Joist — Setup</strong>
         <label>Series <select value={joistSeries} onChange={e=>{setJoistSeries(e.target.value as typeof joistSeries);setJoistDesignation("");setJoistSectionId("");}}><option value="K">K</option><option value="LH">LH</option><option value="DLH">DLH</option><option value="other">Other</option></select></label>
@@ -346,7 +390,7 @@ export default function StructuralEditorShellV3() {
       </section> : null}
       {joistFirstPoint ? <p role="status">First point: ({joistFirstPoint.x.toFixed(2)}, {joistFirstPoint.y.toFixed(2)}, {joistFirstPoint.z.toFixed(2)}) — Pick second point</p> : null}
       {!joistBay && joistBayError ? <p role="status">{joistBayError}</p> : null}
-      <nav className="architectToolstrip" aria-label="Add structural elements">
+      {mode === "advanced" ? <nav className="architectToolstrip" aria-label="Add structural elements">
         {modelingTools.map((tool) => (
           <button
             key={tool}
@@ -365,7 +409,7 @@ export default function StructuralEditorShellV3() {
         ) : null}
         {mode === "advanced" ? utilityTools.map(tool => <button key={tool} type="button" onClick={() => runUtilityTool(tool)}>{tool}</button>) : null}
         {selections.length ? <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:properties-open"))}>Properties ({selections.length})</button> : null}
-      </nav>
+      </nav> : null}
 
       <div className="architectContextbar">
         <span className="architectContextTitle">3D Workspace</span>
@@ -378,13 +422,20 @@ export default function StructuralEditorShellV3() {
               ? "Orbit / pan / zoom"
               : interaction.message}
         </span>
-        <div className="architectViewPills" aria-label="View status">
+        <div className="architectViewPills" aria-label="View status" style={undefined}>
           <span>That Open</span>
           <span>Snap: ON</span>
         </div>
       </div>
 
-      <div className="advancedMobileControls" aria-label="Mobile viewport tools">
+      {false && sapHandoff ? <nav className="sapSimpleViewControls" aria-label="Simple model view">
+        <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-fit"))}>Fit model</button>
+        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("linkoteq:view-preset",{detail:"3d"}))}>3D</button>
+        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("linkoteq:view-preset",{detail:"bottom"}))}>Plan</button>
+        <button type="button" onClick={() => {window.dispatchEvent(new Event("linkoteq:view-cycle"));}}>Orbit / Pan</button>
+        <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-select"))}>Select</button>
+      </nav> : null}
+      {mode === "advanced" ? <div className="advancedMobileControls" aria-label="Mobile viewport tools">
         <button type="button" onClick={() => {runUtilityTool("Select"); window.dispatchEvent(new Event("linkoteq:view-select"));}}>Select</button>
         <button type="button" onClick={() => {runUtilityTool("View"); window.dispatchEvent(new Event("linkoteq:view-cycle"));}}>Orbit</button>
         <select aria-label="Mobile view" defaultValue="3d" onChange={event => window.dispatchEvent(new CustomEvent("linkoteq:view-preset", {detail:event.target.value}))}>
@@ -392,7 +443,7 @@ export default function StructuralEditorShellV3() {
         </select>
         <button type="button" onClick={() => toggleMobilePanel("display")}>Display</button>
         <button type="button" onClick={() => window.dispatchEvent(new Event("linkoteq:view-fit"))}>Fit</button>
-      </div>
+      </div> : null}
       <div className="architectWorkspaceFrame">
         {mode === "advanced" ? (
           <aside className="architectQuickPanel" aria-label="Setup and quick tools">
@@ -451,9 +502,31 @@ export default function StructuralEditorShellV3() {
         ) : null}
 
         <div className="architectViewportColumn">
+          <p role="status" hidden={!!sapHandoff && !sapImportBusy} style={{fontSize:13,margin:"4px 0"}}>{sapImportStatus}</p>
+          {sapImportError ? <p role="alert">{sapImportError}</p> : null}
+          {sapHandoff && sapSummaryVisible ? <details className="sapImportSummary" aria-label="SAP2000 import summary">
+            <summary>Engineering mapping unverified · Import details</summary>
+            <p>Imported geometry requires independent engineering verification before analysis or design.</p>
+            {sapOriginalGeometry ? <p>Geometry changes: {JSON.stringify(auditSapGeometryEdits(model,sapOriginalGeometry))}</p> : null}
+            <p>Source units: {sapHandoff.geometryPreview.sourceUnits || "unspecified"} · {model.levels.length} elevation guides</p>
+            <button type="button" onClick={() => {
+              const archive = sapHandoff.sourceArchive;
+              const bytes = Uint8Array.from(atob(archive.bytesBase64), character => character.charCodeAt(0));
+              const url = URL.createObjectURL(new Blob([bytes]));
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = archive.filename;
+              link.click();
+              setTimeout(() => URL.revokeObjectURL(url),1000);
+            }}>Download original SAP2000 source</button>
+            <details><summary>Source records and diagnostics</summary>
+              <pre>{JSON.stringify({grids:sapHandoff.geometryPreview.grids,levels:sapHandoff.geometryPreview.sourceLevels,engineeringData:sapHandoff.engineeringData,importFidelity:sapHandoff.importFidelity,diagnostics:sapHandoff.diagnostics},null,2)}</pre>
+            </details>
+            {sapSelectedMember ? <p>Selected source member: {sapSelectedMember}</p> : null}
+          </details> : null}
           <div className="architectViewportStage">
             <div className="engineeringEditorStage">
-              <StructuralEditorV05 model={model} onModelChange={advancedChange} />
+              <StructuralEditorV05 model={gridToolModel} onModelChange={advancedChange} sapHandoff={sapHandoff} onSapHandoffChange={source => {setSapHandoff(source);setSapOriginalGeometry(null);}} simpleMode={false} onSapMemberSelect={setSapSelectedMember} />
             </div>
           </div>
           <div className="architectStatusbar" role="status" aria-live="polite">
@@ -475,10 +548,10 @@ export default function StructuralEditorShellV3() {
           </div>
         </div>
       </div>
-      <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
+      {mode === "advanced" ? <nav className="advancedMobileTabs" aria-label="Advanced mobile panels">
         {([ ["setup", "Plan & levels"], ["tools", "Members & tools"], ["project", "Project"] ] as const).map(([panel, label]) => <button type="button" key={panel} aria-expanded={mobilePanel === panel} onClick={() => toggleMobilePanel(panel)}>{label}</button>)}
-      </nav>
-      </> : <SimpleFrameModeler model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} />}
+      </nav> : null}
+      </> : <SimpleFrameModeler sapHandoff={sapHandoff} model={model} onChange={applyModel} onAdvanced={() => switchMode("advanced")} importedGeometry={model.project.metadata?.importGeometryStatus === "editable-unverified"} />}
     </div>
   );
 }

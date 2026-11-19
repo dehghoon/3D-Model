@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import type { SapHandoff } from "../lib/import/sap2000-handoff";
 
 import type { EditorSelection } from "../lib/editor/selection";
 import {
@@ -13,6 +14,9 @@ import ThatOpenViewportV07 from "./ThatOpenViewportV07";
 
 interface Props {
   model: StructuralModel;
+  sapHandoff?: SapHandoff | null;
+  simpleMode?: boolean;
+  onSapMemberSelect?: (id:string|null)=>void;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
   onMultiSelect?: (
@@ -266,7 +270,7 @@ export default function ThatOpenViewportV08(props: Props) {
       onContextMenu={handleContextMenu}>
       <ThatOpenViewportV07 {...props} model={viewportModel} onSelect={handleSelect} />
 
-      {contextMenu ? (
+      {contextMenu && !props.simpleMode ? (
         <div className="viewportContextMenu" style={{ left: contextMenu.x, top: contextMenu.y }}
           role="menu" aria-label={contextMenu.target ? "Selection context menu" : "Viewport context menu"}
           onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => event.preventDefault()}>

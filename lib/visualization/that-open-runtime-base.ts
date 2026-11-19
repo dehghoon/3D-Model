@@ -9,6 +9,7 @@ import { buildCoreScene, disposeCoreScene, type CoreSceneBuild } from "./core-sc
 import { buildCopyPreview, disposeCopyPreview } from "./copy-preview";
 import { pickCoreThree } from "./core-three-picker";
 import { resolveSnapPoint } from "./snap-resolver";
+import { editableSapFitBounds } from "./sap-camera-fit";
 
 export type ViewMode = "3d" | "front" | "left" | "right" | "bottom";
 
@@ -28,7 +29,8 @@ export interface ThatOpenRuntime {
 
 function box(runtime: ThatOpenRuntime): THREE.Box3 | null {
   if (!runtime.build) return null;
-  const value = new THREE.Box3().setFromObject(runtime.build.root);
+  const sourceBounds = runtime.build.root.userData.sapFitBounds as THREE.Box3 | undefined;
+  const value = sourceBounds ?? new THREE.Box3().setFromObject(runtime.build.root);
   return value.isEmpty() ? null : value;
 }
 
@@ -89,6 +91,9 @@ export function rebuildThatOpenScene(
     disposeCoreScene(runtime.build.root);
   }
   runtime.build = buildCoreScene(model, selection);
+  if (model.project.metadata?.importGeometryStatus === "editable-unverified") {
+    runtime.build.root.userData.sapFitBounds = editableSapFitBounds(model);
+  }
   runtime.scene.add(runtime.build.root);
   if (
     !runtime.fitted &&
@@ -137,8 +142,12 @@ export function setThatOpenView(
     center.x,
     center.y,
     center.z,
-    true,
+    false,
   );
+  const bounds = runtime.build?.root.userData.sapFitBounds as THREE.Box3 | undefined;
+  if (bounds && !bounds.isEmpty()) {
+    void runtime.camera.controls.fitToSphere(bounds.getBoundingSphere(new THREE.Sphere()),false);
+  }
 }
 
 function gridOffsets(

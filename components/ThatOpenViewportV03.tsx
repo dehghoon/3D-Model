@@ -8,10 +8,14 @@ import {
   publishSelections,
 } from "../lib/editor/selection-store";
 import type { StructuralModel } from "@linkoteq/structural-core";
+import type { SapHandoff } from "../lib/import/sap2000-handoff";
 import type { EditorSelection } from "../lib/editor/selection";
 
 interface Props {
   model: StructuralModel;
+  sapHandoff?: SapHandoff | null;
+  simpleMode?: boolean;
+  onSapMemberSelect?: (id:string|null)=>void;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
   onMultiSelect?: (selections: Array<Exclude<EditorSelection, null>>) => void;
@@ -20,8 +24,7 @@ interface Props {
 export default function ThatOpenViewportV03(props: Props) {
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      <SnapToolbarV01 />
-      <MemberDrawStatusBarV01 />
+      {!props.simpleMode ? <><SnapToolbarV01 /><MemberDrawStatusBarV01 /></> : null}
       <ThatOpenViewportV08
         {...props}
         onSelect={(selection) => {

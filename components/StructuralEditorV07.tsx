@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import type { SapHandoff } from "../lib/import/sap2000-handoff";
 import type { StructuralModel } from "@linkoteq/structural-core";
 
 import PointInputPanel from "./PointInputPanel";
@@ -12,9 +13,11 @@ import DiaphragmEditor from "./DiaphragmEditor";
 import ModelToolsV05 from "./ModelToolsV05";
 import NodeCreatorV05 from "./NodeCreatorV05";
 import MemberCreatorV05 from "./MemberCreatorV05";
+import SurfaceCreatorV05 from "./SurfaceCreatorV05";
 import SelectedNodeSupportV05 from "./SelectedNodeSupportV05";
 import ThatOpenViewportV01 from "./ThatOpenViewportV01";
-import { assertCanonicalV06, readProjectV06 } from "../lib/core-v06";
+import { assertCanonicalV06 } from "../lib/core-v06";
+import { serializeSapProject, readSapProject } from "../lib/import/sap-project";
 import { createStarterModelV06 } from "../lib/default-model-v05";
 import { deleteSelections as deleteModelSelections } from "../lib/editor/commands";
 import {
@@ -53,9 +56,9 @@ function emptyModel(): StructuralModel {
   };
 }
 
-function downloadModel(model: StructuralModel): void {
+function downloadModel(model: StructuralModel, source?: SapHandoff | null): void {
   assertCanonicalV06(model);
-  const blob = new Blob([JSON.stringify(model, null, 2)], {
+  const blob = new Blob([serializeSapProject(model, source)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
@@ -66,7 +69,7 @@ function downloadModel(model: StructuralModel): void {
   URL.revokeObjectURL(url);
 }
 
-export default function StructuralEditorV07({ model: externalModel, onModelChange }: { model?: StructuralModel; onModelChange?: (model: StructuralModel) => void } = {}) {
+export default function StructuralEditorV07({ model: externalModel, onModelChange, sapHandoff, onSapHandoffChange, onSapMemberSelect, simpleMode = false }: { model?: StructuralModel; onModelChange?: (model: StructuralModel) => void; sapHandoff?: SapHandoff | null; onSapHandoffChange?: (source:SapHandoff|null)=>void; simpleMode?: boolean; onSapMemberSelect?: (id:string|null)=>void } = {}) {
   const [localModel, setLocalModel] = useState<StructuralModel>(() => createStarterModelV06());
   const model = externalModel ?? localModel;
   function setModel(next: StructuralModel) {
@@ -126,8 +129,9 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
   async function importProject(file: File): Promise<void> {
     window.dispatchEvent(new Event("linkoteq:modeling-cancel"));
     const parsed = JSON.parse(await file.text()) as unknown;
-    const imported = readProjectV06(parsed);
+    const {model: imported, source} = readSapProject(parsed);
     setModel(imported);
+    onSapHandoffChange?.(source);
     publishSelections([]);
     setSelection(null);
     setPropertiesOpen(false);
@@ -218,7 +222,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
             New
           </button>
           <button onClick={() => inputRef.current?.click()}>Open</button>
-          <button onClick={() => downloadModel(model)}>Save</button>
+          <button onClick={() => downloadModel(model, sapHandoff)}>Save</button>
           <input
             ref={inputRef}
             hidden
@@ -264,6 +268,13 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
             onModelChange={applyModelChange}
             onMemberCreated={(memberId) => setCanonicalSelection({ type: "member", id: memberId })}
           />
+          {!simpleMode ? <SurfaceCreatorV05
+            model={model}
+            selectedNodeId={selectedNode?.id}
+            selectedSurfaceId={selectedSurface?.id}
+            onModelChange={applyModelChange}
+            onSurfaceCreated={(surfaceId) => setCanonicalSelection({ type: "surface", id: surfaceId })}
+          /> : null}
           <DiaphragmEditor
             model={model}
             selectedNodes={selectedNodes}
@@ -304,9 +315,12 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
           onContextMenu={(event) => event.preventDefault()}
           style={{ position: "relative" }}
         >
-          <PointInputPanel model={model} />
+          {!simpleMode ? <PointInputPanel model={model} /> : null}
           <ThatOpenViewportV01
             model={model}
+            sapHandoff={sapHandoff}
+            simpleMode={simpleMode}
+            onSapMemberSelect={onSapMemberSelect}
             selection={selection}
             onSelect={setCanonicalSelection}
             onMultiSelect={(next) => {
@@ -340,7 +354,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
         onModelChange={applyModelChange}
       />
 
-      <LoadManager
+      {!simpleMode ? <LoadManager
         model={model}
         selectedSurfaces={selectedSurfaces}
         selectedMembers={selectedMembers}
@@ -357,7 +371,7 @@ export default function StructuralEditorV07({ model: externalModel, onModelChang
         onEndTargetSelection={() =>
           setMessage("Load target selection finished.")
         }
-      />
+      /> : null}
     </div>
   );
 }

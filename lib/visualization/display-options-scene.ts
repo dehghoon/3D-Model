@@ -95,12 +95,14 @@ export function buildDisplayOptionOverlays(model: StructuralModel): THREE.Group 
       .map((selection) => selection.id),
   );
 
-  for (const node of model.nodes) {
-    const label = makeLabel(node.id, labelScale);
-    label.position.copy(toThree(node.position));
-    label.position.y += labelScale * 1.12;
-    nodeLabels.add(label);
-  }
+  nodeLabels.userData.populate = () => {
+    for (const node of model.nodes) {
+      const label = makeLabel(node.id, labelScale);
+      label.position.copy(toThree(node.position));
+      label.position.y += labelScale * 1.12;
+      nodeLabels.add(label);
+    }
+  };
 
   for (const member of model.members) {
     const start = nodes.get(member.startNodeId);
@@ -140,7 +142,15 @@ export function applyDisplayOptionsToScene(
   if (analytical) analytical.visible = !options.extrudedSections;
 
   const nodeLabels = root.getObjectByName(NODE_LABEL_GROUP);
-  if (nodeLabels) nodeLabels.visible = options.nodeNumbers;
+  if (nodeLabels) {
+    if (options.nodeNumbers && typeof nodeLabels.userData.populate === "function") {
+      nodeLabels.userData.populate();
+      delete nodeLabels.userData.populate;
+    }
+    nodeLabels.visible = options.nodeNumbers;
+  }
+  const points = root.getObjectByName("core-dense-node-points");
+  if (points) points.visible = options.nodes;
 
   const memberLabels = root.getObjectByName(MEMBER_LABEL_GROUP);
   if (memberLabels) memberLabels.visible = options.memberNumbers;

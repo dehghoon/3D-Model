@@ -39,11 +39,13 @@ export function assertCanonicalV06(value: unknown): asserts value is StructuralM
   }
 }
 
-/** Accept only native Core 0.6 models; no legacy conversion or data loss. */
+/** Promote additive Core 0.5 documents while preserving all records. */
 export function readProjectV06(input: unknown): StructuralModel {
   const candidate = isRecord(input) && input.format === "linkoteq-project"
     ? input.model
     : input;
-  assertCanonicalV06(candidate);
-  return candidate;
+  const current = isRecord(candidate) && candidate.schemaVersion === "0.5"
+    ? { ...candidate, schemaVersion: "0.6" } : candidate;
+  assertCanonicalV06(current);
+  return current;
 }

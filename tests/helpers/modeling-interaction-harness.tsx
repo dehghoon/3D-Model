@@ -6,8 +6,8 @@ import Viewport from "../../components/ThatOpenViewportV07";
 import PointInputPanel from "../../components/PointInputPanel";
 import Shell from "../../components/StructuralEditorShellV3";
 import Bridge from "../../components/CopyInteractionBridgeV01";
-import { createStarterModelV05 } from "../../lib/default-model-v05";
-import { assertCanonicalV05 } from "../../lib/core-v05";
+import { createStarterModelV06 } from "../../lib/default-model-v05";
+import { assertCanonicalV06 } from "../../lib/core-v06";
 import { publishSelection, publishSelections, getPublishedSelections } from "../../lib/editor/selection-store";
 import { getInteractionState, cancelInteraction } from "../../lib/editor/interaction-store";
 import { getModelingPointTool, setModelingPointTool, getPointToolState } from "../../lib/editor/member-draw-events";
@@ -20,7 +20,7 @@ let messages: string[];
 export function EditorHarness() {
   const [model,setModel]=useState(current);
   const change=useCallback((next:StructuralModel,status:string)=>{
-    assertCanonicalV05(next);current=next;messages.push(status);setModel(next);
+    assertCanonicalV06(next);current=next;messages.push(status);setModel(next);
   },[]);
   return <div className="appShell"><aside className="toolbar"><ModelTools model={model} onModelChange={change}/></aside>
     <section className="viewport"><PointInputPanel model={model}/><Viewport model={model} selection={null} onSelect={publishSelection}/></section>
@@ -28,7 +28,7 @@ export function EditorHarness() {
 }
 export function mount(host:HTMLElement){
   cancelInteraction();cancelMemberDraw();setModelingPointTool(null);publishSelections([]);
-  current=createStarterModelV05();messages=[];
+  current=createStarterModelV06();messages=[];
   const initial=structuredClone(current);
   const root=createRoot(host);
   act(()=>root.render(<Shell/>));

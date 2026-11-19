@@ -15,7 +15,7 @@ import {
 
 function modelFixture(): StructuralModel {
   return {
-    schemaVersion: "0.5",
+    schemaVersion: "0.6",
     project: { id: "P1", name: "Editor Level/Grid Test", units: "SI" },
     levels: [],
     grids: [],
@@ -33,7 +33,7 @@ function modelFixture(): StructuralModel {
   };
 }
 
-test("level service creates canonical Core v0.5 levels with deterministic stable IDs", () => {
+test("level service creates canonical Core v0.6 levels with deterministic stable IDs", () => {
   const source = modelFixture();
   const first = createLevel(source, { name: "Ground", elevation: 0 });
   const second = createLevel(first.model, { name: "Level 2", elevation: 3.5 });
@@ -79,7 +79,7 @@ test("level service rejects invalid canonical level input", () => {
   assert.throws(() => deleteLevel(source, "L404"), /UNKNOWN_LEVEL:L404/);
 });
 
-test("grid service creates canonical Core v0.5 grid lines with deterministic stable IDs", () => {
+test("grid service creates canonical Core v0.6 grid lines with deterministic stable IDs", () => {
   const source = modelFixture();
   const first = createGridLine(source, {
     label: "A",

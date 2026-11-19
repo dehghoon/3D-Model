@@ -25,7 +25,7 @@ export function createSupportFromCanonicalNode(
   model: StructuralModel,
   input: CreateSupportInput,
 ): { model: StructuralModel; support: Support } {
-  if (model.schemaVersion !== "0.5") {
+  if (model.schemaVersion !== "0.5" && model.schemaVersion !== "0.6") {
     throw new Error(`CORE_V05_REQUIRED:${model.schemaVersion}`);
   }
 

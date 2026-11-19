@@ -13,15 +13,15 @@ import {
 
 function emptyModel(): StructuralModel {
   return {
-    schemaVersion: "0.5",
+    schemaVersion: "0.6",
     project: { id: "TEST", name: "Test", units: "SI" },
     levels: [], grids: [], nodes: [], members: [], surfaces: [], diaphragms: [],
     materials: [], sections: [], supports: [], loadSources: [], loadCases: [], loads: [], loadCombinations: [],
   };
 }
 
-test("modeling foundation stays on Core v0.5", () => {
-  assert.equal(MODELING_CORE_SCHEMA_VERSION, "0.5");
+test("modeling foundation stays on Core v0.6", () => {
+  assert.equal(MODELING_CORE_SCHEMA_VERSION, "0.6");
   assertModelingFoundationV05(emptyModel());
 });
 

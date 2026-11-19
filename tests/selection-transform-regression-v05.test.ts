@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStarterModelV05 } from "../lib/default-model-v05";
+import { createStarterModelV06 } from "../lib/default-model-v05";
 import { transformGroup } from "../lib/editor/group-transform";
 import { getPublishedSelections, publishSelections } from "../lib/editor/selection-store";
 import { getInteractionState, startCopyInteraction, startMoveInteraction, setCopyBase, cancelInteraction } from "../lib/editor/interaction-store";
 
 test("multiple selection deduplicates members and is retained for Move", () => {
-  const model = createStarterModelV05();
+  const model = createStarterModelV06();
   assert.ok(model.members.length >= 2);
   const a = { type: "member" as const, id: model.members[0].id };
   const b = { type: "member" as const, id: model.members[1].id };
@@ -24,7 +24,7 @@ test("multiple selection deduplicates members and is retained for Move", () => {
 
 for (const operation of ["move", "copy"] as const) {
   test(`${operation} transforms two members and preserves original model immutability`, () => {
-    const model = createStarterModelV05();
+    const model = createStarterModelV06();
     assert.ok(model.members.length >= 2);
     const selections = model.members.slice(0, 2).map(member => ({ type: "member" as const, id: member.id }));
     const delta = { x: 20, y: 10, z: 0 };
@@ -48,7 +48,7 @@ for (const operation of ["move", "copy"] as const) {
 }
 
 test("Copy requires a selection and preserves selection through base-point step", () => {
-  const model = createStarterModelV05();
+  const model = createStarterModelV06();
   const selection = { type: "member" as const, id: model.members[0].id };
   startCopyInteraction([selection]);
   assert.equal(getInteractionState().mode, "copy-base");
